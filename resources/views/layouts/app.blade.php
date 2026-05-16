@@ -97,6 +97,7 @@
 
         .price-current {
             background: #fef9c3 !important;
+            color: #854d0e !important;
         }
 
         /* Sticky product header within comparison card */
