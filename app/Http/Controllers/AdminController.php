@@ -4,15 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Hash;
 
-class AdminController extends Controller
+class AdminController extends Controller implements HasMiddleware
 {
-    public function __construct()
+    public static function middleware(): array
     {
-        $this->middleware(fn($req, $next) => auth()->user()->isAdmin()
-            ? $next($req)
-            : abort(403, 'Admin access required.'));
+        return [
+            new Middleware(static function ($request, $next) {
+                if (!auth()->user()?->isAdmin()) {
+                    abort(403, 'Admin access required.');
+                }
+                return $next($request);
+            }),
+        ];
     }
 
     public function index()
