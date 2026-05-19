@@ -49,12 +49,6 @@
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-sm-6 col-lg-3">
-                        <div class="text-muted small">Vendor</div>
-                        <div class="fw-semibold">
-                            {{ is_array($rfq['partner_id']) ? $rfq['partner_id'][1] : '—' }}
-                        </div>
-                    </div>
-                    <div class="col-sm-6 col-lg-3">
                         <div class="text-muted small">Source Document</div>
                         <div class="fw-semibold">{{ $rfq['origin'] ?: '—' }}</div>
                     </div>
@@ -231,6 +225,10 @@
                                                 @foreach ($rfq['lines'] as $line)
                                                     @php
                                                         if (!is_array($line['product_id'])) {
+                                                            continue;
+                                                        }
+                                                        // Skip items whose line total is Rp 250,000 or below
+                                                        if (($line['price_unit'] * $line['product_qty']) <= 250000) {
                                                             continue;
                                                         }
                                                         $pName = $line['product_id'][1];
@@ -701,6 +699,22 @@
                             hint.style.display = '';
                         }
 
+                        function renumberVendors() {
+                            document.querySelectorAll('.vendor-card').forEach((card, i) => {
+                                const idx = parseInt(card.dataset.idx);
+                                const nameInput = card.querySelector('.vendor-name-input');
+                                const name = nameInput ? nameInput.value.trim() : '';
+                                const label = name || `Vendor ${i + 1}`;
+                                const titleEl = document.getElementById(`cardTitle_${idx}`);
+                                if (titleEl) titleEl.textContent = label;
+                                const th = document.getElementById(`priceColHeader_${idx}`);
+                                if (th) {
+                                    const nameSpan = th.querySelector('.vendor-col-name');
+                                    if (nameSpan) nameSpan.textContent = label;
+                                }
+                            });
+                        }
+
                         function refreshUI() {
                             const cards = document.querySelectorAll('.vendor-card');
                             const n = cards.length;
@@ -710,6 +724,7 @@
 
                             document.getElementById('addVendorBtn').disabled = n >= 10;
                             document.getElementById('clvpSubmitBtn').disabled = n < 3;
+                            renumberVendors();
                             refreshRecommendDropdown(); // also calls refreshRecommendation
                         }
 
