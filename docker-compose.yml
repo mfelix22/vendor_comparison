@@ -1,11 +1,11 @@
 services:
 
-  # ── Application (PHP-FPM) ──────────────────────────────────────────────────
+  # ── Application (PHP + Apache) ────────────────────────────────────────────
   app:
     image: ghcr.io/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}:${APP_IMAGE_TAG:-latest}
-    # ↑ Replace with your container registry image, or use `build:` for
-    #   Portainer's "Build from Git" feature (see README).
     restart: unless-stopped
+    ports:
+      - "${APP_PORT:-6080}:80"
     environment:
       APP_NAME: ${APP_NAME:-VendorComparison}
       APP_ENV: ${APP_ENV:-production}
@@ -47,22 +47,6 @@ services:
         condition: service_healthy
     networks:
       - backend
-
-  # ── Nginx web server ───────────────────────────────────────────────────────
-  nginx:
-    image: nginx:1.27-alpine
-    restart: unless-stopped
-    ports:
-      - "${APP_PORT:-6080}:80"
-    volumes:
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      # Serve compiled assets directly from the app image via a shared volume
-      - app_public:/var/www/html/public:ro
-    depends_on:
-      - app
-    networks:
-      - backend
-      - frontend
 
   # ── MySQL 8 ────────────────────────────────────────────────────────────────
   mysql:
@@ -109,8 +93,6 @@ volumes:
   mysql_data:
   app_storage:
   app_logs:
-  app_public:
 
 networks:
   backend:
-  frontend:

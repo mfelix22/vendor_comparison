@@ -12,26 +12,34 @@ COPY . .
 
 RUN npm run build
 
-# ─── Stage 2: PHP production image ───────────────────────────────────────────
-FROM php:8.2-fpm-alpine AS app
+# ─── Stage 2: PHP + Apache (serves static files and PHP in one container) ─────
+FROM php:8.2-apache
 
-# Install system dependencies
-RUN apk add --no-cache \
-    bash \
-    curl \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    libwebp-dev \
-    freetype-dev \
-    libzip-dev \
-    zip \
-    unzip \
-    oniguruma-dev \
-    icu-dev \
-    libxml2-dev
+# Enable Apache modules required by Laravel
+RUN a2enmod rewrite headers
 
-# Install PHP extensions
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
+# Suppress "ServerName" warning
+RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
+
+# Point document root to Laravel's public/ folder
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
+ && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+
+# Install system dependencies and PHP extensions
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpng-dev \
+        libjpeg-dev \
+        libwebp-dev \
+        libfreetype6-dev \
+        libzip-dev \
+        libonig-dev \
+        libxml2-dev \
+        libicu-dev \
+        zip \
+        unzip \
+        curl \
+ && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
  && docker-php-ext-install \
         pdo \
         pdo_mysql \
@@ -43,7 +51,8 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
         zip \
         intl \
         opcache \
-        xml
+        xml \
+ && rm -rf /var/lib/apt/lists/*
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -68,7 +77,4 @@ RUN chown -R www-data:www-data /var/www/html \
  && chmod -R 755 /var/www/html/storage \
  && chmod -R 755 /var/www/html/bootstrap/cache
 
-# PHP-FPM config: listen on 9000
-EXPOSE 9000
-
-CMD ["php-fpm"]
+EXPOSE 80
