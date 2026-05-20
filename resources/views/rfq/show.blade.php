@@ -233,7 +233,7 @@
                                                             ? $line['product_clean_name']
                                                             : $line['product_id'][1];
                                                         // Description = line text if it differs from the resolved name
-                                                        $pDesc = ($line['name'] !== $pName) ? $line['name'] : '';
+                                                        $pDesc = $line['name'] !== $pName ? $line['name'] : '';
                                                         $uom = is_array($line['product_uom'])
                                                             ? $line['product_uom'][1]
                                                             : '';

@@ -706,7 +706,9 @@
                             if (!empty($rfq['lines'])) {
                                 $li = 0;
                                 foreach ($rfq['lines'] as $l) {
-                                    if (!is_array($l['product_id'])) continue;
+                                    if (!is_array($l['product_id'])) {
+                                        continue;
+                                    }
                                     $rfqProductLines[$li++] = $l;
                                 }
                             }
@@ -714,9 +716,9 @@
                         {{-- Product rows --}}
                         @foreach ($vpRows as $ri => $row)
                             @php
-                                $rl    = $rfqProductLines[$ri] ?? null;
-                                $pCode = $rl ? ($rl['product_code'] ?? '') : ($row['product_code'] ?? '');
-                                $pName = $rl ? $rl['name'] : ($row['product_name'] ?? '');
+                                $rl = $rfqProductLines[$ri] ?? null;
+                                $pCode = $rl ? $rl['product_code'] ?? '' : $row['product_code'] ?? '';
+                                $pName = $rl ? $rl['name'] : $row['product_name'] ?? '';
                             @endphp
                             <tr>
                                 <td style="border:1px solid #000; padding:4px 6px; text-align:center;">{{ $ri + 1 }}
