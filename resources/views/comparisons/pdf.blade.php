@@ -25,41 +25,33 @@
             margin-bottom: 10px;
         }
 
-        .header-row {
-            display: flex;
-            align-items: flex-start;
-            gap: 20px;
+        .header-table {
+            width: 100%;
             margin-bottom: 10px;
+            border-collapse: collapse;
         }
 
-        .logo-box {
+        .header-table td {
+            border: none;
+            padding: 0;
+            vertical-align: middle;
+        }
+
+        .logo-cell {
+            width: 160px;
             border: 2px solid #000;
             padding: 5px 12px;
-            font-size: 17px;
-            font-weight: 900;
-            color: #c00;
-            letter-spacing: 2px;
-            min-width: 80px;
             text-align: center;
         }
 
-        .logo-sub {
-            font-size: 7px;
-            font-weight: normal;
-            color: #555;
-            letter-spacing: 0;
-        }
-
-        .cat-row {
-            display: flex;
-            gap: 16px;
-            align-items: center;
+        .cat-cell {
+            padding-left: 20px;
+            vertical-align: middle;
         }
 
         .cat-box {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
+            display: inline-block;
+            margin-right: 14px;
         }
 
         .checkbox {
@@ -180,28 +172,29 @@
             : null;
     @endphp
 
-    <div class="header-row">
-        <div class="logo-box">
-            @if ($logoSrc)
-                <img src="{{ $logoSrc }}" style="height:55px; max-width:140px; object-fit:contain;">
-            @endif
-        </div>
-        <div class="cat-row">
-            @foreach ($catMap as $val => $lbl)
-                <div class="cat-box">
-                    <span class="checkbox">{{ $comparison->category === $val ? 'V' : '' }}</span>
-                    {{ $lbl }}
-                </div>
-            @endforeach
-            &nbsp;&nbsp;
-            <span>Status:
-                <span
-                    class="status-badge {{ $comparison->isApproved() ? 'badge-approved' : ($comparison->isRejected() ? 'badge-rejected' : 'badge-pending') }}">
-                    {{ $comparison->statusLabel() }}
+    <table class="header-table">
+        <tr>
+            <td class="logo-cell">
+                @if ($logoSrc)
+                    <img src="{{ $logoSrc }}" style="height:55px; max-width:140px; object-fit:contain;">
+                @endif
+            </td>
+            <td class="cat-cell">
+                @foreach ($catMap as $val => $lbl)
+                    <span class="cat-box">
+                        <span class="checkbox">{{ $comparison->category === $val ? 'V' : '' }}</span>
+                        {{ $lbl }}
+                    </span>
+                @endforeach
+                &nbsp;&nbsp;
+                <span>Status:
+                    <span class="status-badge {{ $comparison->isApproved() ? 'badge-approved' : ($comparison->isRejected() ? 'badge-rejected' : 'badge-pending') }}">
+                        {{ $comparison->statusLabel() }}
+                    </span>
                 </span>
-            </span>
-        </div>
-    </div>
+            </td>
+        </tr>
+    </table>
 
     <table>
         <thead>

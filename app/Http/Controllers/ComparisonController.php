@@ -269,7 +269,8 @@ class ComparisonController extends Controller
             $history = $this->odoo->getProductVendorHistory($productIds);
 
             $comparison->vendor_prices = $this->enrichVendorPrices(
-                $comparison->vendor_prices ?? [], $rfq
+                $comparison->vendor_prices ?? [],
+                $rfq
             );
         } catch (\Throwable $e) {
             $rfq = null;
@@ -291,7 +292,8 @@ class ComparisonController extends Controller
         try {
             $rfq = $this->odoo->getRfq($comparison->po_id);
             $comparison->vendor_prices = $this->enrichVendorPrices(
-                $comparison->vendor_prices ?? [], $rfq
+                $comparison->vendor_prices ?? [],
+                $rfq
             );
         } catch (\Throwable) {
             // Odoo unreachable — fall back to stored data
@@ -315,28 +317,32 @@ class ComparisonController extends Controller
             return $vendorPrices;
         }
 
-        $productMap = [];
+        // Build an ordered list of enriched data indexed by line position,
+        // matching the same order/skipping logic used when the form was submitted.
+        // Using line index (not product_id) so two lines with the same product
+        // (e.g. same ATK product with different descriptions) stay separate.
+        $lineData = [];
+        $lineIdx  = 0;
         foreach ($rfq['lines'] as $line) {
             if (!is_array($line['product_id'])) {
                 continue;
             }
-            $pid       = $line['product_id'][0];
-            $cleanName = $line['product_clean_name'] ?? $line['product_id'][1];
-            $code      = $line['product_code'] ?? '';
-            $desc      = ($line['name'] !== $cleanName) ? $line['name'] : '';
-            $productMap[$pid] = [
+            $cleanName          = $line['product_clean_name'] ?? $line['product_id'][1];
+            $code               = $line['product_code'] ?? '';
+            $desc               = ($line['name'] !== $cleanName) ? $line['name'] : '';
+            $lineData[$lineIdx] = [
                 'product_name'        => $cleanName,
                 'product_code'        => $code,
                 'product_description' => $desc,
             ];
+            $lineIdx++;
         }
 
-        foreach ($vendorPrices as &$row) {
-            $pid = $row['product_id'] ?? null;
-            if ($pid && isset($productMap[$pid])) {
-                $row['product_name']        = $productMap[$pid]['product_name'];
-                $row['product_code']        = $productMap[$pid]['product_code'];
-                $row['product_description'] = $productMap[$pid]['product_description'];
+        foreach ($vendorPrices as $i => &$row) {
+            if (isset($lineData[$i])) {
+                $row['product_name']        = $lineData[$i]['product_name'];
+                $row['product_code']        = $lineData[$i]['product_code'];
+                $row['product_description'] = $lineData[$i]['product_description'];
             }
         }
         unset($row);
