@@ -174,11 +174,17 @@
             'sparepart' => 'Sparepart',
             'umum' => 'Umum',
         ];
+        $logoPath = public_path('logo.png');
+        $logoSrc = file_exists($logoPath)
+            ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath))
+            : null;
     @endphp
 
     <div class="header-row">
         <div class="logo-box">
-            <img src="{{ public_path('logo.png') }}" style="height:55px; max-width:140px; object-fit:contain;">
+            @if ($logoSrc)
+                <img src="{{ $logoSrc }}" style="height:55px; max-width:140px; object-fit:contain;">
+            @endif
         </div>
         <div class="cat-row">
             @foreach ($catMap as $val => $lbl)
@@ -235,11 +241,13 @@
                     <td class="text-center">{{ $ri + 1 }}</td>
                     <td>
                         @if (!empty($row['product_code']))
-                            <span style="background:#6c757d;color:#fff;padding:1px 5px;border-radius:3px;font-size:8px;margin-right:3px;">{{ $row['product_code'] }}</span>
+                            <span
+                                style="background:#6c757d;color:#fff;padding:1px 5px;border-radius:3px;font-size:8px;margin-right:3px;">{{ $row['product_code'] }}</span>
                         @endif
                         {{ $row['product_name'] ?? '' }}
                         @if (!empty($row['product_description']))
-                            <div style="font-size:9px;color:#555;margin-top:2px;">{{ $row['product_description'] }}</div>
+                            <div style="font-size:9px;color:#555;margin-top:2px;">{{ $row['product_description'] }}
+                            </div>
                         @endif
                     </td>
                     <td class="text-center text-muted" style="font-size:9px;">{{ $row['product_code'] ?? '' }}</td>
