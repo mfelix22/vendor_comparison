@@ -227,8 +227,13 @@
                                                         if (!is_array($line['product_id'])) {
                                                             continue;
                                                         }
-                                                        $pName = $line['product_id'][1];
                                                         $pCode = $line['product_code'] ?? '';
+                                                        // Use clean product name (without code prefix); fall back to display_name
+                                                        $pName = !empty($line['product_clean_name'])
+                                                            ? $line['product_clean_name']
+                                                            : $line['product_id'][1];
+                                                        // Description = line text if it differs from the resolved name
+                                                        $pDesc = ($line['name'] !== $pName) ? $line['name'] : '';
                                                         $uom = is_array($line['product_uom'])
                                                             ? $line['product_uom'][1]
                                                             : '';
@@ -237,8 +242,8 @@
                                                         <td class="text-center">{{ $lineIdx + 1 }}</td>
                                                         <td>
                                                             <div class="fw-semibold">{{ $pName }}</div>
-                                                            @if (!empty($line['name']) && $line['name'] !== $pName)
-                                                                <div class="text-muted small">{{ $line['name'] }}</div>
+                                                            @if (!empty($pDesc))
+                                                                <div class="text-muted small">{{ $pDesc }}</div>
                                                             @endif
                                                             <input type="hidden"
                                                                 name="vendor_prices[{{ $lineIdx }}][product_id]"
@@ -251,7 +256,7 @@
                                                                 value="{{ $pCode }}">
                                                             <input type="hidden"
                                                                 name="vendor_prices[{{ $lineIdx }}][product_description]"
-                                                                value="{{ $line['name'] !== $pName ? $line['name'] : '' }}">
+                                                                value="{{ $pDesc }}">
                                                             <input type="hidden"
                                                                 name="vendor_prices[{{ $lineIdx }}][qty]"
                                                                 value="{{ $line['product_qty'] }}">

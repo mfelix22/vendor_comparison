@@ -228,15 +228,19 @@ class OdooService
                 'product.product',
                 'read',
                 [array_values($productIds)],
-                ['fields' => ['id', 'default_code']]
+                ['fields' => ['id', 'default_code', 'name']]
             );
-            $codeMap = [];
+            $productMap = [];
             foreach ($products ?? [] as $p) {
-                $codeMap[$p['id']] = $p['default_code'] ?: '';
+                $productMap[$p['id']] = [
+                    'code' => $p['default_code'] ?: '',
+                    'name' => $p['name'] ?: '',
+                ];
             }
             foreach ($lines as &$line) {
                 $pid = is_array($line['product_id']) ? $line['product_id'][0] : null;
-                $line['product_code'] = $pid ? ($codeMap[$pid] ?? '') : '';
+                $line['product_code']       = $pid ? ($productMap[$pid]['code'] ?? '') : '';
+                $line['product_clean_name'] = $pid ? ($productMap[$pid]['name'] ?? '') : '';
             }
             unset($line);
         }
