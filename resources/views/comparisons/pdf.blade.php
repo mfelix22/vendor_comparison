@@ -234,10 +234,12 @@
                 <tr>
                     <td class="text-center">{{ $ri + 1 }}</td>
                     <td>
+                        @if (!empty($row['product_code']))
+                            <span style="background:#6c757d;color:#fff;padding:1px 5px;border-radius:3px;font-size:8px;margin-right:3px;">{{ $row['product_code'] }}</span>
+                        @endif
                         {{ $row['product_name'] ?? '' }}
                         @if (!empty($row['product_description']))
-                            <div style="font-size:9px;color:#555;margin-top:2px;">{{ $row['product_description'] }}
-                            </div>
+                            <div style="font-size:9px;color:#555;margin-top:2px;">{{ $row['product_description'] }}</div>
                         @endif
                     </td>
                     <td class="text-center text-muted" style="font-size:9px;">{{ $row['product_code'] ?? '' }}</td>

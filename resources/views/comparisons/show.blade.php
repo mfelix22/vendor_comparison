@@ -236,7 +236,7 @@
                     @endif
 
                     {{-- Odoo Integration hidden --}}
-                    @if(false)
+                    @if (false)
                         <div class="card mt-3 {{ $comparison->odoo_synced_at ? 'border-success' : 'border-primary' }}">
                             <div
                                 class="card-header py-2 {{ $comparison->odoo_synced_at ? 'bg-success' : 'bg-primary' }} text-white">
@@ -551,7 +551,7 @@
             </div>
 
             {{-- Post to Odoo modal hidden --}}
-            @if(false)
+            @if (false)
                 <div class="modal fade" id="odooPostModal" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content">
@@ -705,9 +705,18 @@
                             <tr>
                                 <td style="border:1px solid #000; padding:4px 6px; text-align:center;">{{ $ri + 1 }}
                                 </td>
-                                <td style="border:1px solid #000; padding:4px 6px;">{{ $row['product_name'] ?? '' }}</td>
+                                <td style="border:1px solid #000; padding:4px 6px;">
+                                    @if (!empty($row['product_code']))
+                                        <span style="background:#6c757d;color:#fff;padding:1px 4px;border-radius:3px;font-size:8px;margin-right:3px;">{{ $row['product_code'] }}</span>
+                                    @endif
+                                    {{ $row['product_name'] ?? '' }}
+                                    @if (!empty($row['product_description']))
+                                        <div style="font-size:9px;color:#555;margin-top:2px;">{{ $row['product_description'] }}</div>
+                                    @endif
+                                </td>
                                 <td
                                     style="border:1px solid #000; padding:4px 6px; text-align:center; color:#888; font-size:10px;">
+                                    {{ $row['product_code'] ?? '' }}
                                 </td>
                                 <td style="border:1px solid #000; padding:4px 6px; text-align:center;">
                                     {{ $row['qty'] ?? '' }}</td>
