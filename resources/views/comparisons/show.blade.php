@@ -700,23 +700,37 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {{-- Build ordered RFQ line index for product name lookup --}}
+                        @php
+                            $rfqProductLines = [];
+                            if (!empty($rfq['lines'])) {
+                                $li = 0;
+                                foreach ($rfq['lines'] as $l) {
+                                    if (!is_array($l['product_id'])) continue;
+                                    $rfqProductLines[$li++] = $l;
+                                }
+                            }
+                        @endphp
                         {{-- Product rows --}}
                         @foreach ($vpRows as $ri => $row)
+                            @php
+                                $rl    = $rfqProductLines[$ri] ?? null;
+                                $pCode = $rl ? ($rl['product_code'] ?? '') : ($row['product_code'] ?? '');
+                                $pName = $rl ? $rl['name'] : ($row['product_name'] ?? '');
+                            @endphp
                             <tr>
                                 <td style="border:1px solid #000; padding:4px 6px; text-align:center;">{{ $ri + 1 }}
                                 </td>
                                 <td style="border:1px solid #000; padding:4px 6px;">
-                                    @if (!empty($row['product_code']))
-                                        <span style="background:#6c757d;color:#fff;padding:1px 4px;border-radius:3px;font-size:8px;margin-right:3px;">{{ $row['product_code'] }}</span>
+                                    @if (!empty($pCode))
+                                        <span
+                                            style="background:#6c757d;color:#fff;padding:1px 4px;border-radius:3px;font-size:8px;margin-right:3px;">{{ $pCode }}</span>
                                     @endif
-                                    {{ $row['product_name'] ?? '' }}
-                                    @if (!empty($row['product_description']))
-                                        <div style="font-size:9px;color:#555;margin-top:2px;">{{ $row['product_description'] }}</div>
-                                    @endif
+                                    {{ $pName }}
                                 </td>
                                 <td
                                     style="border:1px solid #000; padding:4px 6px; text-align:center; color:#888; font-size:10px;">
-                                    {{ $row['product_code'] ?? '' }}
+                                    {{ $pCode }}
                                 </td>
                                 <td style="border:1px solid #000; padding:4px 6px; text-align:center;">
                                     {{ $row['qty'] ?? '' }}</td>

@@ -289,17 +289,14 @@ class ComparisonController extends Controller
     {
         $comparison->load(['creator', 'supervisor', 'manager']);
 
+        $rfq = null;
         try {
             $rfq = $this->odoo->getRfq($comparison->po_id);
-            $comparison->vendor_prices = $this->enrichVendorPrices(
-                $comparison->vendor_prices ?? [],
-                $rfq
-            );
         } catch (\Throwable) {
-            // Odoo unreachable — fall back to stored data
+            // Odoo unreachable — product names fall back to stored data
         }
 
-        $pdf = Pdf::loadView('comparisons.pdf', compact('comparison'))
+        $pdf = Pdf::loadView('comparisons.pdf', compact('comparison', 'rfq'))
             ->setPaper('a4', 'landscape')
             ->setOptions(['dpi' => 120, 'defaultFont' => 'Arial', 'isHtml5ParserEnabled' => true]);
 

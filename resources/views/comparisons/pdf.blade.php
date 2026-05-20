@@ -188,7 +188,8 @@
                 @endforeach
                 &nbsp;&nbsp;
                 <span>Status:
-                    <span class="status-badge {{ $comparison->isApproved() ? 'badge-approved' : ($comparison->isRejected() ? 'badge-rejected' : 'badge-pending') }}">
+                    <span
+                        class="status-badge {{ $comparison->isApproved() ? 'badge-approved' : ($comparison->isRejected() ? 'badge-rejected' : 'badge-pending') }}">
                         {{ $comparison->statusLabel() }}
                     </span>
                 </span>
@@ -228,22 +229,34 @@
             </tr>
         </thead>
         <tbody>
+            {{-- Build an ordered index of RFQ lines for product name lookup --}}
+            @php
+                $rfqProductLines = [];
+                if (!empty($rfq['lines'])) {
+                    $li = 0;
+                    foreach ($rfq['lines'] as $l) {
+                        if (!is_array($l['product_id'])) continue;
+                        $rfqProductLines[$li++] = $l;
+                    }
+                }
+            @endphp
             {{-- Product rows --}}
             @foreach ($vpRows as $ri => $row)
+                @php
+                    $rl    = $rfqProductLines[$ri] ?? null;
+                    $pCode = $rl ? ($rl['product_code'] ?? '') : ($row['product_code'] ?? '');
+                    $pName = $rl ? $rl['name'] : ($row['product_name'] ?? '');
+                @endphp
                 <tr>
                     <td class="text-center">{{ $ri + 1 }}</td>
                     <td>
-                        @if (!empty($row['product_code']))
+                        @if (!empty($pCode))
                             <span
-                                style="background:#6c757d;color:#fff;padding:1px 5px;border-radius:3px;font-size:8px;margin-right:3px;">{{ $row['product_code'] }}</span>
+                                style="background:#6c757d;color:#fff;padding:1px 5px;border-radius:3px;font-size:8px;margin-right:3px;">{{ $pCode }}</span>
                         @endif
-                        {{ $row['product_name'] ?? '' }}
-                        @if (!empty($row['product_description']))
-                            <div style="font-size:9px;color:#555;margin-top:2px;">{{ $row['product_description'] }}
-                            </div>
-                        @endif
+                        {{ $pName }}
                     </td>
-                    <td class="text-center text-muted" style="font-size:9px;">{{ $row['product_code'] ?? '' }}</td>
+                    <td class="text-center text-muted" style="font-size:9px;">{{ $pCode }}</td>
                     <td class="text-center">{{ $row['qty'] ?? '' }}</td>
                     <td class="text-center">{{ $row['uom'] ?? '' }}</td>
                     <td class="text-right">{{ number_format($row['pricelist_original'] ?? 0, 0, ',', '.') }}</td>
