@@ -78,7 +78,7 @@ RUN chown -R www-data:www-data /var/www/html \
  && chmod -R 755 /var/www/html/bootstrap/cache
 
 # Add startup entrypoint
-COPY docker/entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 EXPOSE 80
