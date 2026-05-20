@@ -236,7 +236,7 @@
                     @endif
 
                     {{-- Odoo Integration hidden --}}
-                    {{-- @if ($comparison->isApproved())
+                    @if(false)
                         <div class="card mt-3 {{ $comparison->odoo_synced_at ? 'border-success' : 'border-primary' }}">
                             <div
                                 class="card-header py-2 {{ $comparison->odoo_synced_at ? 'bg-success' : 'bg-primary' }} text-white">
@@ -262,7 +262,7 @@
                                 @endif
                             </div>
                         </div>
-                    @endif --}}
+                    @endif {{-- /Odoo Integration hidden --}}
                 </div>
 
                 {{-- ─── Right column: RFQ + vendor comparison data ────────── --}}
@@ -551,7 +551,7 @@
             </div>
 
             {{-- Post to Odoo modal hidden --}}
-            {{-- @if ($comparison->isApproved() && !$comparison->odoo_synced_at)
+            @if(false)
                 <div class="modal fade" id="odooPostModal" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content">
@@ -603,7 +603,7 @@
                         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Posting…';
                     });
                 </script>
-            {{-- @endif --}}
+            @endif {{-- /Post to Odoo modal hidden --}}
 
             {{-- ── CLVP Document ── --}}
             <div id="clvpDocument" class="bg-white border p-4"
