@@ -353,18 +353,6 @@
                             </div>
                         </div>
                         <div class="card-body">
-                            <div class="mb-2">
-                                <label class="form-label small text-muted mb-1">
-                                    <i class="bi bi-tools me-1"></i>Auto-isi dari Supplier Master
-                                    <em>(opsional — ketik manual di bawah)</em>
-                                </label>
-                                <select class="form-select form-select-sm odoo-autofill">
-                                    <option value="">— Pilih supplier dari Odoo —</option>
-                                    ${ODOO_VENDORS.map(v =>
-                                        `<option value="${v.id}">${v.name}</option>`
-                                    ).join('')}
-                                </select>
-                            </div>
                             <div class="row g-2">
                                 <div class="col-md-6">
                                     <label class="form-label small fw-semibold mb-1">Nama Calon Vendor <span class="text-danger">*</span></label>
