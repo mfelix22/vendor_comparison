@@ -267,6 +267,10 @@ class ComparisonController extends Controller
                 $rfq['lines'] ?? []
             )));
             $history = $this->odoo->getProductVendorHistory($productIds);
+
+            $comparison->vendor_prices = $this->enrichVendorPrices(
+                $comparison->vendor_prices ?? [], $rfq
+            );
         } catch (\Throwable $e) {
             $rfq = null;
             $history = [];
@@ -284,42 +288,14 @@ class ComparisonController extends Controller
     {
         $comparison->load(['creator', 'supervisor', 'manager']);
 
-        // Enrich vendor_prices with fresh product names/codes from Odoo
-        // This fixes old comparisons that were saved before the description fix
-        $vendorPrices = $comparison->vendor_prices ?? [];
         try {
             $rfq = $this->odoo->getRfq($comparison->po_id);
-            if ($rfq && !empty($rfq['lines'])) {
-                $productMap = [];
-                foreach ($rfq['lines'] as $line) {
-                    if (!is_array($line['product_id'])) {
-                        continue;
-                    }
-                    $pid        = $line['product_id'][0];
-                    $cleanName  = $line['product_clean_name'] ?? $line['product_id'][1];
-                    $code       = $line['product_code'] ?? '';
-                    $desc       = ($line['name'] !== $cleanName) ? $line['name'] : '';
-                    $productMap[$pid] = [
-                        'product_name'        => $cleanName,
-                        'product_code'        => $code,
-                        'product_description' => $desc,
-                    ];
-                }
-                foreach ($vendorPrices as &$row) {
-                    $pid = $row['product_id'] ?? null;
-                    if ($pid && isset($productMap[$pid])) {
-                        $row['product_name']        = $productMap[$pid]['product_name'];
-                        $row['product_code']        = $productMap[$pid]['product_code'];
-                        $row['product_description'] = $productMap[$pid]['product_description'];
-                    }
-                }
-                unset($row);
-            }
+            $comparison->vendor_prices = $this->enrichVendorPrices(
+                $comparison->vendor_prices ?? [], $rfq
+            );
         } catch (\Throwable) {
             // Odoo unreachable — fall back to stored data
         }
-
-        $comparison->vendor_prices = $vendorPrices;
 
         $pdf = Pdf::loadView('comparisons.pdf', compact('comparison'))
             ->setPaper('a4', 'landscape')
@@ -328,6 +304,44 @@ class ComparisonController extends Controller
         $filename = 'CLVP-' . str_replace('/', '-', $comparison->po_name) . '.pdf';
 
         return $pdf->download($filename);
+    }
+
+    /**
+     * Build a product_id → enriched data map from RFQ lines and apply it to vendor_prices.
+     */
+    private function enrichVendorPrices(array $vendorPrices, ?array $rfq): array
+    {
+        if (empty($rfq['lines'])) {
+            return $vendorPrices;
+        }
+
+        $productMap = [];
+        foreach ($rfq['lines'] as $line) {
+            if (!is_array($line['product_id'])) {
+                continue;
+            }
+            $pid       = $line['product_id'][0];
+            $cleanName = $line['product_clean_name'] ?? $line['product_id'][1];
+            $code      = $line['product_code'] ?? '';
+            $desc      = ($line['name'] !== $cleanName) ? $line['name'] : '';
+            $productMap[$pid] = [
+                'product_name'        => $cleanName,
+                'product_code'        => $code,
+                'product_description' => $desc,
+            ];
+        }
+
+        foreach ($vendorPrices as &$row) {
+            $pid = $row['product_id'] ?? null;
+            if ($pid && isset($productMap[$pid])) {
+                $row['product_name']        = $productMap[$pid]['product_name'];
+                $row['product_code']        = $productMap[$pid]['product_code'];
+                $row['product_description'] = $productMap[$pid]['product_description'];
+            }
+        }
+        unset($row);
+
+        return $vendorPrices;
     }
 
     /**
