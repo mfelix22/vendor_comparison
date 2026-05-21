@@ -430,11 +430,11 @@
                                         placeholder="e.g., Exc PPN">
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label small fw-semibold mb-1">Diskon</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm"
+                                    <label class="form-label small fw-semibold mb-1">Diskon (%)</label>
+                                    <input type="number" class="form-control form-control-sm"
                                         name="vendors[${idx}][discount]"
                                         placeholder="e.g., 10"
-                                        oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\.+/g, '$1')">
+                                        min="0" max="100" step="0.01">
                                 </div>
                                 <div class="col-12">
                                     <label class="form-label small fw-semibold mb-1">Ketentuan Lain-lain dari Calon Supplier</label>
