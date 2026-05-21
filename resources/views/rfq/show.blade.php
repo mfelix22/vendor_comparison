@@ -674,7 +674,8 @@
                             };
                             const nameWithDisc = idx => {
                                 const d = getDisc(idx);
-                                return getName(idx) + (d > 0 ? ` <span class="badge bg-success ms-1" style="font-size:.72em">${d}% off</span>` : '');
+                                return getName(idx) + (d > 0 ?
+                                    ` <span class="badge bg-success ms-1" style="font-size:.72em">${d}% off</span>` : '');
                             };
                             const fmt = n => 'IDR\u00a0' + Math.round(n).toLocaleString('id-ID');
 
