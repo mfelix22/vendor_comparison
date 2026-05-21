@@ -667,6 +667,15 @@
                                 const inp = document.querySelector(`[name="vendors[${idx}][name]"]`);
                                 return (inp && inp.value.trim()) ? inp.value.trim() : `Vendor ${idx + 1}`;
                             };
+                            const getDisc = idx => {
+                                const inp = document.querySelector(`[name="vendors[${idx}][discount]"]`);
+                                const v = parseFloat(inp ? inp.value : 0);
+                                return v > 0 ? v : 0;
+                            };
+                            const nameWithDisc = idx => {
+                                const d = getDisc(idx);
+                                return getName(idx) + (d > 0 ? ` <span class="badge bg-success ms-1" style="font-size:.72em">${d}% off</span>` : '');
+                            };
                             const fmt = n => 'IDR\u00a0' + Math.round(n).toLocaleString('id-ID');
 
                             const valid = vendorIndices.filter(idx => totals[idx] !== Infinity && totals[idx] > 0);
@@ -680,7 +689,7 @@
 
                             let html = `<div class="alert alert-success py-2 px-3 mb-0 d-flex align-items-start gap-2">
                                 <i class="bi bi-lightbulb-fill text-warning fs-5 mt-1 flex-shrink-0"></i>
-                                <div><strong>Rekomendasi: ${getName(bestIdx)}</strong>
+                                <div><strong>Rekomendasi: ${nameWithDisc(bestIdx)}</strong>
                                 &mdash; Total ${fmt(totals[bestIdx])}`;
 
                             if (sorted.length > 1) {
@@ -688,7 +697,7 @@
                                     if (totals[idx] === Infinity)
                                         return `<em>${getName(idx)}: Tidak Jual</em>`;
                                     const diff = totals[idx] - totals[bestIdx];
-                                    return `${getName(idx)}: ${fmt(totals[idx])}` +
+                                    return `${nameWithDisc(idx)}: ${fmt(totals[idx])}` +
                                         ` <span class="text-danger fw-semibold">(+${fmt(diff)})</span>`;
                                 });
                                 html += `<br><small class="text-muted">vs ${others.join(' &nbsp;&middot;&nbsp; ')}</small>`;
@@ -735,9 +744,10 @@
                             refreshRecommendDropdown(); // also calls refreshRecommendation
                         }
 
-                        // Re-calculate recommendation on every price input change
+                        // Re-calculate recommendation on every price input or discount change
                         document.getElementById('clvpForm').addEventListener('input', e => {
-                            if (e.target.classList.contains('price-input')) refreshRecommendation();
+                            if (e.target.classList.contains('price-input') ||
+                                e.target.name && e.target.name.includes('[discount]')) refreshRecommendation();
                         });
 
                         document.getElementById('clvpForm').addEventListener('submit', function(e) {
