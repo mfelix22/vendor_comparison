@@ -348,8 +348,10 @@
                             const card = document.createElement('div');
                             card.className = 'card mb-3 vendor-card';
                             card.dataset.idx = idx;
-                            const escHtml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-                            const odooOptions = ODOO_VENDORS.map(v => `<option value="${v.id}">${escHtml(v.name)}${v.city ? ' - ' + escHtml(v.city) : ''}</option>`).join('');
+                            const escHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g,
+                                '&quot;');
+                            const odooOptions = ODOO_VENDORS.map(v =>
+                                `<option value="${v.id}">${escHtml(v.name)}${v.city ? ' - ' + escHtml(v.city) : ''}</option>`).join('');
                             card.innerHTML = `
                         <div class="card-header py-2 d-flex align-items-center gap-2"
                             style="background:#f8fafc;">
