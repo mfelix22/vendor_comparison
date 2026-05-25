@@ -66,7 +66,16 @@ class ComparisonController extends Controller
             return back()->with('error', 'A comparison for this RFQ is already active. Please view it in Approvals.');
         }
 
+        // Generate comparison code: YYYY/CP/NNNNN
+        $year     = now()->year;
+        $lastCode = VendorComparison::where('comparison_code', 'like', "{$year}/CP/%")
+            ->orderByDesc('comparison_code')
+            ->value('comparison_code');
+        $seq      = $lastCode ? ((int) substr($lastCode, -5)) + 1 : 1;
+        $comparisonCode = $year . '/CP/' . str_pad($seq, 5, '0', STR_PAD_LEFT);
+
         $comparison = VendorComparison::create([
+            'comparison_code' => $comparisonCode,
             'po_id'           => $request->po_id,
             'po_name'         => $request->po_name,
             'po_vendor'       => $request->po_vendor,

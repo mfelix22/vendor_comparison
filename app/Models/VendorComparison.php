@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class VendorComparison extends Model
 {
     protected $fillable = [
+        'comparison_code',
         'po_id',
         'po_name',
         'po_vendor',

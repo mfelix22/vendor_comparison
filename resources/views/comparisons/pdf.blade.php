@@ -392,7 +392,8 @@
 
     <div class="footer">
         <div>
-            <strong>NOTES : {{ $comparison->po_name }}</strong>
+            <strong>No. CLVP : {{ $comparison->comparison_code ?? $comparison->po_name }}</strong>
+            <div style="color:#888; font-size:9px; margin-top:1px;">Ref PO: {{ $comparison->po_name }}</div>
             @if ($comparison->notes)
                 <div style="color:#555;margin-top:2px;">{{ $comparison->notes }}</div>
             @endif
