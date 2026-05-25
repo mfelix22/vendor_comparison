@@ -87,7 +87,7 @@
                 $isActiveRfq = in_array($rfq['state'] ?? '', ['draft', 'sent']);
             @endphp
 
-            @if (!$isActiveRfq)
+            @if (!$isActiveRfq && !$isEditMode)
                 {{-- This is a confirmed / locked / cancelled PO — show read-only notice --}}
                 <div class="alert alert-secondary d-flex align-items-center gap-3 mb-4">
                     <i class="bi bi-lock-fill fs-4 text-muted"></i>
