@@ -876,10 +876,8 @@
                                 // Pre-fill prices
                                 PREFILL_PRICES.forEach((row, ri) => {
                                     PREFILL_VENDORS.forEach((_, vi) => {
-                                        const inp = document.querySelector(
-                                            `#priceMatrixBody tr[data-row="${ri}"] .price-input[data-vendor="${vi}"]`);
-                                        const cb = document.querySelector(
-                                            `#priceMatrixBody tr[data-row="${ri}"] .notjual-cb[data-vendor="${vi}"]`);
+                                        const inp = document.querySelector(`[name="vendor_prices[${ri}][prices][${vi}]"]`);
+                                        const cb = document.getElementById(`tj_${ri}_${vi}`);
                                         if (inp && row.prices && row.prices[vi] !== undefined) {
                                             const p = row.prices[vi];
                                             if (p == 0 || p === '') {
@@ -901,6 +899,7 @@
                                         if (sel) sel.value = PREFILL_SELECTED;
                                     }, 100);
                                 }
+                                refreshRecommendation();
                                 return;
                             }
                             // Draft restore
