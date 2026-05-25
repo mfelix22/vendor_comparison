@@ -272,7 +272,7 @@
                         @endphp
                         <td class="text-right {{ $isRec ? 'rec-cell' : '' }}">
                             @if ($price === null || $price === '' || $price == 0)
-                                <span class="text-muted">Tidak jual</span>
+                                <span class="text-muted">Tidak Menjual Barang</span>
                             @else
                                 @php $displayPrice = $dRate > 0 ? (float)$price * (1 - $dRate) : (float)$price; @endphp
                                 {{ $currency }}{{ number_format($displayPrice, 0, ',', '.') }}

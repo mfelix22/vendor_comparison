@@ -83,6 +83,8 @@
                 // $existingComparison is passed from RfqController; $comparison from ComparisonController::edit()
                 $existing = $existingComparison ?? ($comparison ?? null);
                 $isEditMode = isset($comparison) && $comparison !== null;
+                $isRejectedPrefill = !$isEditMode && $existing && $existing->isRejected();
+                $prefillSource = $isEditMode ? $comparison : ($isRejectedPrefill ? $existing : null);
                 $draftKey = 'clvp_draft_' . $rfq['id'];
                 $isActiveRfq = in_array($rfq['state'] ?? '', ['draft', 'sent']);
             @endphp
@@ -184,7 +186,7 @@
                                             <div class="form-check">
                                                 <input class="form-check-input" type="radio" name="category"
                                                     id="cat_{{ $val }}" value="{{ $val }}"
-                                                    {{ old('category', $isEditMode ? $comparison->category ?? 'umum' : 'umum') === $val ? 'checked' : '' }}>
+                                                    {{ old('category', $prefillSource ? $prefillSource->category ?? 'umum' : 'umum') === $val ? 'checked' : '' }}>
                                                 <label class="form-check-label"
                                                     for="cat_{{ $val }}">{{ $lbl }}</label>
                                             </div>
@@ -308,7 +310,7 @@
                                     </div>
                                     <div class="col-md-7">
                                         <label class="form-label fw-semibold">Catatan / Justifikasi</label>
-                                        <textarea name="notes" class="form-control" rows="3" placeholder="Alasan pemilihan vendor...">{{ old('notes', $isEditMode ? $comparison->notes ?? '' : '') }}</textarea>
+                                        <textarea name="notes" class="form-control" rows="3" placeholder="Alasan pemilihan vendor...">{{ old('notes', $prefillSource ? $prefillSource->notes ?? '' : '') }}</textarea>
                                     </div>
                                     <div class="col-12">
                                         <div id="vendorRecommendHint" style="display:none"></div>
@@ -340,10 +342,11 @@
                         const ODOO_VENDORS = @json($vendors);
                         const PRODUCT_ROWS = {{ $lineIdx ?? 0 }};
                         const IS_EDIT_MODE = {{ $isEditMode ? 'true' : 'false' }};
+                        const IS_REJECTED_PREFILL = {{ $isRejectedPrefill ? 'true' : 'false' }};
                         const DRAFT_KEY = '{{ $draftKey ?? 'clvp_draft_0' }}';
-                        const PREFILL_VENDORS = @json($isEditMode ? $comparison->vendors ?? [] : []);
-                        const PREFILL_PRICES = @json($isEditMode ? $comparison->vendor_prices ?? [] : []);
-                        const PREFILL_SELECTED = @json($isEditMode ? $comparison->selected_vendor ?? '' : '');
+                        const PREFILL_VENDORS = @json($prefillSource ? $prefillSource->vendors ?? [] : []);
+                        const PREFILL_PRICES = @json($prefillSource ? $prefillSource->vendor_prices ?? [] : []);
+                        const PREFILL_SELECTED = @json($prefillSource ? $prefillSource->selected_vendor ?? '' : '');
                         let vendorCount = 0;
 
                         const vendorLookup = {};
@@ -593,7 +596,7 @@
                                 <input class="form-check-input tidak-jual-cb" type="checkbox"
                                     id="tj_${rowIdx}_${idx}"
                                     onchange="toggleTidakJual(${rowIdx},${idx},this)">
-                                <label class="form-check-label small text-muted" for="tj_${rowIdx}_${idx}">Tidak Jual</label>
+                                <label class="form-check-label small text-muted" for="tj_${rowIdx}_${idx}">Tidak Menjual Barang</label>
                             </div>`;
                                 row.appendChild(td);
                             });
@@ -728,7 +731,7 @@
                             if (sorted.length > 1) {
                                 const others = sorted.slice(1).map(idx => {
                                     if (totals[idx] === Infinity)
-                                        return `<em>${getName(idx)}: Tidak Jual</em>`;
+                                        return `<em>${getName(idx)}: Tidak Menjual Barang</em>`;
                                     const diff = effective[idx] - effective[bestIdx];
                                     return `${fmtVendor(idx)} <span class="text-danger fw-semibold">(+${fmt(diff)})</span>`;
                                 });
@@ -738,8 +741,8 @@
                             // Tidak Jual vendors
                             const cantSupply = vendorIndices.filter(idx => totals[idx] === Infinity);
                             if (cantSupply.length > 0) {
-                                html += `<br><small class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>` +
-                                    `Tidak dapat supply: ${cantSupply.map(getName).join(', ')}</small>`;
+                                html += `<br><small class="text-secondary"><i class="bi bi-x-circle me-1"></i>` +
+                                    `Tidak Menjual Barang: ${cantSupply.map(getName).join(', ')}</small>`;
                             }
 
                             html += `</div></div>`;
@@ -850,7 +853,7 @@
                         }
 
                         function loadDraft() {
-                            if (IS_EDIT_MODE) {
+                            if (IS_EDIT_MODE || IS_REJECTED_PREFILL) {
                                 // Pre-fill from existing comparison data
                                 PREFILL_VENDORS.forEach(v => {
                                     addVendorCard();

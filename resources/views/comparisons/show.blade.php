@@ -275,6 +275,44 @@
 
                     {{-- RFQ Summary --}}
                     @if ($rfq)
+                        @php
+                            // Calculate system best-price vendor from vendor_prices
+                            $vpVendors = $comparison->vendors ?? [];
+                            $vpRows2 = $comparison->vendor_prices ?? [];
+                            $vendorTotals = [];
+                            foreach ($vpVendors as $vi => $v) {
+                                $total = 0;
+                                $cantSupply = false;
+                                foreach ($vpRows2 as $row) {
+                                    $price = (float) ($row['prices'][$vi] ?? 0);
+                                    $qty = (float) ($row['qty'] ?? 1);
+                                    if ($price <= 0) {
+                                        $cantSupply = true;
+                                        break;
+                                    }
+                                    $total += $price * $qty;
+                                }
+                                if (!$cantSupply && $total > 0) {
+                                    $disc = (float) ($v['discount'] ?? 0);
+                                    $vendorTotals[$vi] = [
+                                        'name' => $v['name'],
+                                        'total' => $total * (1 - $disc / 100),
+                                    ];
+                                }
+                            }
+                            $systemBestName = null;
+                            if (!empty($vendorTotals)) {
+                                $bestVi = array_key_first($vendorTotals);
+                                foreach ($vendorTotals as $vi => $data) {
+                                    if ($data['total'] < $vendorTotals[$bestVi]['total']) {
+                                        $bestVi = $vi;
+                                    }
+                                }
+                                $systemBestName = $vendorTotals[$bestVi]['name'];
+                            }
+                            $choiceMatchesBest = $systemBestName && $comparison->selected_vendor === $systemBestName;
+                        @endphp
+
                         <div class="card mb-4">
                             <div class="card-header py-2">
                                 <h6 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>{{ $rfq['name'] }}</h6>
@@ -291,12 +329,43 @@
                                         <div class="text-muted">Source</div>
                                         <div class="fw-semibold">{{ $rfq['origin'] ?: '—' }}</div>
                                     </div>
-                                    <div class="col-6 col-md-3">
-                                        <div class="text-muted">Recommended Vendor</div>
+                                    <div class="col-6 col-md-2">
+                                        <div class="text-muted d-flex align-items-center gap-1">
+                                            <i class="bi bi-person-check-fill text-primary"></i> Staff's Choice
+                                        </div>
                                         <div class="fw-semibold text-primary">{{ $comparison->selected_vendor ?: '—' }}
                                         </div>
+                                        @if ($systemBestName)
+                                            @if ($choiceMatchesBest)
+                                                <div class="text-success small mt-1">
+                                                    <i class="bi bi-patch-check-fill me-1"></i>Matches best price
+                                                </div>
+                                            @else
+                                                <div class="text-warning small mt-1">
+                                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>Not cheapest
+                                                </div>
+                                            @endif
+                                        @endif
                                     </div>
-                                    <div class="col-6 col-md-3">
+                                    <div class="col-6 col-md-2">
+                                        <div class="text-muted d-flex align-items-center gap-1">
+                                            <i class="bi bi-cpu-fill text-success"></i> System Recommendation
+                                        </div>
+                                        @if ($systemBestName)
+                                            <div
+                                                class="fw-semibold {{ $choiceMatchesBest ? 'text-success' : 'text-danger' }}">
+                                                {{ $systemBestName }}
+                                            </div>
+                                            @if (!$choiceMatchesBest)
+                                                <div class="text-danger small mt-1">
+                                                    <i class="bi bi-arrow-left-circle-fill me-1"></i>Cheaper option
+                                                </div>
+                                            @endif
+                                        @else
+                                            <div class="text-muted">—</div>
+                                        @endif
+                                    </div>
+                                    <div class="col-6 col-md-2">
                                         <div class="text-muted">Total</div>
                                         <div class="fw-semibold">
                                             {{ is_array($rfq['currency_id']) ? $rfq['currency_id'][1] : 'IDR' }}
@@ -317,18 +386,30 @@
                                             ({{ count($comparison->vendors) }}):</div>
                                         <div class="d-flex flex-wrap gap-1">
                                             @foreach ($comparison->vendors as $v)
+                                                @php
+                                                    $isStaffChoice = $v['name'] === $comparison->selected_vendor;
+                                                    $isSysBest = $v['name'] === $systemBestName;
+                                                @endphp
                                                 <span
-                                                    class="badge {{ $v['name'] === $comparison->selected_vendor ? 'bg-success' : 'bg-light text-dark border' }}">
-                                                    @if ($v['name'] === $comparison->selected_vendor)
-                                                        <i class="bi bi-check-circle-fill me-1"></i>
+                                                    class="badge d-inline-flex align-items-center gap-1
+                                                    {{ $isStaffChoice && $isSysBest ? 'bg-success' : ($isStaffChoice ? 'bg-primary' : ($isSysBest ? 'bg-warning text-dark' : 'bg-light text-dark border')) }}">
+                                                    @if ($isStaffChoice)
+                                                        <i class="bi bi-person-check-fill" title="Staff's choice"></i>
+                                                    @endif
+                                                    @if ($isSysBest && !$isStaffChoice)
+                                                        <i class="bi bi-cpu-fill" title="System recommendation"></i>
                                                     @endif
                                                     {{ $v['name'] }}
                                                 </span>
                                             @endforeach
                                         </div>
-                                        <div class="text-muted small mt-1">
-                                            <i class="bi bi-check-circle-fill text-success me-1"></i>Green = recommended
-                                            vendor
+                                        <div class="text-muted small mt-1 d-flex gap-3 flex-wrap">
+                                            <span><i class="bi bi-person-check-fill text-primary me-1"></i>Blue = Staff's
+                                                choice</span>
+                                            <span><i class="bi bi-cpu-fill text-warning me-1"></i>Yellow = System best
+                                                price</span>
+                                            <span><i class="bi bi-check-circle-fill text-success me-1"></i>Green = Both
+                                                match</span>
                                         </div>
                                     </div>
                                 @endif
@@ -757,7 +838,7 @@
                                     <td
                                         style="border:1px solid #000; padding:4px 6px; text-align:right; {{ $isRec ? 'background:#f0fff4;' : '' }}">
                                         @if ($price === null || $price === '' || $price == 0)
-                                            <span style="color:#888; font-style:italic;">Tidak jual</span>
+                                            <span style="color:#888; font-style:italic;">Tidak Menjual Barang</span>
                                         @else
                                             @php $displayPrice = $dRate > 0 ? (float)$price * (1 - $dRate) : (float)$price; @endphp
                                             {{ $currency }}{{ number_format($displayPrice, 0, ',', '.') }}
