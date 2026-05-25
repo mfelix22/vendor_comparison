@@ -355,12 +355,23 @@
                         <span class="checkbox">{{ $isReady ? 'V' : '' }}</span> Ready<br>
                         <span class="checkbox">{{ $isIndent ? 'V' : '' }}</span>
                         Indent/Kosong
-                        @if (!empty($v['indent_duration']))
-                            <br><span style="font-size:8px; color:#555;">{{ $v['indent_duration'] }}</span>
-                        @endif
                     </td>
                 @endforeach
             </tr>
+
+            {{-- Indent duration row --}}
+            @php $hasIndentDuration = collect($vendors)->contains(fn($v) => !empty($v['indent_duration'])); @endphp
+            @if ($hasIndentDuration)
+                <tr>
+                    <td colspan="6" style="font-size:9px; font-style:italic; color:#c05c00;">Durasi Indent</td>
+                    @foreach ($vendors as $v)
+                        @php $isRec = ($v['name'] ?? '') === $comparison->selected_vendor; @endphp
+                        <td class="{{ $isRec ? 'rec-cell' : '' }}"
+                            style="font-size:9px; text-align:center; color:#c05c00; font-weight:bold;">
+                            {{ $v['indent_duration'] ?? '' }}</td>
+                    @endforeach
+                </tr>
+            @endif
 
             {{-- Tax --}}
             <tr>

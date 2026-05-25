@@ -853,14 +853,25 @@
                                             {{ $isIndent ? 'V' : '' }}
                                         </span> Indent / Kosong
                                     </div>
-                                    @if (!empty($v['indent_duration']))
-                                        <div style="font-size:9px; color:#555; margin-top:2px; padding-left:16px;">
-                                            {{ $v['indent_duration'] }}
-                                        </div>
-                                    @endif
                                 </td>
                             @endforeach
                         </tr>
+
+                        {{-- Indent duration row --}}
+                        @if (collect($vendors)->contains(fn($v) => !empty($v['indent_duration'])))
+                            <tr>
+                                <td colspan="6"
+                                    style="border:1px solid #000; padding:3px 6px; font-size:10px; font-style:italic; color:#c05c00;">
+                                    Durasi Indent</td>
+                                @foreach ($vendors as $v)
+                                    @php $isRec = ($v['name'] ?? '') === $comparison->selected_vendor; @endphp
+                                    <td
+                                        style="border:1px solid #000; padding:3px 6px; font-size:10px; text-align:center; color:#c05c00; font-weight:600; {{ $isRec ? 'background:#f0fff4;' : '' }}">
+                                        {{ $v['indent_duration'] ?? '' }}
+                                    </td>
+                                @endforeach
+                            </tr>
+                        @endif
 
                         {{-- Delivery time --}}
                         <tr>
