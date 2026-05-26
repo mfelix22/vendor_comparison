@@ -954,18 +954,6 @@
                             </tr>
                         @endif
 
-                        {{-- Delivery time --}}
-                        <tr>
-                            <td colspan="6" style="border:1px solid #000; padding:3px 6px;"></td>
-                            @foreach ($vendors as $v)
-                                @php $isRec = ($v['name'] ?? '') === $comparison->selected_vendor; @endphp
-                                <td
-                                    style="border:1px solid #000; padding:3px 6px; font-size:10px; {{ $isRec ? 'background:#f0fff4;' : '' }}">
-                                    {{ $v['delivery_time'] ?? '' }}
-                                </td>
-                            @endforeach
-                        </tr>
-
                         {{-- Tax info --}}
                         <tr>
                             <td colspan="6" style="border:1px solid #000; padding:3px 6px;"></td>
