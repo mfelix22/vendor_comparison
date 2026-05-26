@@ -295,7 +295,7 @@
                         @php $isRec = ($v['name'] ?? '') === $comparison->selected_vendor; @endphp
                         <td class="text-center {{ $isRec ? 'rec-cell' : '' }}"
                             style="font-size:9px; color:#c0392b; font-weight:bold;">
-                            {{ !empty($v['discount']) ? 'Disc ' . $v['discount'] : '' }}
+                            {{ !empty($v['discount']) ? 'Disc ' . rtrim($v['discount'], '%') . '%' : '' }}
                         </td>
                     @endforeach
                 </tr>
