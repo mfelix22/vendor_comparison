@@ -444,9 +444,12 @@
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small fw-semibold mb-1">Pajak</label>
-                                    <input type="text" class="form-control form-control-sm"
-                                        name="vendors[${idx}][tax_info]"
-                                        placeholder="e.g., Exc PPN">
+                                    <select class="form-select form-select-sm" name="vendors[${idx}][tax_info]">
+                                        <option value="">— Pilih —</option>
+                                        <option value="Exc PPN">Exc PPN</option>
+                                        <option value="Inc PPN">Inc PPN</option>
+                                        <option value="Tanpa PPN">Tanpa PPN</option>
+                                    </select>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small fw-semibold mb-1">Diskon (%)</label>
