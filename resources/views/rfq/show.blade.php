@@ -595,7 +595,7 @@
                                     name="vendor_prices[${rowIdx}][prices][${idx}]"
                                     placeholder="0">
                             </div>
-                            <div class="form-check mt-1">
+                            <div class="form-check mt-1" style="display:none;">
                                 <input class="form-check-input tidak-jual-cb" type="checkbox"
                                     id="tj_${rowIdx}_${idx}"
                                     onchange="toggleTidakJual(${rowIdx},${idx},this)">
