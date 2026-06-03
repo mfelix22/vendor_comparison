@@ -6,6 +6,7 @@ use App\Models\ComparisonLog;
 use App\Models\VendorComparison;
 use App\Services\OdooService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -74,19 +75,23 @@ class ComparisonController extends Controller
         $seq      = $lastCode ? ((int) substr($lastCode, -5)) + 1 : 1;
         $comparisonCode = $year . '/CP/' . str_pad($seq, 5, '0', STR_PAD_LEFT);
 
-        $comparison = VendorComparison::create([
-            'comparison_code' => $comparisonCode,
-            'po_id'           => $request->po_id,
-            'po_name'         => $request->po_name,
-            'po_vendor'       => $request->po_vendor,
-            'category'        => $request->category,
-            'vendors'         => $request->vendors,
-            'vendor_prices'   => $request->vendor_prices,
-            'selected_vendor' => $request->selected_vendor,
-            'notes'           => $request->notes,
-            'status'          => 'pending_supervisor',
-            'created_by'      => Auth::id(),
-        ]);
+        try {
+            $comparison = VendorComparison::create([
+                'comparison_code' => $comparisonCode,
+                'po_id'           => $request->po_id,
+                'po_name'         => $request->po_name,
+                'po_vendor'       => $request->po_vendor,
+                'category'        => $request->category,
+                'vendors'         => $request->vendors,
+                'vendor_prices'   => $request->vendor_prices,
+                'selected_vendor' => $request->selected_vendor,
+                'notes'           => $request->notes,
+                'status'          => 'pending_supervisor',
+                'created_by'      => Auth::id(),
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            return back()->with('error', 'A comparison for this RFQ is already active. Please view it in Approvals.');
+        }
 
         // Audit log
         ComparisonLog::create([
