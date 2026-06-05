@@ -359,7 +359,7 @@ class OdooService
                 [
                     'fields' => ['id', 'name', 'street', 'street2', 'city', 'phone', 'mobile', 'email'],
                     'order'  => 'name asc',
-                    'limit'  => 500,
+                    'limit'  => 0,
                 ]
             );
 
