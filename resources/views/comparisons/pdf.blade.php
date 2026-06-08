@@ -413,9 +413,7 @@
             Tgl {{ $comparison->created_at->format('d/m/y') }}<br>
             Dibuat oleh,<br><br><br><br><br>
             ({{ $comparison->creator->name ?? '—' }})<br>
-        </div>
-        <div style="font-size:8px; color:#555; text-align:right;">
-            SDP/FR/PCH/12, Rev.02
+            <span style="font-size:8px; color:#555;">SDP/FR/PCH/12, Rev.02</span>
         </div>
     </div>
 
