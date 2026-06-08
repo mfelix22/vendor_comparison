@@ -35,6 +35,7 @@ class ComparisonController extends Controller
             'pending_manager'    => $comparisons->where('status', 'pending_manager')->count(),
             'approved'           => $comparisons->where('status', 'approved')->count(),
             'rejected'           => $comparisons->where('status', 'rejected')->count(),
+            'cancelled'          => $comparisons->where('status', 'cancelled')->count(),
         ];
 
         return view('comparisons.index', compact('comparisons', 'stats'));
@@ -62,7 +63,7 @@ class ComparisonController extends Controller
         ]);
 
         if (VendorComparison::where('po_id', $request->po_id)
-            ->whereNotIn('status', ['rejected'])->exists()
+            ->whereNotIn('status', ['rejected', 'cancelled'])->exists()
         ) {
             return back()->with('error', 'A comparison for this RFQ is already active. Please view it in Approvals.');
         }
@@ -269,6 +270,36 @@ class ComparisonController extends Controller
     }
 
     /**
+     * Cancel an approved comparison (supervisor or manager only).
+     */
+    public function cancel(Request $request, VendorComparison $comparison)
+    {
+        $user = Auth::user();
+
+        $request->validate(['cancel_reason' => ['required', 'string', 'max:2000']]);
+
+        if (!$comparison->isCancellableBy($user)) {
+            return back()->with('error', 'Only supervisors or managers can cancel an approved comparison.');
+        }
+
+        $comparison->update([
+            'status'        => 'cancelled',
+            'cancelled_by'  => $user->id,
+            'cancelled_at'  => now(),
+            'cancel_reason' => $request->cancel_reason,
+        ]);
+
+        ComparisonLog::create([
+            'comparison_id' => $comparison->id,
+            'user_id'       => $user->id,
+            'action'        => 'cancelled',
+            'notes'         => $request->cancel_reason,
+        ]);
+
+        return back()->with('success', 'Comparison has been cancelled.');
+    }
+
+    /**
      * Show a single comparison.
      */
     public function show(VendorComparison $comparison)
@@ -291,7 +322,7 @@ class ComparisonController extends Controller
             $history = [];
         }
 
-        $comparison->load(['creator', 'supervisor', 'manager', 'rejectedBy', 'logs.user']);
+        $comparison->load(['creator', 'supervisor', 'manager', 'rejectedBy', 'cancelledBy', 'logs.user']);
 
         return view('comparisons.show', compact('comparison', 'rfq', 'history'));
     }

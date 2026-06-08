@@ -28,6 +28,9 @@ class VendorComparison extends Model
         'rejected_at',
         'rejection_reason',
         'odoo_synced_at',
+        'cancelled_by',
+        'cancelled_at',
+        'cancel_reason',
     ];
 
     protected $casts = [
@@ -37,6 +40,7 @@ class VendorComparison extends Model
         'manager_approved_at'    => 'datetime',
         'rejected_at'            => 'datetime',
         'odoo_synced_at'         => 'datetime',
+        'cancelled_at'           => 'datetime',
     ];
 
     // ── Relationships ──────────────────────────────────────
@@ -59,6 +63,11 @@ class VendorComparison extends Model
     public function rejectedBy()
     {
         return $this->belongsTo(User::class, 'rejected_by');
+    }
+
+    public function cancelledBy()
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
     }
 
     public function logs()
@@ -93,6 +102,15 @@ class VendorComparison extends Model
     {
         return $this->status === 'rejected';
     }
+    public function isCancelled(): bool
+    {
+        return $this->status === 'cancelled';
+    }
+    public function isCancellableBy(\App\Models\User $user): bool
+    {
+        return $this->isApproved()
+            && ($user->isSupervisor() || $user->isManager());
+    }
 
     public function statusLabel(): string
     {
@@ -101,6 +119,7 @@ class VendorComparison extends Model
             'pending_manager'    => 'Pending Manager',
             'approved'           => 'Approved',
             'rejected'           => 'Rejected',
+            'cancelled'          => 'Cancelled',
             default              => 'Draft',
         };
     }
@@ -112,6 +131,7 @@ class VendorComparison extends Model
             'pending_manager'    => 'bg-info text-dark',
             'approved'           => 'bg-success',
             'rejected'           => 'bg-danger',
+            'cancelled'          => 'bg-secondary',
             default              => 'bg-secondary',
         };
     }

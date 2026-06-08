@@ -28,6 +28,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/comparisons/{comparison}', [ComparisonController::class, 'update'])->name('comparisons.update');
     Route::post('/comparisons/{comparison}/approve', [ComparisonController::class, 'approve'])->name('comparisons.approve');
     Route::post('/comparisons/{comparison}/reject', [ComparisonController::class, 'reject'])->name('comparisons.reject');
+    Route::post('/comparisons/{comparison}/cancel', [ComparisonController::class, 'cancel'])->name('comparisons.cancel');
     Route::get('/comparisons/{comparison}/pdf', [ComparisonController::class, 'pdf'])->name('comparisons.pdf');
     Route::post('/comparisons/{comparison}/odoo-post', [ComparisonController::class, 'odooPost'])->name('comparisons.odoo-post');
 

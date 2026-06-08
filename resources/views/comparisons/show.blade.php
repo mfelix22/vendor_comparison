@@ -195,8 +195,40 @@
                                     <em>{{ $comparison->rejection_reason }}</em>
                                 </div>
                             @endif
+
+                            {{-- Cancellation info --}}
+                            @if ($comparison->isCancelled())
+                                <div class="alert alert-secondary mt-3 mb-0 py-2 small">
+                                    <strong><i class="bi bi-x-circle me-1"></i>Cancelled</strong>
+                                    by {{ $comparison->cancelledBy->name ?? '—' }}
+                                    on {{ $comparison->cancelled_at?->format('d M Y H:i') }}<br>
+                                    <em>{{ $comparison->cancel_reason }}</em>
+                                </div>
+                            @endif
                         </div>
                     </div>
+
+                    {{-- Cancel card for approved comparisons --}}
+                    @if ($comparison->isCancellableBy(Auth::user()))
+                        <div class="card border-secondary mt-3">
+                            <div class="card-header py-2" style="background:#f8f9fa; border-color:#6c757d">
+                                <h6 class="mb-0 text-secondary"><i class="bi bi-x-circle me-2"></i>Cancel Approved Comparison</h6>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted small mb-2">This comparison is already approved. Cancelling will void it and allow a new CLVP to be submitted for this RFQ.</p>
+                                <form method="POST" action="{{ route('comparisons.cancel', $comparison) }}">
+                                    @csrf
+                                    <label class="form-label fw-semibold small text-secondary">Reason for Cancellation <span class="text-danger">*</span></label>
+                                    <textarea name="cancel_reason" class="form-control form-control-sm mb-2" rows="2"
+                                        placeholder="State the reason for cancellation…" required></textarea>
+                                    <button type="submit" class="btn btn-outline-secondary w-100"
+                                        onclick="return confirm('Are you sure you want to cancel this approved comparison? This action cannot be undone.')">
+                                        <i class="bi bi-x-circle me-2"></i>Cancel Comparison
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    @endif
 
                     {{-- Action card (supervisor / manager) --}}
                     @if (
