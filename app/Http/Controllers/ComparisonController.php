@@ -19,6 +19,7 @@ class ComparisonController extends Controller
      */
     public function index()
     {
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
         $query = VendorComparison::with(['creator', 'supervisor', 'manager'])
@@ -31,11 +32,12 @@ class ComparisonController extends Controller
         $comparisons = $query->get();
 
         $stats = [
-            'pending_supervisor' => $comparisons->where('status', 'pending_supervisor')->count(),
-            'pending_manager'    => $comparisons->where('status', 'pending_manager')->count(),
-            'approved'           => $comparisons->where('status', 'approved')->count(),
-            'rejected'           => $comparisons->where('status', 'rejected')->count(),
-            'cancelled'          => $comparisons->where('status', 'cancelled')->count(),
+            'pending_supervisor'  => $comparisons->where('status', 'pending_supervisor')->count(),
+            'pending_procurement' => $comparisons->where('status', 'pending_procurement')->count(),
+            'pending_manager'     => $comparisons->where('status', 'pending_manager')->count(),
+            'approved'            => $comparisons->where('status', 'approved')->count(),
+            'rejected'            => $comparisons->where('status', 'rejected')->count(),
+            'cancelled'           => $comparisons->where('status', 'cancelled')->count(),
         ];
 
         return view('comparisons.index', compact('comparisons', 'stats'));
@@ -46,7 +48,9 @@ class ComparisonController extends Controller
      */
     public function store(Request $request)
     {
-        if (! Auth::user()->isCreator()) {
+        /** @var \App\Models\User $authUser */
+        $authUser = Auth::user();
+        if (! $authUser->isCreator()) {
             abort(403, 'Only staff/creators may submit a comparison.');
         }
 
@@ -76,19 +80,44 @@ class ComparisonController extends Controller
         $seq      = $lastCode ? ((int) substr($lastCode, -5)) + 1 : 1;
         $comparisonCode = $year . '/CP/' . str_pad($seq, 5, '0', STR_PAD_LEFT);
 
+        // Determine if Procurement review is required:
+        // either staff manually flagged it OR automatic rules trigger it
+        $manualFlag = (bool) ($request->requires_procurement ?? false);
+
+        $autoFlag = false;
+        try {
+            $rfqLines = $this->odoo->getRfq($request->po_id)['lines'] ?? [];
+            $productIds = array_values(array_filter(array_map(
+                fn($l) => is_array($l['product_id']) ? $l['product_id'][0] : null,
+                $rfqLines
+            )));
+            $history = $this->odoo->getProductVendorHistory($productIds);
+            $autoFlag = VendorComparison::checkRequiresProcurement(
+                $request->vendor_prices ?? [],
+                $history,
+                $rfqLines
+            );
+        } catch (\Throwable) {
+            // If Odoo is unreachable, fall back to manual flag only
+        }
+
+        $requiresProcurement = $manualFlag || $autoFlag;
+        $initialStatus = $requiresProcurement ? 'pending_procurement' : 'pending_supervisor';
+
         try {
             $comparison = VendorComparison::create([
-                'comparison_code' => $comparisonCode,
-                'po_id'           => $request->po_id,
-                'po_name'         => $request->po_name,
-                'po_vendor'       => $request->po_vendor,
-                'category'        => $request->category,
-                'vendors'         => $request->vendors,
-                'vendor_prices'   => $request->vendor_prices,
-                'selected_vendor' => $request->selected_vendor,
-                'notes'           => $request->notes,
-                'status'          => 'pending_supervisor',
-                'created_by'      => Auth::id(),
+                'comparison_code'      => $comparisonCode,
+                'po_id'                => $request->po_id,
+                'po_name'              => $request->po_name,
+                'po_vendor'            => $request->po_vendor,
+                'category'             => $request->category,
+                'vendors'              => $request->vendors,
+                'vendor_prices'        => $request->vendor_prices,
+                'selected_vendor'      => $request->selected_vendor,
+                'notes'                => $request->notes,
+                'status'               => $initialStatus,
+                'requires_procurement' => $requiresProcurement,
+                'created_by'           => Auth::id(),
             ]);
         } catch (UniqueConstraintViolationException) {
             return back()->with('error', 'A comparison for this RFQ is already active. Please view it in Approvals.');
@@ -105,8 +134,11 @@ class ComparisonController extends Controller
         // Clear localStorage draft key in session
         session()->flash('clear_draft_key', "clvp_draft_{$request->po_id}");
 
-        return redirect()->route('comparisons.index')
-            ->with('success', "Comparison for {$request->po_name} submitted for Supervisor approval.");
+        $msg = $requiresProcurement
+            ? "Comparison for {$request->po_name} submitted. Requires Procurement review first."
+            : "Comparison for {$request->po_name} submitted for Supervisor approval.";
+
+        return redirect()->route('comparisons.index')->with('success', $msg);
     }
 
     /**
@@ -114,6 +146,7 @@ class ComparisonController extends Controller
      */
     public function edit(VendorComparison $comparison)
     {
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
         if (!$comparison->isEditableBy($user)) {
@@ -148,6 +181,7 @@ class ComparisonController extends Controller
      */
     public function update(Request $request, VendorComparison $comparison)
     {
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
         if (!$comparison->isEditableBy($user)) {
@@ -192,9 +226,30 @@ class ComparisonController extends Controller
      */
     public function approve(Request $request, VendorComparison $comparison)
     {
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
         $request->validate(['notes' => ['nullable', 'string', 'max:2000']]);
+
+        // Flow: Staff → Procurement (if required) → Supervisor → Manager
+
+        if ($user->isProcurement() && $comparison->isPendingProcurement()) {
+            $comparison->update([
+                'status'                  => 'pending_supervisor',
+                'procurement_id'          => $user->id,
+                'procurement_approved_at' => now(),
+                'procurement_notes'       => $request->notes,
+            ]);
+
+            ComparisonLog::create([
+                'comparison_id' => $comparison->id,
+                'user_id'       => $user->id,
+                'action'        => 'approved_procurement',
+                'notes'         => $request->notes,
+            ]);
+
+            return back()->with('success', 'Procurement approved. Now pending Supervisor approval.');
+        }
 
         if ($user->isSupervisor() && $comparison->isPendingSupervisor()) {
             $comparison->update([
@@ -216,10 +271,10 @@ class ComparisonController extends Controller
 
         if ($user->isManager() && $comparison->isPendingManager()) {
             $comparison->update([
-                'status'             => 'approved',
-                'manager_id'         => $user->id,
+                'status'              => 'approved',
+                'manager_id'          => $user->id,
                 'manager_approved_at' => now(),
-                'manager_notes'      => $request->notes,
+                'manager_notes'       => $request->notes,
             ]);
 
             ComparisonLog::create([
@@ -240,12 +295,21 @@ class ComparisonController extends Controller
      */
     public function reject(Request $request, VendorComparison $comparison)
     {
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
         $request->validate(['rejection_reason' => ['required', 'string', 'max:2000']]);
 
-        if (!$user->isSupervisor() && !$user->isManager()) {
-            return back()->with('error', 'Only supervisors or managers can reject comparisons.');
+        if (!$user->isSupervisor() && !$user->isManager() && !$user->isProcurement()) {
+            return back()->with('error', 'Only supervisors, procurement, or managers can reject comparisons.');
+        }
+
+        if ($user->isProcurement() && !$comparison->isPendingProcurement()) {
+            return back()->with('error', 'Procurement can only reject comparisons pending their review.');
+        }
+
+        if ($user->isSupervisor() && !$comparison->isPendingSupervisor()) {
+            return back()->with('error', 'Supervisor can only reject comparisons pending their review.');
         }
 
         if ($comparison->isApproved() || $comparison->isRejected()) {
@@ -274,6 +338,7 @@ class ComparisonController extends Controller
      */
     public function cancel(Request $request, VendorComparison $comparison)
     {
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
         $request->validate(['cancel_reason' => ['required', 'string', 'max:2000']]);
@@ -322,7 +387,7 @@ class ComparisonController extends Controller
             $history = [];
         }
 
-        $comparison->load(['creator', 'supervisor', 'manager', 'rejectedBy', 'cancelledBy', 'logs.user']);
+        $comparison->load(['creator', 'supervisor', 'procurement', 'manager', 'rejectedBy', 'cancelledBy', 'logs.user']);
 
         return view('comparisons.show', compact('comparison', 'rfq', 'history'));
     }

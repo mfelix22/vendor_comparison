@@ -37,18 +37,28 @@ class User extends Authenticatable
     {
         return $this->role === 'manager';
     }
+    public function isProcurement(): bool
+    {
+        return $this->role === 'procurement';
+    }
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
+    }
+    public function isViewer(): bool
+    {
+        return $this->role === 'viewer';
     }
 
     public function roleBadge(): string
     {
         return match ($this->role) {
-            'supervisor' => 'Purchasing Supervisor',
-            'manager'    => 'Purchasing Manager',
-            'admin'      => 'Administrator',
-            default      => 'Purchasing Staff',
+            'supervisor'   => 'Purchasing Supervisor',
+            'procurement'  => 'Procurement',
+            'manager'      => 'Purchasing Manager',
+            'admin'        => 'Administrator',
+            'viewer'       => 'Viewer',
+            default        => 'Purchasing Staff',
         };
     }
 

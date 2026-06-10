@@ -9,7 +9,7 @@
             <i class="bi bi-exclamation-triangle me-2"></i>{{ $error }}
         </div>
         <a href="{{ route('rfq.index') }}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left me-1"></i>Back to RFQ List
+            <i class="bi bi-arrow-left me-1"></i>Back to Comparison List
         </a>
     @elseif($rfq)
         {{-- ── Breadcrumb ── --}}
@@ -20,7 +20,7 @@
         @endif
         <nav aria-label="breadcrumb" class="mb-3">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ route('rfq.index') }}">RFQ List</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('rfq.index') }}">Comparison List</a></li>
                 <li class="breadcrumb-item active">{{ $rfq['name'] }}</li>
             </ol>
         </nav>
@@ -317,9 +317,68 @@
                                     </div>
                                 </div>
 
+                                {{-- Procurement toggle --}}
+                                <div class="mb-3" id="procurementToggleSection">
+                                    <div id="procurementToggleCard" class="border rounded p-3 d-flex align-items-center justify-content-between gap-3"
+                                        style="cursor:pointer; border-color:#dee2e6; background:#f8f9fa; transition: all .2s"
+                                        onclick="toggleProcurement()">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <i class="bi bi-shield-check fs-5" id="procurementIcon" style="color:#6c757d"></i>
+                                            <div>
+                                                <div class="fw-semibold small" id="procurementLabel">Perlu Persetujuan Procurement?</div>
+                                                <div class="text-muted small" id="procurementDesc">Klik untuk mengaktifkan jika perbandingan ini membutuhkan review dari tim Procurement sebelum ke Supervisor.</div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span class="badge fs-6 px-3 py-2" id="procurementBadge" style="background:#e9ecef; color:#6c757d">Tidak</span>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="requires_procurement" id="requiresProcurementInput" value="0">
+                                </div>
+
                                 <button type="submit" class="btn btn-primary" id="clvpSubmitBtn" disabled>
-                                    <i class="bi bi-send me-2"></i>Submit untuk Persetujuan Supervisor
+                                    <i class="bi bi-send me-2"></i><span id="clvpSubmitLabel">Submit untuk Persetujuan Supervisor</span>
                                 </button>
+
+                                <script>
+                                    (function() {
+                                        let procurementOn = false;
+                                        window.toggleProcurement = function() {
+                                            procurementOn = !procurementOn;
+                                            const card   = document.getElementById('procurementToggleCard');
+                                            const icon   = document.getElementById('procurementIcon');
+                                            const label  = document.getElementById('procurementLabel');
+                                            const desc   = document.getElementById('procurementDesc');
+                                            const badge  = document.getElementById('procurementBadge');
+                                            const input  = document.getElementById('requiresProcurementInput');
+                                            const btnLbl = document.getElementById('clvpSubmitLabel');
+                                            if (procurementOn) {
+                                                card.style.borderColor  = '#7c3aed';
+                                                card.style.background   = '#f5f3ff';
+                                                icon.style.color        = '#7c3aed';
+                                                icon.className          = 'bi bi-shield-check fs-5';
+                                                label.textContent       = 'Perlu Persetujuan Procurement';
+                                                desc.textContent        = 'Perbandingan ini akan dikirim ke tim Procurement terlebih dahulu sebelum ke Supervisor.';
+                                                badge.textContent       = 'Ya';
+                                                badge.style.background  = '#7c3aed';
+                                                badge.style.color       = '#fff';
+                                                input.value             = '1';
+                                                btnLbl.textContent      = 'Submit untuk Persetujuan Procurement';
+                                            } else {
+                                                card.style.borderColor  = '#dee2e6';
+                                                card.style.background   = '#f8f9fa';
+                                                icon.style.color        = '#6c757d';
+                                                label.textContent       = 'Perlu Persetujuan Procurement?';
+                                                desc.textContent        = 'Klik untuk mengaktifkan jika perbandingan ini membutuhkan review dari tim Procurement sebelum ke Supervisor.';
+                                                badge.textContent       = 'Tidak';
+                                                badge.style.background  = '#e9ecef';
+                                                badge.style.color       = '#6c757d';
+                                                input.value             = '0';
+                                                btnLbl.textContent      = 'Submit untuk Persetujuan Supervisor';
+                                            }
+                                        };
+                                    })();
+                                </script>
                             </form>
                         </div>
                     </div>
@@ -1075,14 +1134,9 @@
                                         </td>
                                     </tr>
 
-                                    {{-- Historical vendors --}}
+                                    {{-- Historical vendors (ALL vendors including same vendor as RFQ) --}}
                                     @php
-                                        $otherRows = array_values(
-                                            array_filter(
-                                                array_values($vendorRows),
-                                                fn($r) => $r['vendor_id'] !== $rfqVendorId,
-                                            ),
-                                        );
+                                        $otherRows = array_values(array_values($vendorRows));
 
                                         // Most recent purchase (by date desc)
                                         $byDate = $otherRows;
@@ -1219,7 +1273,7 @@
 
         <div class="mt-3">
             <a href="{{ route('rfq.index') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i>Back to RFQ List
+                <i class="bi bi-arrow-left me-1"></i>Back to Comparison List
             </a>
         </div>
 

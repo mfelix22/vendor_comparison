@@ -128,7 +128,8 @@ class OdooService
                         'amount_total',
                         'origin',
                         'currency_id',
-                        'user_id'
+                        'user_id',
+                        'purchase_type',
                     ],
                     'order'  => 'id desc',
                 ]

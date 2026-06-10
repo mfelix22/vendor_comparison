@@ -126,7 +126,7 @@
 
     <nav class="navbar navbar-expand-lg mb-4">
         <div class="container-xl">
-            <a class="navbar-brand" href="{{ route('rfq.index') }}">
+            <a class="navbar-brand" href="{{ Auth::check() && Auth::user()->isViewer() ? route('rfq.list') : route('rfq.index') }}">
                 <i class="bi bi-bar-chart-steps me-2"></i>Vendor Comparison
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
@@ -135,16 +135,23 @@
             <div class="collapse navbar-collapse" id="mainNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ route('rfq.index') }}">
-                            <i class="bi bi-list-ul me-1"></i>RFQ List
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ route('comparisons.index') }}">
-                            <i class="bi bi-check2-square me-1"></i>Approvals
+                        <a class="nav-link" href="{{ route('rfq.list') }}">
+                            <i class="bi bi-file-earmark-text me-1"></i>RFQ List
                         </a>
                     </li>
                     @auth
+                        @if (!Auth::user()->isViewer())
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ route('rfq.index') }}">
+                                    <i class="bi bi-list-ul me-1"></i>Comparison List
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ route('comparisons.index') }}">
+                                    <i class="bi bi-check2-square me-1"></i>Approvals
+                                </a>
+                            </li>
+                        @endif
                         @if (Auth::user()->isAdmin())
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ route('admin.users') }}">

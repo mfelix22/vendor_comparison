@@ -114,21 +114,49 @@
                                     </div>
                                 </li>
 
-                                {{-- Step 2: Supervisor --}}
+                                {{-- Step 2: Procurement (conditional) --}}
+                                @if ($comparison->requires_procurement || $comparison->isPendingProcurement() || $comparison->procurement_approved_at)
+                                <li class="d-flex gap-3 mb-3">
+                                    <div class="text-center" style="width:28px">
+                                        @if ($comparison->procurement_approved_at)
+                                            <span class="badge bg-success rounded-circle p-2"><i class="bi bi-check-lg"></i></span>
+                                        @elseif($comparison->isRejected() && $comparison->rejectedBy?->isProcurement())
+                                            <span class="badge bg-danger rounded-circle p-2"><i class="bi bi-x-lg"></i></span>
+                                        @elseif($comparison->isPendingProcurement())
+                                            <span class="badge rounded-circle p-2 text-white" style="background:#7c3aed"><i class="bi bi-hourglass-split"></i></span>
+                                        @else
+                                            <span class="badge bg-secondary rounded-circle p-2"><i class="bi bi-dash"></i></span>
+                                        @endif
+                                        <div style="width:2px;height:30px;background:#e5e7eb;margin:4px auto"></div>
+                                    </div>
+                                    <div>
+                                        <div class="fw-semibold small">Procurement Approval</div>
+                                        @if ($comparison->procurement_approved_at)
+                                            <div class="text-muted small">{{ $comparison->procurement->name ?? '—' }}</div>
+                                            <div class="text-muted small">{{ $comparison->procurement_approved_at->format('d M Y H:i') }}</div>
+                                            @if ($comparison->procurement_notes)
+                                                <div class="mt-1 p-2 bg-light rounded small fst-italic">{{ $comparison->procurement_notes }}</div>
+                                            @endif
+                                        @elseif($comparison->isPendingProcurement())
+                                            <div class="small" style="color:#7c3aed">Waiting for Procurement review…</div>
+                                        @else
+                                            <div class="text-muted small">—</div>
+                                        @endif
+                                    </div>
+                                </li>
+                                @endif
+
+                                {{-- Step 3: Supervisor --}}
                                 <li class="d-flex gap-3 mb-3">
                                     <div class="text-center" style="width:28px">
                                         @if ($comparison->supervisor_approved_at)
-                                            <span class="badge bg-success rounded-circle p-2"><i
-                                                    class="bi bi-check-lg"></i></span>
+                                            <span class="badge bg-success rounded-circle p-2"><i class="bi bi-check-lg"></i></span>
                                         @elseif($comparison->isRejected() && $comparison->rejectedBy?->isSupervisor())
-                                            <span class="badge bg-danger rounded-circle p-2"><i
-                                                    class="bi bi-x-lg"></i></span>
+                                            <span class="badge bg-danger rounded-circle p-2"><i class="bi bi-x-lg"></i></span>
                                         @elseif($comparison->isPendingSupervisor())
-                                            <span class="badge bg-warning rounded-circle p-2"><i
-                                                    class="bi bi-hourglass-split"></i></span>
+                                            <span class="badge bg-warning rounded-circle p-2"><i class="bi bi-hourglass-split"></i></span>
                                         @else
-                                            <span class="badge bg-secondary rounded-circle p-2"><i
-                                                    class="bi bi-dash"></i></span>
+                                            <span class="badge bg-secondary rounded-circle p-2"><i class="bi bi-dash"></i></span>
                                         @endif
                                         <div style="width:2px;height:30px;background:#e5e7eb;margin:4px auto"></div>
                                     </div>
@@ -136,11 +164,9 @@
                                         <div class="fw-semibold small">Supervisor Approval</div>
                                         @if ($comparison->supervisor_approved_at)
                                             <div class="text-muted small">{{ $comparison->supervisor->name ?? '—' }}</div>
-                                            <div class="text-muted small">
-                                                {{ $comparison->supervisor_approved_at->format('d M Y H:i') }}</div>
+                                            <div class="text-muted small">{{ $comparison->supervisor_approved_at->format('d M Y H:i') }}</div>
                                             @if ($comparison->supervisor_notes)
-                                                <div class="mt-1 p-2 bg-light rounded small fst-italic">
-                                                    {{ $comparison->supervisor_notes }}</div>
+                                                <div class="mt-1 p-2 bg-light rounded small fst-italic">{{ $comparison->supervisor_notes }}</div>
                                             @endif
                                         @elseif($comparison->isPendingSupervisor())
                                             <div class="text-warning small">Waiting for approval…</div>
@@ -150,32 +176,26 @@
                                     </div>
                                 </li>
 
-                                {{-- Step 3: Manager --}}
+                                {{-- Step 4: Manager --}}
                                 <li class="d-flex gap-3">
                                     <div class="text-center" style="width:28px">
                                         @if ($comparison->manager_approved_at)
-                                            <span class="badge bg-success rounded-circle p-2"><i
-                                                    class="bi bi-check-lg"></i></span>
+                                            <span class="badge bg-success rounded-circle p-2"><i class="bi bi-check-lg"></i></span>
                                         @elseif($comparison->isRejected() && $comparison->rejectedBy?->isManager())
-                                            <span class="badge bg-danger rounded-circle p-2"><i
-                                                    class="bi bi-x-lg"></i></span>
+                                            <span class="badge bg-danger rounded-circle p-2"><i class="bi bi-x-lg"></i></span>
                                         @elseif($comparison->isPendingManager())
-                                            <span class="badge bg-warning rounded-circle p-2"><i
-                                                    class="bi bi-hourglass-split"></i></span>
+                                            <span class="badge bg-warning rounded-circle p-2"><i class="bi bi-hourglass-split"></i></span>
                                         @else
-                                            <span class="badge bg-secondary rounded-circle p-2"><i
-                                                    class="bi bi-dash"></i></span>
+                                            <span class="badge bg-secondary rounded-circle p-2"><i class="bi bi-dash"></i></span>
                                         @endif
                                     </div>
                                     <div>
                                         <div class="fw-semibold small">Manager Approval</div>
                                         @if ($comparison->manager_approved_at)
                                             <div class="text-muted small">{{ $comparison->manager->name ?? '—' }}</div>
-                                            <div class="text-muted small">
-                                                {{ $comparison->manager_approved_at->format('d M Y H:i') }}</div>
+                                            <div class="text-muted small">{{ $comparison->manager_approved_at->format('d M Y H:i') }}</div>
                                             @if ($comparison->manager_notes)
-                                                <div class="mt-1 p-2 bg-light rounded small fst-italic">
-                                                    {{ $comparison->manager_notes }}</div>
+                                                <div class="mt-1 p-2 bg-light rounded small fst-italic">{{ $comparison->manager_notes }}</div>
                                             @endif
                                         @elseif($comparison->isPendingManager())
                                             <div class="text-warning small">Waiting for approval…</div>
@@ -230,10 +250,11 @@
                         </div>
                     @endif
 
-                    {{-- Action card (supervisor / manager) --}}
+                    {{-- Action card (procurement / supervisor / manager) --}}
                     @if (
+                        (Auth::user()->isProcurement() && $comparison->isPendingProcurement()) ||
                         (Auth::user()->isSupervisor() && $comparison->isPendingSupervisor()) ||
-                            (Auth::user()->isManager() && $comparison->isPendingManager()))
+                        (Auth::user()->isManager() && $comparison->isPendingManager()))
                         <div class="card border-warning">
                             <div class="card-header py-2" style="background:#fefce8; border-color:#fde047">
                                 <h6 class="mb-0 text-warning"><i class="bi bi-pencil-square me-2"></i>Your Action Required
@@ -248,7 +269,9 @@
                                     <textarea name="notes" class="form-control form-control-sm mb-2" rows="2" placeholder="Add a comment…"></textarea>
                                     <button type="submit" class="btn btn-success w-100">
                                         <i class="bi bi-check-circle me-2"></i>
-                                        @if (Auth::user()->isSupervisor())
+                                        @if (Auth::user()->isProcurement())
+                                            Approve (Send to Supervisor)
+                                        @elseif (Auth::user()->isSupervisor())
                                             Approve (Send to Manager)
                                         @else
                                             Approve (Final Approval)
@@ -466,9 +489,7 @@
                                 $bestPrice = !empty($allPrices) ? min($allPrices) : null;
                                 $worstPrice = !empty($allPrices) ? max($allPrices) : null;
                                 $rfqVendorNm = is_array($rfq['partner_id']) ? $rfq['partner_id'][1] : '—';
-                                $otherRows = array_values(
-                                    array_filter(array_values($vendorRows), fn($r) => $r['vendor_id'] !== $rfqVendorId),
-                                );
+                                $otherRows = array_values(array_values($vendorRows));
                                 $byDate = $otherRows;
                                 usort($byDate, fn($a, $b) => strtotime($b['date']) <=> strtotime($a['date']));
                                 $mostRecentRow = $byDate[0] ?? null;

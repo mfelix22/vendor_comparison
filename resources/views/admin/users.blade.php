@@ -40,7 +40,9 @@
                     <select name="role" class="form-select form-select-sm" required>
                         <option value="creator" {{ old('role') === 'creator' ? 'selected' : '' }}>Purchasing Staff</option>
                         <option value="supervisor" {{ old('role') === 'supervisor' ? 'selected' : '' }}>Supervisor</option>
+                        <option value="procurement" {{ old('role') === 'procurement' ? 'selected' : '' }}>Procurement</option>
                         <option value="manager" {{ old('role') === 'manager' ? 'selected' : '' }}>Manager</option>
+                        <option value="viewer" {{ old('role') === 'viewer' ? 'selected' : '' }}>Viewer</option>
                         <option value="admin" {{ old('role') === 'admin' ? 'selected' : '' }}>Admin</option>
                     </select>
                 </div>
@@ -90,8 +92,10 @@
                                 <span
                                     class="badge {{ match ($u->role) {
                                         'supervisor' => 'bg-info text-dark',
+                                        'procurement' => 'bg-purple text-white',
                                         'manager' => 'bg-primary',
                                         'admin' => 'bg-dark',
+                                        'viewer' => 'bg-light text-dark border',
                                         default => 'bg-secondary',
                                     } }}">{{ $u->roleBadge() }}</span>
                             </td>
@@ -138,8 +142,14 @@
                                                     <option value="supervisor"
                                                         {{ $u->role === 'supervisor' ? 'selected' : '' }}>Supervisor
                                                     </option>
+                                                    <option value="procurement"
+                                                        {{ $u->role === 'procurement' ? 'selected' : '' }}>Procurement
+                                                    </option>
                                                     <option value="manager"
                                                         {{ $u->role === 'manager' ? 'selected' : '' }}>Manager</option>
+                                                    <option value="viewer"
+                                                        {{ $u->role === 'viewer' ? 'selected' : '' }}>Viewer
+                                                    </option>
                                                     <option value="admin" {{ $u->role === 'admin' ? 'selected' : '' }}>
                                                         Admin</option>
                                                 </select>

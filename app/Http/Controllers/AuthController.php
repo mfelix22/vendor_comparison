@@ -10,7 +10,9 @@ class AuthController extends Controller
     public function showLogin()
     {
         if (Auth::check()) {
-            return redirect()->route('rfq.index');
+            /** @var \App\Models\User $user */
+            $user = Auth::user();
+            return redirect()->route($user->isViewer() ? 'rfq.list' : 'rfq.index');
         }
 
         return view('auth.login');
@@ -25,8 +27,9 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
-
-            return redirect()->intended(route('rfq.index'));
+            /** @var \App\Models\User $user */
+            $user = Auth::user();
+            return redirect()->intended(route($user->isViewer() ? 'rfq.list' : 'rfq.index'));
         }
 
         return back()->withErrors([

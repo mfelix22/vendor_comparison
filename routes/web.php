@@ -17,6 +17,7 @@ Route::middleware('auth')->group(function () {
 
     // RFQ (read from Odoo)
     Route::get('/rfq', [RfqController::class, 'index'])->name('rfq.index');
+    Route::get('/rfq-list', [RfqController::class, 'rfqList'])->name('rfq.list');
     Route::post('/rfq/refresh', [RfqController::class, 'refresh'])->name('rfq.refresh');
     Route::get('/rfq/{id}', [RfqController::class, 'show'])->name('rfq.show')->where('id', '[0-9]+');
 

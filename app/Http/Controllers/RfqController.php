@@ -36,6 +36,52 @@ class RfqController extends Controller
     }
 
     /**
+     * List low-value RFQs (amount_total <= 250,000) — read-only view for all roles.
+     */
+    public function rfqList()
+    {
+        try {
+            $rfqs = $this->odoo->getRfqs();
+            $odooError = null;
+        } catch (\Throwable $e) {
+            $rfqs = [];
+            $odooError = $e->getMessage();
+        }
+
+        // Only keep general purchase type POs with amount_total <= 250,000
+        $rfqs = array_values(array_filter(
+            $rfqs,
+            fn($r) => ($r['amount_total'] ?? 0) <= 250000
+                && ($r['purchase_type'] ?? '') === 'general'
+        ));
+
+        // Fetch order lines for all matching RFQs so the popup can display products
+        $linesByRfq = [];
+        if (!empty($rfqs)) {
+            $allLineIds = array_merge(...array_map(fn($r) => $r['order_line'], $rfqs));
+            try {
+                if (!empty($allLineIds)) {
+                    $allLines   = $this->odoo->getOrderLines($allLineIds);
+                    $linesById  = collect($allLines)->keyBy('id');
+                    foreach ($rfqs as $rfq) {
+                        $linesByRfq[$rfq['id']] = array_values(
+                            array_filter(
+                                array_map(fn($lid) => $linesById[$lid] ?? null, $rfq['order_line'])
+                            )
+                        );
+                    }
+                }
+            } catch (\Throwable) {
+                $linesByRfq = [];
+            }
+        }
+
+        $cachedAt = Cache::get('odoo_rfqs_cached_at');
+
+        return view('rfq.list', compact('rfqs', 'odooError', 'cachedAt', 'linesByRfq'));
+    }
+
+    /**
      * Flush Odoo caches and redirect back to the RFQ list.
      */
     public function refresh()

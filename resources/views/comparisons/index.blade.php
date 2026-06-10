@@ -10,7 +10,15 @@
 
     {{-- Stats cards --}}
     <div class="row g-3 mb-4">
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-2">
+            <div class="card text-center h-100" style="border-color:#7c3aed">
+                <div class="card-body py-3">
+                    <div class="display-6 fw-bold" style="color:#7c3aed">{{ $stats['pending_procurement'] }}</div>
+                    <div class="small text-muted mt-1">Pending Procurement</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
             <div class="card text-center border-warning h-100">
                 <div class="card-body py-3">
                     <div class="display-6 fw-bold text-warning">{{ $stats['pending_supervisor'] }}</div>
@@ -18,7 +26,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-2">
             <div class="card text-center border-info h-100">
                 <div class="card-body py-3">
                     <div class="display-6 fw-bold text-info">{{ $stats['pending_manager'] }}</div>
@@ -49,7 +57,7 @@
             <i class="bi bi-info-circle me-2"></i>
             No comparisons submitted yet.
             @if (Auth::user()->isCreator())
-                Go to <a href="{{ route('rfq.index') }}">RFQ List</a> and click <strong>Compare</strong> to submit one.
+                Go to <a href="{{ route('rfq.index') }}">Comparison List</a> and click <strong>Compare</strong> to submit one.
             @endif
         </div>
     @else
@@ -137,8 +145,9 @@
                                             class="btn btn-sm btn-outline-primary">
                                             <i class="bi bi-eye me-1"></i>View
                                             @if (
+                                                (Auth::user()->isProcurement() && $c->isPendingProcurement()) ||
                                                 (Auth::user()->isSupervisor() && $c->isPendingSupervisor()) ||
-                                                    (Auth::user()->isManager() && $c->isPendingManager()))
+                                                (Auth::user()->isManager() && $c->isPendingManager()))
                                                 <span class="badge bg-warning text-dark ms-1">Action</span>
                                             @endif
                                         </a>

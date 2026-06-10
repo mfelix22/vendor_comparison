@@ -105,10 +105,31 @@
                 <hr class="my-3">
                 <div class="text-muted small">
                     <strong>Demo accounts</strong> (password: <code>harent123</code>)<br>
-                    <span class="badge bg-light text-dark border me-1">staff@harent.com</span>
-                    <span class="badge bg-light text-dark border me-1">supervisor@harent.com</span>
-                    <span class="badge bg-light text-dark border">manager@harent.com</span>
+                    <div class="d-flex flex-wrap gap-1 mt-2">
+                        <a href="#" class="badge bg-light text-dark border text-decoration-none demo-login"
+                            data-email="staff@harent.com" title="Purchasing Staff">Staff</a>
+                        <a href="#" class="badge bg-light text-dark border text-decoration-none demo-login"
+                            data-email="procurement@harent.com" title="Procurement Staff">Procurement</a>
+                        <a href="#" class="badge bg-light text-dark border text-decoration-none demo-login"
+                            data-email="supervisor@harent.com" title="Purchasing Supervisor">Supervisor</a>
+                        <a href="#" class="badge bg-light text-dark border text-decoration-none demo-login"
+                            data-email="manager@harent.com" title="Purchasing Manager">Manager</a>
+                        <a href="#" class="badge bg-light text-dark border text-decoration-none demo-login"
+                            data-email="viewer@harent.com" title="Viewer">Viewer</a>
+                        <a href="#" class="badge bg-light text-dark border text-decoration-none demo-login"
+                            data-email="admin@harent.com" title="Admin">Admin</a>
+                    </div>
+                    <div class="text-muted mt-1" style="font-size:.7rem">Click a role to auto-fill email</div>
                 </div>
+                <script>
+                    document.querySelectorAll('.demo-login').forEach(function(el) {
+                        el.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            document.querySelector('input[name=email]').value = this.dataset.email;
+                            document.querySelector('input[name=password]').value = 'harent123';
+                        });
+                    });
+                </script>
             </div>
         </div>
     </div>
