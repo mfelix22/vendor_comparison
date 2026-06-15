@@ -186,6 +186,7 @@
                                             <div class="form-check">
                                                 <input class="form-check-input" type="radio" name="category"
                                                     id="cat_{{ $val }}" value="{{ $val }}"
+                                                    onchange="if(typeof onCategoryChange==='function') onCategoryChange()"
                                                     {{ old('category', $prefillSource ? $prefillSource->category ?? 'umum' : 'umum') === $val ? 'checked' : '' }}>
                                                 <label class="form-check-label"
                                                     for="cat_{{ $val }}">{{ $lbl }}</label>
@@ -256,7 +257,7 @@
                                                             ? $line['product_uom'][1]
                                                             : '';
                                                     @endphp
-                                                    <tr data-row="{{ $lineIdx }}">
+                                                    <tr data-row="{{ $lineIdx }}" data-pricelist="{{ $line['price_unit'] }}">
                                                         <td class="text-center">{{ $lineIdx + 1 }}</td>
                                                         <td>
                                                             <div class="fw-semibold">{{ $pName }}</div>
@@ -628,7 +629,8 @@
                                     <input type="number" class="form-control form-control-sm"
                                         name="vendors[${idx}][discount]"
                                         placeholder="e.g., 10"
-                                        min="0" max="100" step="0.01">
+                                        min="0" max="100" step="0.01"
+                                        oninput="recalcDiscountForVendor(${idx})">
                                 </div>
                                 <div class="col-12">
                                     <label class="form-label small fw-semibold mb-1">Ketentuan Lain-lain dari Calon Supplier</label>
@@ -740,27 +742,32 @@
                             refreshRecommendDropdown();
                         }
 
-                        function addPriceColumn(idx) {
-                            const rows = document.querySelectorAll('#priceMatrixBody tr[data-row]');
-                            if (rows.length === 0) return;
+                        function isSparepartMode() {
+                            const cat = document.querySelector('input[name="category"]:checked');
+                            return cat && cat.value === 'sparepart';
+                        }
 
-                            // Add header
-                            const header = document.getElementById('priceMatrixHeader');
-                            const th = document.createElement('th');
-                            th.id = `priceColHeader_${idx}`;
-                            th.className = 'text-center';
-                            th.style.minWidth = '130px';
-                            th.innerHTML = `<span class="vendor-col-name small">Vendor ${idx+1}</span>
-                        <div class="small text-muted fst-italic" style="font-size:.7rem">Harga</div>`;
-                            header.appendChild(th);
-
-                            // Add input cell per product row
-                            rows.forEach(row => {
-                                const rowIdx = row.dataset.row;
-                                const td = document.createElement('td');
-                                td.className = 'p-1';
-                                td.id = `priceCell_${rowIdx}_${idx}`;
-                                td.innerHTML = `
+                        function buildPriceCell(rowIdx, idx, sparepart) {
+                            if (sparepart) {
+                                const pricelist = parseFloat(
+                                    document.querySelector(`#priceMatrixBody tr[data-row="${rowIdx}"]`)?.dataset.pricelist || 0
+                                );
+                                const discInp = document.querySelector(`[name="vendors[${idx}][discount]"]`);
+                                const disc    = discInp ? (parseFloat(discInp.value) || 0) : 0;
+                                const price   = Math.round(pricelist * (1 - disc / 100));
+                                return `
+                            <div class="text-end fw-semibold" id="discPrice_${rowIdx}_${idx}" style="font-size:.85rem">
+                                Rp ${price.toLocaleString('id-ID')}
+                            </div>
+                            <div class="text-end text-muted" style="font-size:.7rem">
+                                Disk ${disc}% dari Rp ${pricelist.toLocaleString('id-ID')}
+                            </div>
+                            <input type="hidden"
+                                name="vendor_prices[${rowIdx}][prices][${idx}]"
+                                id="priceHidden_${rowIdx}_${idx}"
+                                value="${price}">`;
+                            } else {
+                                return `
                             <div class="input-group input-group-sm">
                                 <input type="number" min="0" step="1"
                                     class="form-control form-control-sm text-end price-input"
@@ -773,11 +780,75 @@
                                     onchange="toggleTidakJual(${rowIdx},${idx},this)">
                                 <label class="form-check-label small text-muted" for="tj_${rowIdx}_${idx}">Tidak Menjual Barang</label>
                             </div>`;
+                            }
+                        }
+
+                        // Recalc all price cells for a given vendor column from their vendor-card discount
+                        function recalcDiscountForVendor(idx) {
+                            if (!isSparepartMode()) return;
+                            const discInp = document.querySelector(`[name="vendors[${idx}][discount]"]`);
+                            const disc    = discInp ? (parseFloat(discInp.value) || 0) : 0;
+                            document.querySelectorAll('#priceMatrixBody tr[data-row]').forEach(function(row) {
+                                const rowIdx  = row.dataset.row;
+                                const pricelist = parseFloat(row.dataset.pricelist || 0);
+                                const price   = Math.round(pricelist * (1 - disc / 100));
+                                const hidden  = document.getElementById(`priceHidden_${rowIdx}_${idx}`);
+                                const label   = document.getElementById(`discPrice_${rowIdx}_${idx}`);
+                                const sub     = label ? label.nextElementSibling : null;
+                                if (hidden) hidden.value = price;
+                                if (label)  label.textContent = 'Rp ' + price.toLocaleString('id-ID');
+                                if (sub)    sub.textContent   = 'Disk ' + disc + '% dari Rp ' + pricelist.toLocaleString('id-ID');
+                            });
+                            if (typeof window.checkProcurementRules === 'function') window.checkProcurementRules();
+                        }
+
+                        function addPriceColumn(idx) {
+                            const rows = document.querySelectorAll('#priceMatrixBody tr[data-row]');
+                            if (rows.length === 0) return;
+                            const sparepart = isSparepartMode();
+
+                            // Add header
+                            const header = document.getElementById('priceMatrixHeader');
+                            const th = document.createElement('th');
+                            th.id = `priceColHeader_${idx}`;
+                            th.className = 'text-center';
+                            th.style.minWidth = '130px';
+                            th.innerHTML = `<span class="vendor-col-name small">Vendor ${idx+1}</span>
+                        <div class="small text-muted fst-italic" style="font-size:.7rem">${sparepart ? 'Diskon → Harga' : 'Harga'}</div>`;
+                            header.appendChild(th);
+
+                            // Add input cell per product row
+                            rows.forEach(row => {
+                                const rowIdx = row.dataset.row;
+                                const td = document.createElement('td');
+                                td.className = 'p-1';
+                                td.id = `priceCell_${rowIdx}_${idx}`;
+                                td.innerHTML = buildPriceCell(rowIdx, idx, sparepart);
                                 row.appendChild(td);
                             });
 
                             document.getElementById('priceMatrixSection').style.display = '';
                             document.getElementById('recommendSection').style.display = '';
+                            if (typeof window.checkProcurementRules === 'function') window.checkProcurementRules();
+                        }
+
+                        function onCategoryChange() {
+                            const sparepart = isSparepartMode();
+                            // Rebuild every existing price cell
+                            document.querySelectorAll('#priceMatrixHeader th[id^="priceColHeader_"]').forEach(function(th) {
+                                const idx = parseInt(th.id.replace('priceColHeader_', ''));
+                                // Update header subtitle
+                                const sub = th.querySelector('.small.text-muted');
+                                if (sub) sub.textContent = sparepart ? 'Diskon → Harga' : 'Harga';
+                                // Rebuild each row's cell
+                                document.querySelectorAll('#priceMatrixBody tr[data-row]').forEach(function(row) {
+                                    const rowIdx = row.dataset.row;
+                                    const td = document.getElementById(`priceCell_${rowIdx}_${idx}`);
+                                    if (td) {
+                                        td.innerHTML = buildPriceCell(rowIdx, idx, sparepart);
+                                    }
+                                });
+                            });
                             if (typeof window.checkProcurementRules === 'function') window.checkProcurementRules();
                         }
 

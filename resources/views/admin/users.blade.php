@@ -92,7 +92,7 @@
                                 <span
                                     class="badge {{ match ($u->role) {
                                         'supervisor' => 'bg-info text-dark',
-                                        'procurement' => 'bg-purple text-white',
+                                        'procurement' => 'bg-warning text-dark',
                                         'manager' => 'bg-primary',
                                         'admin' => 'bg-dark',
                                         'viewer' => 'bg-light text-dark border',

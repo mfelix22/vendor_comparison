@@ -102,6 +102,7 @@
                     </button>
                 </form>
 
+                {{-- Demo accounts hidden for production
                 <hr class="my-3">
                 <div class="text-muted small">
                     <strong>Demo accounts</strong> (password: <code>harent123</code>)<br>
@@ -116,8 +117,8 @@
                             data-email="manager@harent.com" title="Purchasing Manager">Manager</a>
                         <a href="#" class="badge bg-light text-dark border text-decoration-none demo-login"
                             data-email="viewer@harent.com" title="Viewer">Viewer</a>
-                        {{-- <a href="#" class="badge bg-light text-dark border text-decoration-none demo-login"
-                            data-email="admin@harent.com" title="Admin">Admin</a> --}}
+                        <a href="#" class="badge bg-light text-dark border text-decoration-none demo-login"
+                            data-email="admin@harent.com" title="Admin">Admin</a>
                     </div>
                     <div class="text-muted mt-1" style="font-size:.7rem">Click a role to auto-fill email</div>
                 </div>
@@ -129,7 +130,8 @@
                             document.querySelector('input[name=password]').value = 'harent123';
                         });
                     });
-                </script>
+                </script> --}}
+                
             </div>
         </div>
     </div>
