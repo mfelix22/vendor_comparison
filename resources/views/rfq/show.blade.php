@@ -802,30 +802,41 @@
                         }
 
                         function buildPriceCell(rowIdx, idx, sparepart) {
-                            // Auto-calc mode: sparepart category OR pricelist_original filled for this row
-                            const usePricelist = sparepart || rowHasPricelist(rowIdx);
-                            if (usePricelist) {
-                                const pricelist = getRowPricelist(rowIdx);
+                            const pricelist = getRowPricelist(rowIdx);
+                            const hasPl = sparepart ? pricelist > 0 : rowHasPricelist(rowIdx);
+                            if (hasPl) {
+                                // Sparepart / pricelist mode: editable input pre-filled with discounted price
                                 const discInp = document.querySelector(`[name="vendors[${idx}][discount]"]`);
                                 const disc    = discInp ? (parseFloat(discInp.value) || 0) : 0;
                                 const price   = Math.round(pricelist * (1 - disc / 100));
+                                // Always show discount hint in sparepart mode; only when disc>0 otherwise
+                                const hintText = sparepart
+                                    ? `Disk ${disc}% dari Rp ${pricelist.toLocaleString('id-ID')}`
+                                    : (disc > 0 ? `Disk ${disc}% dari Rp ${pricelist.toLocaleString('id-ID')}` : '');
+                                const hint = hintText ? `<div class="text-end text-muted" id="discHint_${rowIdx}_${idx}" style="font-size:.7rem;">${hintText}</div>` : `<div class="text-end text-muted" id="discHint_${rowIdx}_${idx}" style="font-size:.7rem;"></div>`;
                                 return `
-                            <div class="text-end fw-semibold" id="discPrice_${rowIdx}_${idx}" style="font-size:.85rem">
-                                Rp ${price.toLocaleString('id-ID')}
+                            ${hint}
+                            <div class="input-group input-group-sm">
+                                <input type="number" min="0" step="1"
+                                    class="form-control form-control-sm text-end price-input"
+                                    name="vendor_prices[${rowIdx}][prices][${idx}]"
+                                    id="priceInput_${rowIdx}_${idx}"
+                                    value="${price}"
+                                    placeholder="0">
                             </div>
-                            <div class="text-end text-muted" style="font-size:.7rem">
-                                Disk ${disc}% dari Rp ${pricelist.toLocaleString('id-ID')}
-                            </div>
-                            <input type="hidden"
-                                name="vendor_prices[${rowIdx}][prices][${idx}]"
-                                id="priceHidden_${rowIdx}_${idx}"
-                                value="${price}">`;
+                            <div class="form-check mt-1" style="display:none;">
+                                <input class="form-check-input tidak-jual-cb" type="checkbox"
+                                    id="tj_${rowIdx}_${idx}"
+                                    onchange="toggleTidakJual(${rowIdx},${idx},this)">
+                                <label class="form-check-label small text-muted" for="tj_${rowIdx}_${idx}">Tidak Menjual Barang</label>
+                            </div>`;
                             } else {
                                 return `
                             <div class="input-group input-group-sm">
                                 <input type="number" min="0" step="1"
                                     class="form-control form-control-sm text-end price-input"
                                     name="vendor_prices[${rowIdx}][prices][${idx}]"
+                                    id="priceInput_${rowIdx}_${idx}"
                                     placeholder="0">
                             </div>
                             <div class="form-check mt-1" style="display:none;">
@@ -862,16 +873,20 @@
                             const disc    = discInp ? (parseFloat(discInp.value) || 0) : 0;
                             document.querySelectorAll('#priceMatrixBody tr[data-row]').forEach(function(row) {
                                 const rowIdx  = row.dataset.row;
-                                const usePricelist = sparepart || rowHasPricelist(parseInt(rowIdx));
-                                if (!usePricelist) return; // manual-entry rows: don't touch
+                                const hasPl = sparepart ? getRowPricelist(parseInt(rowIdx)) > 0 : rowHasPricelist(parseInt(rowIdx));
+                                if (!hasPl) return; // manual-entry rows with no pricelist: don't touch
                                 const pricelist = getRowPricelist(parseInt(rowIdx));
                                 const price   = Math.round(pricelist * (1 - disc / 100));
-                                const hidden  = document.getElementById(`priceHidden_${rowIdx}_${idx}`);
-                                const label   = document.getElementById(`discPrice_${rowIdx}_${idx}`);
-                                const sub     = label ? label.nextElementSibling : null;
-                                if (hidden) hidden.value = price;
-                                if (label)  label.textContent = 'Rp ' + price.toLocaleString('id-ID');
-                                if (sub)    sub.textContent   = 'Disk ' + disc + '% dari Rp ' + pricelist.toLocaleString('id-ID');
+                                // Update the editable input directly
+                                const inp = document.getElementById(`priceInput_${rowIdx}_${idx}`);
+                                if (inp && !inp.disabled) inp.value = price;
+                                // Update the discount hint
+                                const hintEl = document.getElementById(`discHint_${rowIdx}_${idx}`);
+                                if (hintEl) {
+                                    hintEl.textContent = sparepart
+                                        ? `Disk ${disc}% dari Rp ${pricelist.toLocaleString('id-ID')}`
+                                        : (disc > 0 ? `Disk ${disc}% dari Rp ${pricelist.toLocaleString('id-ID')}` : '');
+                                }
                             });
                             if (typeof window.checkProcurementRules === 'function') window.checkProcurementRules();
                         }
@@ -924,11 +939,17 @@
                                     }
                                 });
                             });
-                            // When switching TO sparepart, disable pricelist-ori inputs (they become irrelevant)
+                            // Sparepart: lock pricelist-ori inputs as read-only; otherwise editable
                             document.querySelectorAll('.pricelist-ori-input').forEach(function(inp) {
-                                inp.disabled = sparepart;
-                                if (sparepart) inp.style.opacity = '0.5';
-                                else inp.style.opacity = '';
+                                if (sparepart) {
+                                    inp.readOnly = true;
+                                    inp.style.background = '#e9ecef';
+                                    inp.style.cursor = 'default';
+                                } else {
+                                    inp.readOnly = false;
+                                    inp.style.background = '';
+                                    inp.style.cursor = '';
+                                }
                             });
                             if (typeof window.checkProcurementRules === 'function') window.checkProcurementRules();
                         }
@@ -1378,8 +1399,8 @@
                             const catLabels = { unit_baru: 'Unit Baru', aksesoris: 'Aksesoris Mobil', sparepart: 'Sparepart', umum: 'Umum' };
                             let catHtml = cats.map(c => `<span style="margin-right:14px;"><span style="display:inline-block;width:12px;height:12px;border:1.5px solid #333;vertical-align:middle;margin-right:3px;background:${c===catRaw?'#333':'#fff'};">${c===catRaw?'<span style="color:#fff;font-size:9px;line-height:12px;display:block;text-align:center;">&#10003;</span>':''}</span>${catLabels[c]}</span>`).join('');
 
-                            // Show pricelist col?
-                            const showPl = rows.some(r => r.pricelist > 0);
+                            // Always show pricelist col in preview
+                            const showPl = true;
 
                             // Table header
                             let html = `
@@ -1395,7 +1416,7 @@
                                 <th rowspan="2" style="border:1px solid #000;padding:4px 6px;text-align:center;width:60px;">Kode Barang</th>
                                 <th rowspan="2" style="border:1px solid #000;padding:4px 6px;text-align:center;width:36px;">Qty</th>
                                 <th rowspan="2" style="border:1px solid #000;padding:4px 6px;text-align:center;width:36px;">UoM</th>
-                                ${showPl ? '<th rowspan="2" style="border:1px solid #000;padding:4px 6px;text-align:center;width:90px;">Pricelist Original</th>' : ''}
+                                <th rowspan="2" style="border:1px solid #000;padding:4px 6px;text-align:center;width:90px;">Pricelist Original</th>
                                 <th colspan="${vendors.length}" style="border:1px solid #000;padding:4px 6px;text-align:center;background:#f0f0f0;">MITRA BISNIS</th>
                             </tr>
                             <tr>
@@ -1420,7 +1441,7 @@
                                 html += `<td style="border:1px solid #000;padding:4px 6px;text-align:center;color:#888;font-size:10px;">${row.code}</td>`;
                                 html += `<td style="border:1px solid #000;padding:4px 6px;text-align:center;">${row.qty}</td>`;
                                 html += `<td style="border:1px solid #000;padding:4px 6px;text-align:center;">${row.uom}</td>`;
-                                if (showPl) html += `<td style="border:1px solid #000;padding:4px 6px;text-align:right;">${row.pricelist > 0 ? fmt(row.pricelist) : ''}</td>`;
+                                html += `<td style="border:1px solid #000;padding:4px 6px;text-align:right;">${row.pricelist > 0 ? fmt(row.pricelist) : ''}</td>`;
                                 vendors.forEach(function(v, vi) {
                                     const isRec = v.name === selVendor;
                                     const dRate = getDisc(v);
@@ -1474,11 +1495,12 @@
                         // Load draft / prefill after DOM ready
                         document.addEventListener('DOMContentLoaded', function() {
                             loadDraft();
-                            // If sparepart is pre-selected, disable pricelist-ori inputs
+                            // Apply read-only state on initial load if sparepart pre-selected
                             if (isSparepartMode()) {
                                 document.querySelectorAll('.pricelist-ori-input').forEach(function(inp) {
-                                    inp.disabled = true;
-                                    inp.style.opacity = '0.5';
+                                    inp.readOnly = true;
+                                    inp.style.background = '#e9ecef';
+                                    inp.style.cursor = 'default';
                                 });
                             }
                         });
