@@ -235,7 +235,7 @@
                                                     <th>Nama Barang</th>
                                                     <th class="text-center" style="width:60px">Qty</th>
                                                     <th class="text-center" style="width:60px">UoM</th>
-                                                    <th class="text-center" style="width:110px">Pricelist Ori (Rp)</th>
+                                                    <th class="text-center" style="width:120px">Pricelist Ori (Rp)<div class="fw-normal text-muted" style="font-size:.7rem">Opsional</div></th>
                                                     {{-- vendor columns injected by JS --}}
                                                 </tr>
                                             </thead>
@@ -284,12 +284,19 @@
                                                                 value="{{ $uom }}">
                                                             <input type="hidden"
                                                                 name="vendor_prices[{{ $lineIdx }}][pricelist_original]"
-                                                                value="{{ $line['price_unit'] }}">
+                                                                id="pricelistOrigHidden_{{ $lineIdx }}"
+                                                                value="{{ $line['price_unit'] > 0 ? $line['price_unit'] : '' }}">
                                                         </td>
                                                         <td class="text-center">{{ $line['product_qty'] }}</td>
                                                         <td class="text-center">{{ $uom }}</td>
-                                                        <td class="text-end pe-2">
-                                                            {{ number_format($line['price_unit'], 0, ',', '.') }}</td>
+                                                        <td class="p-1">
+                                                            <input type="number" min="0" step="1"
+                                                                class="form-control form-control-sm text-end pricelist-ori-input"
+                                                                id="pricelistOriInput_{{ $lineIdx }}"
+                                                                value="{{ $line['price_unit'] > 0 ? $line['price_unit'] : '' }}"
+                                                                placeholder="Opsional"
+                                                                oninput="onPricelistChange({{ $lineIdx }}, this.value)">
+                                                        </td>
                                                         {{-- price input cells injected by JS --}}
                                                     </tr>
                                                     @php $lineIdx++; @endphp
@@ -747,11 +754,32 @@
                             return cat && cat.value === 'sparepart';
                         }
 
+                        function getRowPricelist(rowIdx) {
+                            // Use the user-editable pricelist original input value if present; fallback to data-pricelist
+                            const inp = document.getElementById(`pricelistOriInput_${rowIdx}`);
+                            if (inp) {
+                                const v = parseFloat(inp.value);
+                                if (v > 0) return v;
+                            }
+                            // Also check if sparepart mode (use data-pricelist as fallback when input is empty)
+                            const row = document.querySelector(`#priceMatrixBody tr[data-row="${rowIdx}"]`);
+                            return parseFloat(row?.dataset.pricelist || 0);
+                        }
+
+                        function rowHasPricelist(rowIdx) {
+                            const inp = document.getElementById(`pricelistOriInput_${rowIdx}`);
+                            if (inp) {
+                                const v = parseFloat(inp.value);
+                                return v > 0;
+                            }
+                            return false;
+                        }
+
                         function buildPriceCell(rowIdx, idx, sparepart) {
-                            if (sparepart) {
-                                const pricelist = parseFloat(
-                                    document.querySelector(`#priceMatrixBody tr[data-row="${rowIdx}"]`)?.dataset.pricelist || 0
-                                );
+                            // Auto-calc mode: sparepart category OR pricelist_original filled for this row
+                            const usePricelist = sparepart || rowHasPricelist(rowIdx);
+                            if (usePricelist) {
+                                const pricelist = getRowPricelist(rowIdx);
                                 const discInp = document.querySelector(`[name="vendors[${idx}][discount]"]`);
                                 const disc    = discInp ? (parseFloat(discInp.value) || 0) : 0;
                                 const price   = Math.round(pricelist * (1 - disc / 100));
@@ -783,14 +811,34 @@
                             }
                         }
 
+                        function onPricelistChange(rowIdx, value) {
+                            // Sync the hidden input
+                            const hidden = document.getElementById(`pricelistOrigHidden_${rowIdx}`);
+                            if (hidden) hidden.value = value || '';
+
+                            const sparepart = isSparepartMode();
+                            // Rebuild price cells for this row across all vendor columns
+                            document.querySelectorAll('#priceMatrixHeader th[id^="priceColHeader_"]').forEach(function(th) {
+                                const idx = parseInt(th.id.replace('priceColHeader_', ''));
+                                const td = document.getElementById(`priceCell_${rowIdx}_${idx}`);
+                                if (td) {
+                                    td.innerHTML = buildPriceCell(rowIdx, idx, sparepart);
+                                }
+                            });
+                            if (typeof window.checkProcurementRules === 'function') window.checkProcurementRules();
+                            refreshRecommendation();
+                        }
+
                         // Recalc all price cells for a given vendor column from their vendor-card discount
                         function recalcDiscountForVendor(idx) {
-                            if (!isSparepartMode()) return;
+                            const sparepart = isSparepartMode();
                             const discInp = document.querySelector(`[name="vendors[${idx}][discount]"]`);
                             const disc    = discInp ? (parseFloat(discInp.value) || 0) : 0;
                             document.querySelectorAll('#priceMatrixBody tr[data-row]').forEach(function(row) {
                                 const rowIdx  = row.dataset.row;
-                                const pricelist = parseFloat(row.dataset.pricelist || 0);
+                                const usePricelist = sparepart || rowHasPricelist(parseInt(rowIdx));
+                                if (!usePricelist) return; // manual-entry rows: don't touch
+                                const pricelist = getRowPricelist(parseInt(rowIdx));
                                 const price   = Math.round(pricelist * (1 - disc / 100));
                                 const hidden  = document.getElementById(`priceHidden_${rowIdx}_${idx}`);
                                 const label   = document.getElementById(`discPrice_${rowIdx}_${idx}`);
@@ -839,6 +887,7 @@
                                 const idx = parseInt(th.id.replace('priceColHeader_', ''));
                                 // Update header subtitle
                                 const sub = th.querySelector('.small.text-muted');
+                                // Header hint: sparepart always auto-calc; otherwise per-row
                                 if (sub) sub.textContent = sparepart ? 'Diskon → Harga' : 'Harga';
                                 // Rebuild each row's cell
                                 document.querySelectorAll('#priceMatrixBody tr[data-row]').forEach(function(row) {
@@ -848,6 +897,12 @@
                                         td.innerHTML = buildPriceCell(rowIdx, idx, sparepart);
                                     }
                                 });
+                            });
+                            // When switching TO sparepart, disable pricelist-ori inputs (they become irrelevant)
+                            document.querySelectorAll('.pricelist-ori-input').forEach(function(inp) {
+                                inp.disabled = sparepart;
+                                if (sparepart) inp.style.opacity = '0.5';
+                                else inp.style.opacity = '';
                             });
                             if (typeof window.checkProcurementRules === 'function') window.checkProcurementRules();
                         }
@@ -1123,6 +1178,16 @@
                                     const nameInp = card.querySelector('.vendor-name-input');
                                     if (nameInp) nameInp.dispatchEvent(new Event('input'));
                                 });
+                                // Pre-fill pricelist originals per row
+                                PREFILL_PRICES.forEach((row, ri) => {
+                                    const plVal = row.pricelist_original;
+                                    if (plVal !== undefined && plVal !== null && plVal !== '') {
+                                        const plInp = document.getElementById(`pricelistOriInput_${ri}`);
+                                        const plHid = document.getElementById(`pricelistOrigHidden_${ri}`);
+                                        if (plInp) plInp.value = plVal;
+                                        if (plHid) plHid.value = plVal;
+                                    }
+                                });
                                 // Pre-fill prices
                                 PREFILL_PRICES.forEach((row, ri) => {
                                     PREFILL_VENDORS.forEach((_, vi) => {
@@ -1212,7 +1277,16 @@
                         document.getElementById('clvpForm').addEventListener('change', scheduleSave);
 
                         // Load draft / prefill after DOM ready
-                        document.addEventListener('DOMContentLoaded', loadDraft);
+                        document.addEventListener('DOMContentLoaded', function() {
+                            loadDraft();
+                            // If sparepart is pre-selected, disable pricelist-ori inputs
+                            if (isSparepartMode()) {
+                                document.querySelectorAll('.pricelist-ori-input').forEach(function(inp) {
+                                    inp.disabled = true;
+                                    inp.style.opacity = '0.5';
+                                });
+                            }
+                        });
                         @if (session('clear_draft_key'))
                             try {
                                 localStorage.removeItem('{{ session('clear_draft_key') }}');

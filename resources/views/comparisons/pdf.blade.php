@@ -170,6 +170,8 @@
         $logoSrc = file_exists($logoPath)
             ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath))
             : null;
+        // Only show Pricelist Original column if at least one row has a non-zero value
+        $showPricelistCol = collect($vpRows)->contains(fn($r) => !empty($r['pricelist_original']) && (float)$r['pricelist_original'] > 0);
     @endphp
 
     <table class="header-table">
@@ -205,7 +207,9 @@
                 <th rowspan="2" style="width:55px">Kode Barang</th>
                 <th rowspan="2" style="width:30px">Qty</th>
                 <th rowspan="2" style="width:30px">UoM</th>
+                @if ($showPricelistCol)
                 <th rowspan="2" style="width:80px">Pricelist Original</th>
+                @endif
                 @if (!empty($vendors))
                     <th colspan="{{ count($vendors) }}" style="background:#e0e0e0;">MITRA BISNIS</th>
                 @endif
@@ -261,7 +265,9 @@
                     <td class="text-center text-muted" style="font-size:9px;">{{ $pCode }}</td>
                     <td class="text-center">{{ $row['qty'] ?? '' }}</td>
                     <td class="text-center">{{ $row['uom'] ?? '' }}</td>
+                    @if ($showPricelistCol)
                     <td class="text-right">{{ number_format($row['pricelist_original'] ?? 0, 0, ',', '.') }}</td>
+                    @endif
                     @foreach ($vendors as $vi => $v)
                         @php
                             $price = $row['prices'][$vi] ?? null;
@@ -290,7 +296,7 @@
                     <td></td>
                     <td></td>
                     <td></td>
-                    <td></td>
+                    @if ($showPricelistCol)<td></td>@endif
                     @foreach ($vendors as $v)
                         @php $isRec = ($v['name'] ?? '') === $comparison->selected_vendor; @endphp
                         <td class="text-center {{ $isRec ? 'rec-cell' : '' }}"
@@ -309,7 +315,7 @@
                     <td></td>
                     <td></td>
                     <td></td>
-                    <td></td>
+                    @if ($showPricelistCol)<td></td>@endif
                     @foreach ($vendors as $v)
                         <td></td>
                     @endforeach
@@ -319,10 +325,12 @@
             {{-- TOTAL --}}
             <tr class="total-row">
                 <td colspan="5" class="text-right">TOTAL</td>
+                @if ($showPricelistCol)
                 <td class="text-right">
                     @php $origTotal = array_sum(array_column($vpRows, 'pricelist_original')); @endphp
                     {{ $currency }}{{ number_format($origTotal, 0, ',', '.') }}
                 </td>
+                @endif
                 @foreach ($vendors as $vi => $v)
                     @php
                         $vTotal = 0;
@@ -344,7 +352,7 @@
 
             {{-- Availability --}}
             <tr>
-                <td colspan="6"></td>
+                <td colspan="{{ $showPricelistCol ? 6 : 5 }}"></td>
                 @foreach ($vendors as $v)
                     @php $isRec = ($v['name'] ?? '') === $comparison->selected_vendor; @endphp
                     <td class="{{ $isRec ? 'rec-cell' : '' }}" style="font-size:9px;">
@@ -363,7 +371,7 @@
             @php $hasIndentDuration = collect($vendors)->contains(fn($v) => !empty($v['indent_duration'])); @endphp
             @if ($hasIndentDuration)
                 <tr>
-                    <td colspan="6" style="font-size:9px; font-style:italic; color:#c05c00;">Durasi Indent</td>
+                    <td colspan="{{ $showPricelistCol ? 6 : 5 }}" style="font-size:9px; font-style:italic; color:#c05c00;">Durasi Indent</td>
                     @foreach ($vendors as $v)
                         @php $isRec = ($v['name'] ?? '') === $comparison->selected_vendor; @endphp
                         <td class="{{ $isRec ? 'rec-cell' : '' }}"
@@ -375,7 +383,7 @@
 
             {{-- Tax --}}
             <tr>
-                <td colspan="6" style="font-size:9px;">Tax / PPN</td>
+                <td colspan="{{ $showPricelistCol ? 6 : 5 }}" style="font-size:9px;">Tax / PPN</td>
                 @foreach ($vendors as $v)
                     @php $isRec = ($v['name'] ?? '') === $comparison->selected_vendor; @endphp
                     <td class="{{ $isRec ? 'rec-cell' : '' }}" style="font-size:9px;">{{ $v['tax_info'] ?? '' }}</td>
@@ -384,7 +392,7 @@
 
             {{-- Payment terms --}}
             <tr>
-                <td colspan="6" style="font-size:9px;">Term of Payment</td>
+                <td colspan="{{ $showPricelistCol ? 6 : 5 }}" style="font-size:9px;">Term of Payment</td>
                 @foreach ($vendors as $v)
                     @php $isRec = ($v['name'] ?? '') === $comparison->selected_vendor; @endphp
                     <td class="{{ $isRec ? 'rec-cell' : '' }}" style="font-size:9px;">
