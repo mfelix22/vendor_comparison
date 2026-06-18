@@ -960,7 +960,7 @@
                             // Sparepart: lock pricelist-ori inputs as read-only; otherwise editable
                             document.querySelectorAll('.pricelist-ori-input').forEach(function(inp) {
                                 if (sparepart) {
-                                    inp.readOnly = true;
+                                    inp.readOnly = false;
                                     inp.style.background = '#e9ecef';
                                     inp.style.cursor = 'default';
                                 } else {
@@ -1506,7 +1506,7 @@
                             // Apply read-only state on initial load if sparepart pre-selected
                             if (isSparepartMode()) {
                                 document.querySelectorAll('.pricelist-ori-input').forEach(function(inp) {
-                                    inp.readOnly = true;
+                                    inp.readOnly = false;
                                     inp.style.background = '#e9ecef';
                                     inp.style.cursor = 'default';
                                 });
