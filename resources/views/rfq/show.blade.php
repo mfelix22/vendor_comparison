@@ -352,9 +352,35 @@
                                     <input type="hidden" name="requires_procurement" id="requiresProcurementInput" value="0">
                                 </div>
 
-                                <button type="submit" class="btn btn-primary" id="clvpSubmitBtn" disabled>
-                                    <i class="bi bi-send me-2"></i><span id="clvpSubmitLabel">Submit untuk Persetujuan Supervisor</span>
-                                </button>
+                                <div class="d-flex gap-2 align-items-center flex-wrap">
+                                    <button type="submit" class="btn btn-primary" id="clvpSubmitBtn" disabled>
+                                        <i class="bi bi-send me-2"></i><span id="clvpSubmitLabel">Submit untuk Persetujuan Supervisor</span>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="openClvpPreview()">
+                                        <i class="bi bi-eye me-2"></i>Preview CLVP
+                                    </button>
+                                </div>
+
+                                {{-- Preview CLVP Modal --}}
+                                <div class="modal fade" id="clvpPreviewModal" tabindex="-1" aria-labelledby="clvpPreviewModalLabel" aria-hidden="true">
+                                    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="clvpPreviewModalLabel">
+                                                    <i class="bi bi-file-earmark-spreadsheet me-2"></i>Preview Dokumen CLVP
+                                                </h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body p-3" id="clvpPreviewBody">
+                                                <p class="text-muted text-center">Memuat preview...</p>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <span class="text-muted small me-auto"><i class="bi bi-info-circle me-1"></i>Preview ini belum tersimpan. Submit form untuk menyimpan.</span>
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
                                 @php
                                     $productsWithHistory = array_keys(array_filter($history, fn($h) => !empty($h)));
@@ -1275,6 +1301,175 @@
                         }
                         document.getElementById('clvpForm').addEventListener('input', scheduleSave);
                         document.getElementById('clvpForm').addEventListener('change', scheduleSave);
+
+                        function openClvpPreview() {
+                            const body = document.getElementById('clvpPreviewBody');
+                            body.innerHTML = buildClvpPreviewHtml();
+                            const modal = new bootstrap.Modal(document.getElementById('clvpPreviewModal'));
+                            modal.show();
+                        }
+
+                        function buildClvpPreviewHtml() {
+                            // Gather category
+                            const catEl = document.querySelector('input[name="category"]:checked');
+                            const catRaw = catEl ? catEl.value : '';
+                            const catMap = { unit_baru: 'Unit Baru', aksesoris: 'Aksesoris Mobil', sparepart: 'Sparepart', umum: 'Umum' };
+                            const catLabel = catMap[catRaw] || catRaw;
+
+                            // Gather vendors from cards
+                            const vendors = [];
+                            document.querySelectorAll('.vendor-card').forEach(function(card) {
+                                const get = f => { const el = card.querySelector(`[name*="[${f}]"]`); return el ? el.value.trim() : ''; };
+                                const getRb = f => { const el = card.querySelector(`[name*="[${f}]"]:checked`); return el ? el.value : ''; };
+                                const name = get('name');
+                                if (!name) return;
+                                vendors.push({
+                                    name,
+                                    pic: get('pic'),
+                                    phone: get('phone'),
+                                    discount: get('discount'),
+                                    availability: getRb('availability'),
+                                    indent_duration: get('indent_duration'),
+                                    tax_info: get('tax_info'),
+                                    term_of_payment: get('term_of_payment'),
+                                });
+                            });
+
+                            // Gather selected vendor
+                            const selVendor = (document.getElementById('selectedVendorDropdown')?.value || '').trim();
+
+                            // Gather rows
+                            const rows = [];
+                            document.querySelectorAll('#priceMatrixBody tr[data-row]').forEach(function(tr) {
+                                const ri = tr.dataset.row;
+                                const nameEl = tr.querySelector('td:nth-child(2)');
+                                const qtyInp = tr.querySelector(`[name="vendor_prices[${ri}][qty]"]`);
+                                const uomInp = tr.querySelector(`[name="vendor_prices[${ri}][uom]"]`);
+                                const plHid  = tr.querySelector(`[name="vendor_prices[${ri}][pricelist_original]"]`);
+                                const codeInp = tr.querySelector(`[name="vendor_prices[${ri}][product_code]"]`);
+                                const descInp = tr.querySelector(`[name="vendor_prices[${ri}][product_description]"]`);
+                                const prices = [];
+                                document.querySelectorAll(`#priceMatrixHeader th[id^="priceColHeader_"]`).forEach(function(th) {
+                                    const idx = parseInt(th.id.replace('priceColHeader_', ''));
+                                    const pinp = tr.querySelector(`[name="vendor_prices[${ri}][prices][${idx}]"]`);
+                                    prices.push(pinp ? parseFloat(pinp.value) || 0 : 0);
+                                });
+                                rows.push({
+                                    name: nameEl ? nameEl.textContent.trim() : '',
+                                    code: codeInp ? codeInp.value : '',
+                                    desc: descInp ? descInp.value : '',
+                                    qty: qtyInp ? parseFloat(qtyInp.value) || 1 : 1,
+                                    uom: uomInp ? uomInp.value : '',
+                                    pricelist: plHid ? parseFloat(plHid.value) || 0 : 0,
+                                    prices,
+                                });
+                            });
+
+                            if (vendors.length === 0) {
+                                return '<div class="alert alert-warning">Belum ada vendor yang ditambahkan.</div>';
+                            }
+
+                            const cur = 'Rp';
+                            const fmt = n => cur + Math.round(n).toLocaleString('id-ID');
+                            const getDisc = v => { const m = String(v.discount||'').match(/[\d.]+/); return m ? parseFloat(m[0]) / 100 : 0; };
+
+                            // Category checkboxes header
+                            const cats = ['unit_baru','aksesoris','sparepart','umum'];
+                            const catLabels = { unit_baru: 'Unit Baru', aksesoris: 'Aksesoris Mobil', sparepart: 'Sparepart', umum: 'Umum' };
+                            let catHtml = cats.map(c => `<span style="margin-right:14px;"><span style="display:inline-block;width:12px;height:12px;border:1.5px solid #333;vertical-align:middle;margin-right:3px;background:${c===catRaw?'#333':'#fff'};">${c===catRaw?'<span style="color:#fff;font-size:9px;line-height:12px;display:block;text-align:center;">&#10003;</span>':''}</span>${catLabels[c]}</span>`).join('');
+
+                            // Show pricelist col?
+                            const showPl = rows.some(r => r.pricelist > 0);
+
+                            // Table header
+                            let html = `
+                            <div style="font-family:Arial,sans-serif; font-size:11px;">
+                            <div style="text-align:center; font-weight:bold; font-size:14px; margin-bottom:6px;">COMPARISON LOCAL VENDOR PRICE ( CLVP )</div>
+                            <div style="margin-bottom:8px;">${catHtml}</div>
+                            <div style="overflow-x:auto;">
+                            <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                            <thead>
+                            <tr>
+                                <th rowspan="2" style="border:1px solid #000;padding:4px 6px;text-align:center;width:24px;">No</th>
+                                <th rowspan="2" style="border:1px solid #000;padding:4px 6px;">Nama Barang</th>
+                                <th rowspan="2" style="border:1px solid #000;padding:4px 6px;text-align:center;width:60px;">Kode Barang</th>
+                                <th rowspan="2" style="border:1px solid #000;padding:4px 6px;text-align:center;width:36px;">Qty</th>
+                                <th rowspan="2" style="border:1px solid #000;padding:4px 6px;text-align:center;width:36px;">UoM</th>
+                                ${showPl ? '<th rowspan="2" style="border:1px solid #000;padding:4px 6px;text-align:center;width:90px;">Pricelist Original</th>' : ''}
+                                <th colspan="${vendors.length}" style="border:1px solid #000;padding:4px 6px;text-align:center;background:#f0f0f0;">MITRA BISNIS</th>
+                            </tr>
+                            <tr>
+                                ${vendors.map(v => {
+                                    const isRec = v.name === selVendor;
+                                    return `<th style="border:1px solid #000;padding:4px 6px;text-align:center;min-width:100px;${isRec?'background:#d4edda;':''}">
+                                        <div style="font-weight:bold;">${v.name}</div>
+                                        ${v.pic ? `<div style="font-size:10px;">PIC : ${v.pic}</div>` : ''}
+                                        ${v.phone ? `<div style="font-size:10px;">TELP : ${v.phone}</div>` : ''}
+                                        ${isRec ? '<div style="font-size:9px;color:#155724;font-weight:bold;">&#10003; Rekomendasi</div>' : ''}
+                                    </th>`;
+                                }).join('')}
+                            </tr>
+                            </thead>
+                            <tbody>`;
+
+                            // Product rows
+                            rows.forEach(function(row, ri) {
+                                html += '<tr>';
+                                html += `<td style="border:1px solid #000;padding:4px 6px;text-align:center;">${ri+1}</td>`;
+                                html += `<td style="border:1px solid #000;padding:4px 6px;">${row.code ? `<span style="background:#6c757d;color:#fff;padding:1px 4px;border-radius:3px;font-size:8px;margin-right:3px;">${row.code}</span>` : ''}${row.name}</td>`;
+                                html += `<td style="border:1px solid #000;padding:4px 6px;text-align:center;color:#888;font-size:10px;">${row.code}</td>`;
+                                html += `<td style="border:1px solid #000;padding:4px 6px;text-align:center;">${row.qty}</td>`;
+                                html += `<td style="border:1px solid #000;padding:4px 6px;text-align:center;">${row.uom}</td>`;
+                                if (showPl) html += `<td style="border:1px solid #000;padding:4px 6px;text-align:right;">${row.pricelist > 0 ? fmt(row.pricelist) : ''}</td>`;
+                                vendors.forEach(function(v, vi) {
+                                    const isRec = v.name === selVendor;
+                                    const dRate = getDisc(v);
+                                    const p = row.prices[vi] || 0;
+                                    const display = p > 0 ? fmt(p * (1 - dRate)) : '<span style="color:#888;font-style:italic;">Tidak Menjual Barang</span>';
+                                    html += `<td style="border:1px solid #000;padding:4px 6px;text-align:right;${isRec?'background:#f0fff4;':''}">${display}</td>`;
+                                });
+                                html += '</tr>';
+                            });
+
+                            // Spacer rows
+                            const spacers = Math.max(0, 6 - rows.length);
+                            for (let i = 0; i < spacers; i++) {
+                                const fixedCols = showPl ? 6 : 5;
+                                html += '<tr>' + Array(fixedCols + vendors.length).fill('<td style="border:1px solid #000;padding:4px 6px;">&nbsp;</td>').join('') + '</tr>';
+                            }
+
+                            // Disc row
+                            const hasDisc = vendors.some(v => v.discount > 0);
+                            if (hasDisc) {
+                                const fixedCols = showPl ? 6 : 5;
+                                html += '<tr>' + Array(fixedCols).fill('<td style="border:1px solid #000;"></td>').join('');
+                                vendors.forEach(function(v) {
+                                    const isRec = v.name === selVendor;
+                                    const d = parseFloat(v.discount) || 0;
+                                    html += `<td style="border:1px solid #000;padding:4px 6px;text-align:center;font-size:10px;font-weight:bold;color:#c0392b;${isRec?'background:#f0fff4;':''}">${d > 0 ? 'Disc ' + d + '%' : ''}</td>`;
+                                });
+                                html += '</tr>';
+                            }
+
+                            // Total row
+                            let origTotal = 0;
+                            rows.forEach(r => { origTotal += r.pricelist * r.qty; });
+                            const fixedCols = showPl ? 5 : 5;
+                            html += `<tr style="font-weight:bold;background:#f9f9f9;">`;
+                            html += `<td colspan="${fixedCols}" style="border:1px solid #000;padding:4px 6px;text-align:right;font-weight:bold;">TOTAL</td>`;
+                            if (showPl) html += `<td style="border:1px solid #000;padding:4px 6px;text-align:right;">${fmt(origTotal)}</td>`;
+                            vendors.forEach(function(v, vi) {
+                                const isRec = v.name === selVendor;
+                                const dRate = getDisc(v);
+                                let vTotal = 0;
+                                rows.forEach(r => { vTotal += (r.prices[vi] || 0) * r.qty * (1 - dRate); });
+                                html += `<td style="border:1px solid #000;padding:4px 6px;text-align:right;font-weight:bold;${isRec?'background:#f0fff4;':''}">${fmt(vTotal)}</td>`;
+                            });
+                            html += '</tr>';
+
+                            html += `</tbody></table></div></div>`;
+                            return html;
+                        }
 
                         // Load draft / prefill after DOM ready
                         document.addEventListener('DOMContentLoaded', function() {
