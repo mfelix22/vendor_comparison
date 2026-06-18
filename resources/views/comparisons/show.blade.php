@@ -886,16 +886,18 @@
                                     @php
                                         $price = $row['prices'][$vi] ?? null;
                                         $isRec = ($v['name'] ?? '') === $comparison->selected_vendor;
+                                        $pricelist = (float) ($row['pricelist_original'] ?? 0);
                                         preg_match('/[\d.]+/', $v['discount'] ?? '', $dm);
                                         $dRate = isset($dm[0]) ? (float) $dm[0] / 100 : 0;
-                                        $discountedPrice = $price && $dRate > 0 ? (float) $price * (1 - $dRate) : null;
+                                        // Backward-compat: old sparepart stored base price. If price ≈ pricelist, apply discount.
+                                        $isBasePrice = $pricelist > 0 && $price !== null && abs((float)$price - $pricelist) < 2;
+                                        $displayPrice = $isBasePrice && $dRate > 0 ? (float)$price * (1 - $dRate) : (float)$price;
                                     @endphp
                                     <td
                                         style="border:1px solid #000; padding:4px 6px; text-align:right; {{ $isRec ? 'background:#f0fff4;' : '' }}">
                                         @if ($price === null || $price === '' || $price == 0)
                                             <span style="color:#888; font-style:italic;">Tidak Menjual Barang</span>
                                         @else
-                                            @php $displayPrice = $dRate > 0 ? (float)$price * (1 - $dRate) : (float)$price; @endphp
                                             {{ $currency }}{{ number_format($displayPrice, 0, ',', '.') }}
                                         @endif
                                     </td>
@@ -954,20 +956,22 @@
                             @foreach ($vendors as $vi => $v)
                                 @php
                                     $vTotal = 0;
-                                    $vTotalDisc = 0;
                                     preg_match('/[\d.]+/', $v['discount'] ?? '', $dm);
                                     $dRate = isset($dm[0]) ? (float) $dm[0] / 100 : 0;
                                     foreach ($vpRows as $row) {
                                         $p = (float) ($row['prices'][$vi] ?? 0);
                                         $qty = (float) ($row['qty'] ?? 1);
-                                        $vTotal += $p * $qty;
-                                        $vTotalDisc += $p * $qty * (1 - $dRate);
+                                        $pricelist = (float) ($row['pricelist_original'] ?? 0);
+                                        // Backward-compat: if stored price ≈ pricelist, it was base price
+                                        $isBasePrice = $pricelist > 0 && abs($p - $pricelist) < 2;
+                                        $finalPrice = $isBasePrice && $dRate > 0 ? $p * (1 - $dRate) : $p;
+                                        $vTotal += $finalPrice * $qty;
                                     }
                                     $isRec = ($v['name'] ?? '') === $comparison->selected_vendor;
                                 @endphp
                                 <td
                                     style="border:1px solid #000; padding:4px 6px; text-align:right; font-weight:bold; {{ $isRec ? 'background:#f0fff4;' : '' }}">
-                                    {{ $currency }}{{ number_format($vTotalDisc, 0, ',', '.') }}
+                                    {{ $currency }}{{ number_format($vTotal, 0, ',', '.') }}
                                 </td>
                             @endforeach
                         </tr>

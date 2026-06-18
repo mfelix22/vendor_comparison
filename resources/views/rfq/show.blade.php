@@ -496,6 +496,7 @@
                                                     return;
                                                 }
 
+                                                // Input already stores discounted price (or manual price), use as-is
                                                 const total = price * qty;
 
                                                 if (qty >= 25) {
@@ -805,15 +806,15 @@
                             const pricelist = getRowPricelist(rowIdx);
                             const hasPl = sparepart ? pricelist > 0 : rowHasPricelist(rowIdx);
                             if (hasPl) {
-                                // Sparepart / pricelist mode: editable input pre-filled with discounted price
+                                // Sparepart / pricelist mode: input stores DISCOUNTED price per vendor
                                 const discInp = document.querySelector(`[name="vendors[${idx}][discount]"]`);
                                 const disc    = discInp ? (parseFloat(discInp.value) || 0) : 0;
-                                const price   = Math.round(pricelist * (1 - disc / 100));
-                                // Always show discount hint in sparepart mode; only when disc>0 otherwise
+                                const discounted = Math.round(pricelist * (1 - disc / 100));
+                                // Hint shows discount detail
                                 const hintText = sparepart
                                     ? `Disk ${disc}% dari Rp ${pricelist.toLocaleString('id-ID')}`
                                     : (disc > 0 ? `Disk ${disc}% dari Rp ${pricelist.toLocaleString('id-ID')}` : '');
-                                const hint = hintText ? `<div class="text-end text-muted" id="discHint_${rowIdx}_${idx}" style="font-size:.7rem;">${hintText}</div>` : `<div class="text-end text-muted" id="discHint_${rowIdx}_${idx}" style="font-size:.7rem;"></div>`;
+                                const hint = `<div class="text-end text-muted" id="discHint_${rowIdx}_${idx}" style="font-size:.7rem;">${hintText}</div>`;
                                 return `
                             ${hint}
                             <div class="input-group input-group-sm">
@@ -821,7 +822,7 @@
                                     class="form-control form-control-sm text-end price-input"
                                     name="vendor_prices[${rowIdx}][prices][${idx}]"
                                     id="priceInput_${rowIdx}_${idx}"
-                                    value="${price}"
+                                    value="${discounted}"
                                     placeholder="0">
                             </div>
                             <div class="form-check mt-1" style="display:none;">
@@ -854,12 +855,29 @@
                             if (hidden) hidden.value = value || '';
 
                             const sparepart = isSparepartMode();
-                            // Rebuild price cells for this row across all vendor columns
+                            const pricelist = getRowPricelist(rowIdx);
+                            // Update existing input values to new discounted prices for hasPl rows
                             document.querySelectorAll('#priceMatrixHeader th[id^="priceColHeader_"]').forEach(function(th) {
                                 const idx = parseInt(th.id.replace('priceColHeader_', ''));
                                 const td = document.getElementById(`priceCell_${rowIdx}_${idx}`);
                                 if (td) {
-                                    td.innerHTML = buildPriceCell(rowIdx, idx, sparepart);
+                                    const hasPl = sparepart ? pricelist > 0 : rowHasPricelist(rowIdx);
+                                    if (hasPl) {
+                                        const discInp = document.querySelector(`[name="vendors[${idx}][discount]"]`);
+                                        const disc = discInp ? (parseFloat(discInp.value) || 0) : 0;
+                                        const discounted = Math.round(pricelist * (1 - disc / 100));
+                                        const inp = td.querySelector(`#priceInput_${rowIdx}_${idx}`);
+                                        if (inp) inp.value = discounted;
+                                        const hintEl = document.getElementById(`discHint_${rowIdx}_${idx}`);
+                                        if (hintEl) {
+                                            hintEl.textContent = sparepart
+                                                ? `Disk ${disc}% dari Rp ${pricelist.toLocaleString('id-ID')}`
+                                                : (disc > 0 ? `Disk ${disc}% dari Rp ${pricelist.toLocaleString('id-ID')}` : '');
+                                        }
+                                    } else {
+                                        // No pricelist: rebuild to manual input
+                                        td.innerHTML = buildPriceCell(rowIdx, idx, sparepart);
+                                    }
                                 }
                             });
                             if (typeof window.checkProcurementRules === 'function') window.checkProcurementRules();
@@ -877,10 +895,10 @@
                                 if (!hasPl) return; // manual-entry rows with no pricelist: don't touch
                                 const pricelist = getRowPricelist(parseInt(rowIdx));
                                 const price   = Math.round(pricelist * (1 - disc / 100));
-                                // Update the editable input directly
+                                // Update input value and hint with new discounted price
+                                const discounted = Math.round(pricelist * (1 - disc / 100));
                                 const inp = document.getElementById(`priceInput_${rowIdx}_${idx}`);
-                                if (inp && !inp.disabled) inp.value = price;
-                                // Update the discount hint
+                                if (inp && !inp.disabled) inp.value = discounted;
                                 const hintEl = document.getElementById(`discHint_${rowIdx}_${idx}`);
                                 if (hintEl) {
                                     hintEl.textContent = sparepart
@@ -1012,25 +1030,6 @@
                                 return;
                             }
 
-                            rows.forEach(row => {
-                                const rowIdx = row.dataset.row;
-                                const qtyEl = row.querySelector(`[name="vendor_prices[${rowIdx}][qty]"]`);
-                                const qty = qtyEl ? (parseFloat(qtyEl.value) || 1) : 1;
-
-                                vendorIndices.forEach(idx => {
-                                    if (totals[idx] === Infinity) return;
-                                    const cb = document.getElementById(`tj_${rowIdx}_${idx}`);
-                                    if (cb && cb.checked) {
-                                        totals[idx] = Infinity;
-                                        return;
-                                    }
-                                    const priceInput = document.querySelector(
-                                        `[name="vendor_prices[${rowIdx}][prices][${idx}]"]`);
-                                    const val = priceInput ? parseFloat(priceInput.value) : 0;
-                                    if (val > 0) totals[idx] += val * qty;
-                                });
-                            });
-
                             const getName = idx => {
                                 const inp = document.querySelector(`[name="vendors[${idx}][name]"]`);
                                 return (inp && inp.value.trim()) ? inp.value.trim() : `Vendor ${idx + 1}`;
@@ -1042,15 +1041,29 @@
                             };
                             const fmt = n => 'IDR\u00a0' + Math.round(n).toLocaleString('id-ID');
 
-                            // Effective total after discount
+                            // Effective total: use input price as-is (already discounted for pricelist rows)
                             const effective = {};
-                            vendorIndices.forEach(idx => {
-                                if (totals[idx] === Infinity) {
-                                    effective[idx] = Infinity;
-                                    return;
-                                }
-                                const d = getDisc(idx);
-                                effective[idx] = totals[idx] * (1 - d / 100);
+                            vendorIndices.forEach(idx => { effective[idx] = 0; });
+
+                            rows.forEach(row => {
+                                const rowIdx = row.dataset.row;
+                                const qtyEl = row.querySelector(`[name="vendor_prices[${rowIdx}][qty]"]`);
+                                const qty = qtyEl ? (parseFloat(qtyEl.value) || 1) : 1;
+
+                                vendorIndices.forEach(idx => {
+                                    if (effective[idx] === Infinity) return;
+                                    const cb = document.getElementById(`tj_${rowIdx}_${idx}`);
+                                    if (cb && cb.checked) {
+                                        effective[idx] = Infinity;
+                                        return;
+                                    }
+                                    const priceInput = document.querySelector(
+                                        `[name="vendor_prices[${rowIdx}][prices][${idx}]"]`);
+                                    const val = priceInput ? parseFloat(priceInput.value) : 0;
+                                    if (val <= 0) return;
+                                    // Input stores final price (discounted or manual), use as-is
+                                    effective[idx] += val * qty;
+                                });
                             });
 
                             const valid = vendorIndices.filter(idx => effective[idx] !== Infinity && effective[idx] > 0);
@@ -1067,10 +1080,7 @@
                                 const badge = d > 0 ? ` <span class="badge bg-success ms-1" style="font-size:.72em">${d}% off</span>` :
                                     '';
                                 const effPrice = fmt(effective[idx]);
-                                const origNote = d > 0 ?
-                                    ` <span class="text-muted" style="font-size:.85em;text-decoration:line-through">${fmt(totals[idx])}</span>` :
-                                    '';
-                                return `${getName(idx)}${badge} ${origNote}${effPrice}`;
+                                return `${getName(idx)}${badge} ${effPrice}`;
                             };
 
                             let html = `<div class="alert alert-success py-2 px-3 mb-0 d-flex align-items-start gap-2">
@@ -1079,7 +1089,7 @@
 
                             if (sorted.length > 1) {
                                 const others = sorted.slice(1).map(idx => {
-                                    if (totals[idx] === Infinity)
+                                    if (effective[idx] === Infinity)
                                         return `<em>${getName(idx)}: Tidak Menjual Barang</em>`;
                                     const diff = effective[idx] - effective[bestIdx];
                                     return `${fmtVendor(idx)} <span class="text-danger fw-semibold">(+${fmt(diff)})</span>`;
@@ -1088,7 +1098,7 @@
                             }
 
                             // Tidak Jual vendors
-                            const cantSupply = vendorIndices.filter(idx => totals[idx] === Infinity);
+                            const cantSupply = vendorIndices.filter(idx => effective[idx] === Infinity);
                             if (cantSupply.length > 0) {
                                 html += `<br><small class="text-secondary"><i class="bi bi-x-circle me-1"></i>` +
                                     `Tidak Menjual Barang: ${cantSupply.map(getName).join(', ')}</small>`;
@@ -1444,9 +1454,8 @@
                                 html += `<td style="border:1px solid #000;padding:4px 6px;text-align:right;">${row.pricelist > 0 ? fmt(row.pricelist) : ''}</td>`;
                                 vendors.forEach(function(v, vi) {
                                     const isRec = v.name === selVendor;
-                                    const dRate = getDisc(v);
                                     const p = row.prices[vi] || 0;
-                                    const display = p > 0 ? fmt(p * (1 - dRate)) : '<span style="color:#888;font-style:italic;">Tidak Menjual Barang</span>';
+                                    const display = p > 0 ? fmt(p) : '<span style="color:#888;font-style:italic;">Tidak Menjual Barang</span>';
                                     html += `<td style="border:1px solid #000;padding:4px 6px;text-align:right;${isRec?'background:#f0fff4;':''}">${display}</td>`;
                                 });
                                 html += '</tr>';
@@ -1481,9 +1490,8 @@
                             if (showPl) html += `<td style="border:1px solid #000;padding:4px 6px;text-align:right;">${fmt(origTotal)}</td>`;
                             vendors.forEach(function(v, vi) {
                                 const isRec = v.name === selVendor;
-                                const dRate = getDisc(v);
                                 let vTotal = 0;
-                                rows.forEach(r => { vTotal += (r.prices[vi] || 0) * r.qty * (1 - dRate); });
+                                rows.forEach(r => { vTotal += (r.prices[vi] || 0) * r.qty; });
                                 html += `<td style="border:1px solid #000;padding:4px 6px;text-align:right;font-weight:bold;${isRec?'background:#f0fff4;':''}">${fmt(vTotal)}</td>`;
                             });
                             html += '</tr>';
