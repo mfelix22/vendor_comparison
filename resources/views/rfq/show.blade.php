@@ -957,18 +957,13 @@
                                     }
                                 });
                             });
-                            // Sparepart: lock pricelist-ori inputs as read-only; otherwise editable
+                            /* Remark: kept for future use
                             document.querySelectorAll('.pricelist-ori-input').forEach(function(inp) {
-                                if (sparepart) {
-                                    inp.readOnly = false;
-                                    inp.style.background = '#e9ecef';
-                                    inp.style.cursor = 'default';
-                                } else {
-                                    inp.readOnly = false;
-                                    inp.style.background = '';
-                                    inp.style.cursor = '';
-                                }
+                                inp.readOnly = false;
+                                inp.style.background = '';
+                                inp.style.cursor = '';
                             });
+                            */
                             if (typeof window.checkProcurementRules === 'function') window.checkProcurementRules();
                         }
 
@@ -1503,14 +1498,13 @@
                         // Load draft / prefill after DOM ready
                         document.addEventListener('DOMContentLoaded', function() {
                             loadDraft();
-                            // Apply read-only state on initial load if sparepart pre-selected
-                            if (isSparepartMode()) {
-                                document.querySelectorAll('.pricelist-ori-input').forEach(function(inp) {
-                                    inp.readOnly = false;
-                                    inp.style.background = '#e9ecef';
-                                    inp.style.cursor = 'default';
-                                });
-                            }
+                            /* Remark: kept for future use
+                            document.querySelectorAll('.pricelist-ori-input').forEach(function(inp) {
+                                inp.readOnly = false;
+                                inp.style.background = '';
+                                inp.style.cursor = '';
+                            });
+                            */
                         });
                         @if (session('clear_draft_key'))
                             try {
