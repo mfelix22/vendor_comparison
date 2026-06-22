@@ -26,10 +26,12 @@ class RfqController extends Controller
 
         // Map po_id → comparison so the view can show CLVP status badges.
         // When multiple comparisons exist for the same RFQ (e.g. after rejection + resubmission),
-        // prefer the active/latest one by ordering descending and keying by po_id (first wins).
+        // order descending by id so the newest is first, then unique() keeps the first occurrence
+        // per po_id — ensuring the latest (active) comparison wins over an older rejected one.
         $existingComparisons = VendorComparison::whereIn('po_id', array_column($rfqs, 'id'))
             ->orderByDesc('id')
             ->get(['id', 'po_id', 'status'])
+            ->unique('po_id')
             ->keyBy('po_id');
 
         // Cache staleness info
