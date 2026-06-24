@@ -25,6 +25,7 @@ class ComparisonController extends Controller
         $user = Auth::user();
 
         $query = VendorComparison::with(['creator', 'supervisor', 'manager'])
+            ->where('po_name', 'like', '%/POO/%')
             ->orderByDesc('created_at');
 
         if ($user->isCreator()) {
