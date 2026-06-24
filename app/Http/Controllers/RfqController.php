@@ -25,6 +25,12 @@ class RfqController extends Controller
             $odooError = $e->getMessage();
         }
 
+        // Only show POO purchase orders — exclude POU and other types
+        $rfqs = array_values(array_filter(
+            $rfqs,
+            fn($r) => str_contains($r['name'] ?? '', '/POO/')
+        ));
+
         // Map po_id → comparison so the view can show CLVP status badges.
         // When multiple comparisons exist for the same RFQ (e.g. after rejection + resubmission),
         // order descending by id so the newest is first, then unique() keeps the first occurrence
