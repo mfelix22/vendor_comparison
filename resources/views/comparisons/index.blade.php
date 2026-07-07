@@ -61,11 +61,23 @@
             @endif
         </div>
     @else
-        {{-- Search bar --}}
-        <div class="mb-3">
+        {{-- Search / status filter bar --}}
+        <div class="mb-3 d-flex flex-wrap gap-2">
             <div class="input-group input-group-sm" style="max-width:360px;">
                 <span class="input-group-text"><i class="bi bi-search"></i></span>
                 <input type="text" id="cmpSearch" class="form-control" placeholder="Search PO reference or vendor…">
+            </div>
+            <div class="input-group input-group-sm" style="max-width:220px;">
+                <span class="input-group-text"><i class="bi bi-funnel"></i></span>
+                <select id="cmpStatus" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="pending_procurement">Pending Procurement</option>
+                    <option value="pending_supervisor">Pending Supervisor</option>
+                    <option value="pending_manager">Pending Manager</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
             </div>
         </div>
 
@@ -89,6 +101,7 @@
                         <tbody>
                             @foreach ($comparisons as $c)
                                 <tr
+                                    data-status="{{ $c->status }}"
                                     data-search="{{ strtolower($c->po_name . ' ' . $c->po_vendor . ' ' . $c->selected_vendor) }}">
                                     <td class="ps-3 fw-semibold">{{ $c->po_name }}</td>
                                     <td class="text-muted small">{{ $c->po_vendor ?: '—' }}</td>
@@ -162,12 +175,18 @@
         </div>
 
         <script>
-            document.getElementById('cmpSearch').addEventListener('input', function() {
-                const q = this.value.toLowerCase();
+            function applyFilters() {
+                const q = document.getElementById('cmpSearch').value.toLowerCase();
+                const status = document.getElementById('cmpStatus').value;
                 document.querySelectorAll('#cmpTable tbody tr').forEach(row => {
-                    row.style.display = row.dataset.search.includes(q) ? '' : 'none';
+                    const matchesSearch = row.dataset.search.includes(q);
+                    const matchesStatus = !status || row.dataset.status === status;
+                    row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
                 });
-            });
+            }
+
+            document.getElementById('cmpSearch').addEventListener('input', applyFilters);
+            document.getElementById('cmpStatus').addEventListener('change', applyFilters);
         </script>
     @endif
 
