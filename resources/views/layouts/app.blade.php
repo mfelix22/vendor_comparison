@@ -150,11 +150,13 @@
                                 <i class="bi bi-check2-square me-1"></i>Approvals
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ route('master-suppliers.index') }}">
-                                <i class="bi bi-building me-1"></i>Master Supplier
-                            </a>
-                        </li>
+                        @if (!Auth::user()->isController() && !Auth::user()->isViewer())
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ route('master-suppliers.index') }}">
+                                    <i class="bi bi-building me-1"></i>Master Supplier
+                                </a>
+                            </li>
+                        @endif
                         @if (Auth::user()->isController() || Auth::user()->isAdmin())
                             <li class="nav-item">
                                 <a class="nav-link d-flex align-items-center gap-1" href="{{ route('comparisons.karoseri') }}">
