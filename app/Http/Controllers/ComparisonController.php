@@ -570,8 +570,8 @@ class ComparisonController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        if (!$user->isController() && !$user->isAdmin()) {
-            abort(403, 'Only the Controller or Admin may access this page.');
+        if (!$user->isController() && !$user->isManager() && !$user->isAdmin()) {
+            abort(403, 'Only the Controller, Manager, or Admin may access this page.');
         }
 
         $comparisons = VendorComparison::with(['creator', 'manager', 'controller'])

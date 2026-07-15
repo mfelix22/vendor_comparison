@@ -157,7 +157,7 @@
                                 </a>
                             </li>
                         @endif
-                        @if (Auth::user()->isController() || Auth::user()->isAdmin())
+                        @if (Auth::user()->isController() || Auth::user()->isManager() || Auth::user()->isAdmin())
                             <li class="nav-item">
                                 <a class="nav-link d-flex align-items-center gap-1" href="{{ route('comparisons.karoseri') }}">
                                     <i class="bi bi-eye-fill me-1"></i>Karoseri Ack.
