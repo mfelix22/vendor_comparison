@@ -452,7 +452,32 @@ class ComparisonController extends Controller
             return MasterSupplier::where('is_active', true)->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray();
         });
 
-        return view('comparisons.show', compact('comparison', 'rfq', 'history', 'localSupplierNames'));
+        // Determine prev and next for navigation
+        $statusFilter = request('status');
+        $query = VendorComparison::where('po_name', 'like', '%/POO/%');
+        
+        if (Auth::user()->isCreator()) {
+            $query->where('created_by', Auth::id());
+        }
+        if ($statusFilter) {
+            $query->where('status', $statusFilter);
+        }
+        
+        $ids = $query->orderByDesc('created_at')->orderByDesc('id')->pluck('id')->toArray();
+        $currentIndex = array_search($comparison->id, $ids);
+        
+        $prevId = null;
+        $nextId = null;
+        if ($currentIndex !== false) {
+            if ($currentIndex > 0) {
+                $prevId = $ids[$currentIndex - 1]; // Previous in array (newer)
+            }
+            if ($currentIndex < count($ids) - 1) {
+                $nextId = $ids[$currentIndex + 1]; // Next in array (older)
+            }
+        }
+
+        return view('comparisons.show', compact('comparison', 'rfq', 'history', 'localSupplierNames', 'prevId', 'nextId', 'statusFilter'));
     }
 
     /**

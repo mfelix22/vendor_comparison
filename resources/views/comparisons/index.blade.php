@@ -183,6 +183,17 @@
                     const matchesSearch = row.dataset.search.includes(q);
                     const matchesStatus = !status || row.dataset.status === status;
                     row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
+                    
+                    const viewLink = row.querySelector('a.btn-outline-primary');
+                    if (viewLink) {
+                        let url = new URL(viewLink.href);
+                        if (status) {
+                            url.searchParams.set('status', status);
+                        } else {
+                            url.searchParams.delete('status');
+                        }
+                        viewLink.href = url.toString();
+                    }
                 });
             }
 
