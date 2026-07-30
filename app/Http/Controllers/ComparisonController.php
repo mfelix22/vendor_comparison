@@ -463,17 +463,37 @@ class ComparisonController extends Controller
             $query->where('status', $statusFilter);
         }
         
-        $ids = $query->orderByDesc('created_at')->orderByDesc('id')->pluck('id')->toArray();
-        $currentIndex = array_search($comparison->id, $ids);
+        $items = $query->orderByDesc('created_at')->orderByDesc('id')->get(['id', 'created_at']);
+        $currentIndex = $items->search(fn($item) => $item->id === $comparison->id);
         
         $prevId = null;
         $nextId = null;
+        
         if ($currentIndex !== false) {
             if ($currentIndex > 0) {
-                $prevId = $ids[$currentIndex - 1]; // Previous in array (newer)
+                $prevId = $items[$currentIndex - 1]->id; // Previous in array (newer)
             }
-            if ($currentIndex < count($ids) - 1) {
-                $nextId = $ids[$currentIndex + 1]; // Next in array (older)
+            if ($currentIndex < $items->count() - 1) {
+                $nextId = $items[$currentIndex + 1]->id; // Next in array (older)
+            }
+        } elseif ($statusFilter) {
+            // Item not in list (e.g. status just changed). Find where it would be.
+            $nextIndex = $items->search(function($item) use ($comparison) {
+                if ($item->created_at->lt($comparison->created_at)) return true;
+                if ($item->created_at->eq($comparison->created_at) && $item->id < $comparison->id) return true;
+                return false;
+            });
+            
+            if ($nextIndex !== false) {
+                $nextId = $items[$nextIndex]->id;
+                if ($nextIndex > 0) {
+                    $prevId = $items[$nextIndex - 1]->id;
+                }
+            } else {
+                // All items are newer, so this would be at the end.
+                if ($items->count() > 0) {
+                    $prevId = $items->last()->id;
+                }
             }
         }
 
