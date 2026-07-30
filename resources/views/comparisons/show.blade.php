@@ -55,24 +55,44 @@
     @endif
 
     {{-- Tabs --}}
-    <ul class="nav nav-tabs mb-4" id="clvpTabs">
-        <li class="nav-item">
-            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabApproval">
-                <i class="bi bi-diagram-3 me-1"></i>Approval Workflow
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabClvp">
-                <i class="bi bi-file-earmark-spreadsheet me-1"></i>Dokumen CLVP
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabLog">
-                <i class="bi bi-journal-text me-1"></i>Audit Log
-                <span class="badge bg-secondary ms-1">{{ $comparison->logs->count() }}</span>
-            </button>
-        </li>
-    </ul>
+    <div class="d-flex justify-content-between align-items-end mb-4 border-bottom">
+        <ul class="nav nav-tabs border-bottom-0 mb-0" id="clvpTabs">
+            <li class="nav-item">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabApproval">
+                    <i class="bi bi-diagram-3 me-1"></i>Approval Workflow
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabClvp">
+                    <i class="bi bi-file-earmark-spreadsheet me-1"></i>Dokumen CLVP
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabLog">
+                    <i class="bi bi-journal-text me-1"></i>Audit Log
+                    <span class="badge bg-secondary ms-1">{{ $comparison->logs->count() }}</span>
+                </button>
+            </li>
+        </ul>
+        
+        <div class="btn-group mb-2">
+            @if ($prevId)
+                <a href="{{ route('comparisons.show', ['comparison' => $prevId] + ($statusFilter ? ['status' => $statusFilter] : [])) }}" class="btn btn-sm btn-outline-secondary fw-bold fs-5 px-3" style="line-height: 1;">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            @else
+                <button class="btn btn-sm btn-outline-secondary fw-bold fs-5 px-3 disabled" style="line-height: 1;"><i class="bi bi-chevron-left"></i></button>
+            @endif
+
+            @if ($nextId)
+                <a href="{{ route('comparisons.show', ['comparison' => $nextId] + ($statusFilter ? ['status' => $statusFilter] : [])) }}" class="btn btn-sm btn-outline-secondary fw-bold fs-5 px-3" style="line-height: 1;">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            @else
+                <button class="btn btn-sm btn-outline-secondary fw-bold fs-5 px-3 disabled" style="line-height: 1;"><i class="bi bi-chevron-right"></i></button>
+            @endif
+        </div>
+    </div>
 
     <div class="tab-content">
 
