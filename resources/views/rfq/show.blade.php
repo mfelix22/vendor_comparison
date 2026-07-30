@@ -1276,12 +1276,14 @@
                                         }
                                     });
                                 });
-                                // Pre-fill selected vendor
+                                // Pre-fill selected vendor — set synchronously after all vendor cards
+                                // are added so refreshRecommendDropdown() can preserve it via `prev`.
                                 if (PREFILL_SELECTED) {
-                                    setTimeout(() => {
-                                        const sel = document.getElementById('selectedVendorDropdown');
-                                        if (sel) sel.value = PREFILL_SELECTED;
-                                    }, 100);
+                                    const sel = document.getElementById('selectedVendorDropdown');
+                                    if (sel) sel.value = PREFILL_SELECTED;
+                                    // Call refreshRecommendDropdown one more time so it rebuilds the
+                                    // options list with `prev` already set to PREFILL_SELECTED.
+                                    refreshRecommendDropdown();
                                 }
                                 refreshRecommendation();
                                 return;
