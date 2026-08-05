@@ -10,7 +10,7 @@
 
     {{-- Stats cards --}}
     <div class="row g-3 mb-4">
-        <div class="col-6 col-md-2">
+        <div class="col-6 col-md-3">
             <div class="card text-center border-warning h-100">
                 <div class="card-body py-3">
                     <div class="display-6 fw-bold text-warning">{{ $stats['pending_supervisor'] }}</div>
@@ -18,7 +18,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-2">
+        <div class="col-6 col-md-3">
             <div class="card text-center border-info h-100">
                 <div class="card-body py-3">
                     <div class="display-6 fw-bold text-info">{{ $stats['pending_manager'] }}</div>
