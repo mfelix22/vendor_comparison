@@ -73,6 +73,12 @@
                             <div class="fw-semibold">{{ $rfq['user_id'][1] }}</div>
                         </div>
                     @endif
+                    @if (is_array($rfq['purchase_spv_id'] ?? null))
+                        <div class="col-sm-6 col-lg-3">
+                            <div class="text-muted small">Purchase SPV</div>
+                            <div class="fw-semibold text-primary">{{ $rfq['purchase_spv_id'][1] }}</div>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
