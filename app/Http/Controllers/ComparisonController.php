@@ -30,6 +30,11 @@ class ComparisonController extends Controller
 
         if ($user->isCreator()) {
             $query->where('created_by', $user->id);
+        } elseif ($user->isSupervisor()) {
+            $query->where(function ($q) use ($user) {
+                $q->where('supervisor_id', $user->id)
+                  ->orWhereNull('supervisor_id');
+            });
         }
 
         $comparisons = $query->get();
@@ -74,6 +79,27 @@ class ComparisonController extends Controller
             return back()->with('error', 'A comparison for this RFQ is already active. Please view it in Approvals.');
         }
 
+        // Auto-assign supervisor based on Odoo purchase_spv_id
+        $assignedSupervisorId = null;
+        try {
+            $rfqData = $this->odoo->getRfq($request->po_id);
+            if (!empty($rfqData['purchase_spv_id']) && is_array($rfqData['purchase_spv_id'])) {
+                $odooSpvName = $rfqData['purchase_spv_id'][1] ?? null;
+                if ($odooSpvName) {
+                    $mapping  = config('odoo.spv_mapping', []);
+                    $spvEmail = $mapping[$odooSpvName] ?? null;
+                    if ($spvEmail) {
+                        $spvUser = \App\Models\User::where('email', $spvEmail)->first();
+                        if ($spvUser) {
+                            $assignedSupervisorId = $spvUser->id;
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // Fallback to null (unassigned supervisor) if Odoo lookup fails
+        }
+
         // Generate comparison code: YYYY/CP/NNNNN
         $year     = now()->year;
         $lastCode = VendorComparison::where('comparison_code', 'like', "{$year}/CP/%")
@@ -94,6 +120,7 @@ class ComparisonController extends Controller
                 'selected_vendor' => $request->selected_vendor,
                 'notes'           => $request->notes,
                 'status'          => 'pending_supervisor',
+                'supervisor_id'   => $assignedSupervisorId,
                 'created_by'      => Auth::id(),
             ]);
         } catch (UniqueConstraintViolationException) {
