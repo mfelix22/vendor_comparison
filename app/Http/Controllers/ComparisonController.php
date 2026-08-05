@@ -35,12 +35,11 @@ class ComparisonController extends Controller
         $comparisons = $query->get();
 
         $stats = [
-            'pending_supervisor'  => $comparisons->where('status', 'pending_supervisor')->count(),
-            'pending_procurement' => $comparisons->where('status', 'pending_procurement')->count(),
-            'pending_manager'     => $comparisons->where('status', 'pending_manager')->count(),
-            'approved'            => $comparisons->where('status', 'approved')->count(),
-            'rejected'            => $comparisons->where('status', 'rejected')->count(),
-            'cancelled'           => $comparisons->where('status', 'cancelled')->count(),
+            'pending_supervisor' => $comparisons->where('status', 'pending_supervisor')->count(),
+            'pending_manager'    => $comparisons->where('status', 'pending_manager')->count(),
+            'approved'           => $comparisons->where('status', 'approved')->count(),
+            'rejected'           => $comparisons->where('status', 'rejected')->count(),
+            'cancelled'          => $comparisons->where('status', 'cancelled')->count(),
         ];
 
         return view('comparisons.index', compact('comparisons', 'stats'));
@@ -83,46 +82,19 @@ class ComparisonController extends Controller
         $seq      = $lastCode ? ((int) substr($lastCode, -5)) + 1 : 1;
         $comparisonCode = $year . '/CP/' . str_pad($seq, 5, '0', STR_PAD_LEFT);
 
-        // Determine if Procurement review is required:
-        // either staff manually flagged it OR automatic rules trigger it
-        $manualFlag = (bool) ($request->requires_procurement ?? false);
-
-        $autoFlag = false;
-        try {
-            $rfqLines = $this->odoo->getRfq($request->po_id)['lines'] ?? [];
-            $productIds = array_values(array_filter(array_map(
-                fn($l) => is_array($l['product_id']) ? $l['product_id'][0] : null,
-                $rfqLines
-            )));
-            $history = $this->odoo->getProductVendorHistory($productIds);
-            $autoFlag = VendorComparison::checkRequiresProcurement(
-                $request->vendor_prices ?? [],
-                $history,
-                $rfqLines,
-                $request->selected_vendor ?? '',
-                $request->vendors ?? []
-            );
-        } catch (\Throwable) {
-            // If Odoo is unreachable, fall back to manual flag only
-        }
-
-        $requiresProcurement = $manualFlag || $autoFlag;
-        $initialStatus = $requiresProcurement ? 'pending_procurement' : 'pending_supervisor';
-
         try {
             $comparison = VendorComparison::create([
-                'comparison_code'      => $comparisonCode,
-                'po_id'                => $request->po_id,
-                'po_name'              => $request->po_name,
-                'po_vendor'            => $request->po_vendor,
-                'category'             => $request->category,
-                'vendors'              => $request->vendors,
-                'vendor_prices'        => $request->vendor_prices,
-                'selected_vendor'      => $request->selected_vendor,
-                'notes'                => $request->notes,
-                'status'               => $initialStatus,
-                'requires_procurement' => $requiresProcurement,
-                'created_by'           => Auth::id(),
+                'comparison_code' => $comparisonCode,
+                'po_id'           => $request->po_id,
+                'po_name'         => $request->po_name,
+                'po_vendor'       => $request->po_vendor,
+                'category'        => $request->category,
+                'vendors'         => $request->vendors,
+                'vendor_prices'   => $request->vendor_prices,
+                'selected_vendor' => $request->selected_vendor,
+                'notes'           => $request->notes,
+                'status'          => 'pending_supervisor',
+                'created_by'      => Auth::id(),
             ]);
         } catch (UniqueConstraintViolationException) {
             return back()->with('error', 'A comparison for this RFQ is already active. Please view it in Approvals.');
@@ -139,11 +111,8 @@ class ComparisonController extends Controller
         // Clear localStorage draft key in session
         session()->flash('clear_draft_key', "clvp_draft_{$request->po_id}");
 
-        $msg = $requiresProcurement
-            ? "Comparison for {$request->po_name} submitted. Requires Procurement review first."
-            : "Comparison for {$request->po_name} submitted for Supervisor approval.";
-
-        return redirect()->route('comparisons.index')->with('success', $msg);
+        return redirect()->route('comparisons.index')
+            ->with('success', "Comparison for {$request->po_name} submitted for Supervisor approval.");
     }
 
     /**
@@ -253,25 +222,7 @@ class ComparisonController extends Controller
 
         $request->validate(['notes' => ['nullable', 'string', 'max:2000']]);
 
-        // Flow: Staff → Procurement (if required) → Supervisor → Manager
-
-        if ($user->isProcurement() && $comparison->isPendingProcurement()) {
-            $comparison->update([
-                'status'                  => 'pending_supervisor',
-                'procurement_id'          => $user->id,
-                'procurement_approved_at' => now(),
-                'procurement_notes'       => $request->notes,
-            ]);
-
-            ComparisonLog::create([
-                'comparison_id' => $comparison->id,
-                'user_id'       => $user->id,
-                'action'        => 'approved_procurement',
-                'notes'         => $request->notes,
-            ]);
-
-            return back()->with('success', 'Procurement approved. Now pending Supervisor approval.');
-        }
+        // Flow: Staff → Supervisor → Manager
 
         if ($user->isSupervisor() && $comparison->isPendingSupervisor()) {
             $comparison->update([
@@ -326,7 +277,7 @@ class ComparisonController extends Controller
         ]);
 
         if (!$comparison->canBypassApprove($user)) {
-            return back()->with('error', 'Only the Manager can bypass Procurement/Supervisor approval for this comparison.');
+            return back()->with('error', 'Only the Manager can bypass Supervisor approval for this comparison.');
         }
 
         $comparison->update([
@@ -346,7 +297,7 @@ class ComparisonController extends Controller
             'notes'         => $request->bypass_reason,
         ]);
 
-        return back()->with('success', 'Comparison approved via Manager bypass. Procurement/Supervisor steps were skipped.');
+        return back()->with('success', 'Comparison approved via Manager bypass. Supervisor step was skipped.');
     }
 
     /**
@@ -359,12 +310,8 @@ class ComparisonController extends Controller
 
         $request->validate(['rejection_reason' => ['required', 'string', 'max:2000']]);
 
-        if (!$user->isSupervisor() && !$user->isManager() && !$user->isProcurement()) {
-            return back()->with('error', 'Only supervisors, procurement, or managers can reject comparisons.');
-        }
-
-        if ($user->isProcurement() && !$comparison->isPendingProcurement()) {
-            return back()->with('error', 'Procurement can only reject comparisons pending their review.');
+        if (!$user->isSupervisor() && !$user->isManager()) {
+            return back()->with('error', 'Only supervisors or managers can reject comparisons.');
         }
 
         if ($user->isSupervisor() && !$comparison->isPendingSupervisor()) {
@@ -446,7 +393,7 @@ class ComparisonController extends Controller
             $history = [];
         }
 
-        $comparison->load(['creator', 'supervisor', 'procurement', 'manager', 'bypassedBy', 'controller', 'rejectedBy', 'cancelledBy', 'logs.user']);
+        $comparison->load(['creator', 'supervisor', 'manager', 'bypassedBy', 'controller', 'rejectedBy', 'cancelledBy', 'logs.user']);
 
         $localSupplierNames = Cache::remember('local_supplier_names', 300, function () {
             return MasterSupplier::where('is_active', true)->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray();
