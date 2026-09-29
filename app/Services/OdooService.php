@@ -137,6 +137,40 @@ class OdooService
                 ]
             );
 
+            // Fetch line quantities so we know maximum item quantity per RFQ
+            if (!empty($orders)) {
+                $orderIds = array_column($orders, 'id');
+                try {
+                    $lines = $this->call(
+                        'purchase.order.line',
+                        'search_read',
+                        [[['order_id', 'in', $orderIds]]],
+                        [
+                            'fields' => ['order_id', 'product_qty'],
+                        ]
+                    );
+
+                    $maxQtyByOrder = [];
+                    foreach ($lines ?? [] as $line) {
+                        $oid = is_array($line['order_id']) ? $line['order_id'][0] : $line['order_id'];
+                        $qty = (float) ($line['product_qty'] ?? 0);
+                        if (!isset($maxQtyByOrder[$oid]) || $qty > $maxQtyByOrder[$oid]) {
+                            $maxQtyByOrder[$oid] = $qty;
+                        }
+                    }
+
+                    foreach ($orders as &$order) {
+                        $order['max_qty'] = $maxQtyByOrder[$order['id']] ?? 0.0;
+                    }
+                    unset($order);
+                } catch (\Throwable) {
+                    foreach ($orders as &$order) {
+                        $order['max_qty'] = 0.0;
+                    }
+                    unset($order);
+                }
+            }
+
             // Store when cache was last populated
             Cache::put('odoo_rfqs_cached_at', now(), 300);
 

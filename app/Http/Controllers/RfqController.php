@@ -25,10 +25,11 @@ class RfqController extends Controller
             $odooError = $e->getMessage();
         }
 
-        // Only show POO purchase orders — exclude POU and other types
+        // Only show POO purchase orders matching criteria: amount_total >= 250,000 OR any line quantity >= 50
         $rfqs = array_values(array_filter(
             $rfqs,
             fn($r) => str_contains($r['name'] ?? '', '/POO/')
+                && ((($r['amount_total'] ?? 0) >= 250000) || (($r['max_qty'] ?? 0) >= 50))
         ));
 
         // Map po_id → comparison so the view can show CLVP status badges.
@@ -48,7 +49,7 @@ class RfqController extends Controller
     }
 
     /**
-     * List low-value RFQs (amount_total <= 250,000) — read-only view for all roles.
+     * List low-value RFQs (amount_total < 250,000 and max line qty < 50) — read-only view for all roles.
      */
     public function rfqList()
     {
@@ -60,11 +61,13 @@ class RfqController extends Controller
             $odooError = $e->getMessage();
         }
 
-        // Only keep general purchase type POs with amount_total <= 250,000
+        // Only keep general purchase type POs with amount_total < 250,000 AND max line qty < 50
+        // (RFQs with amount >= 250,000 or any line qty >= 50 are directed to the Comparison List)
         $rfqs = array_values(array_filter(
             $rfqs,
-            fn($r) => ($r['amount_total'] ?? 0) <= 250000
-                && ($r['purchase_type'] ?? '') === 'general'
+            fn($r) => ($r['purchase_type'] ?? '') === 'general'
+                && ($r['amount_total'] ?? 0) < 250000
+                && ($r['max_qty'] ?? 0) < 50
         ));
 
         // Fetch order lines for all matching RFQs so the popup can display products
