@@ -97,9 +97,6 @@
                                     $vendorName = is_array($rfq['partner_id']) ? $rfq['partner_id'][1] : '';
                                     $currency = is_array($rfq['currency_id']) ? $rfq['currency_id'][1] : 'IDR';
                                 @endphp
-                                @if (($rfq['amount_total'] ?? 0) <= 250000)
-                                    @continue
-                                @endif
                                 <tr data-rfq-name="{{ strtolower($rfq['name']) }}"
                                     data-vendor="{{ strtolower($vendorName) }}"
                                     data-origin="{{ strtolower($rfq['origin'] ?? '') }}" data-state="{{ $rfq['state'] }}"
@@ -117,6 +114,11 @@
                                         <span class="badge bg-secondary rounded-pill">
                                             {{ count($rfq['order_line']) }}
                                         </span>
+                                        @if (($rfq['max_qty'] ?? 0) >= 50 && ($rfq['amount_total'] ?? 0) < 250000)
+                                            <span class="badge bg-info text-dark rounded-pill ms-1" title="Max item quantity: {{ $rfq['max_qty'] }}">
+                                                Qty &ge; 50
+                                            </span>
+                                        @endif
                                     </td>
                                     <td class="text-muted">
                                         {{ $rfq['date_order'] ? \Illuminate\Support\Carbon::parse($rfq['date_order'])->format('d M Y H:i') : '—' }}
