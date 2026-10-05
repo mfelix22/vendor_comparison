@@ -164,6 +164,14 @@
             </div>
         </div>
 
+@push('styles')
+    <style>
+        #cmpTable tbody tr {
+            cursor: pointer;
+        }
+    </style>
+@endpush
+
         <script>
             function applyFilters() {
                 const q = document.getElementById('cmpSearch').value.toLowerCase();
@@ -188,6 +196,48 @@
 
             document.getElementById('cmpSearch').addEventListener('input', applyFilters);
             document.getElementById('cmpStatus').addEventListener('change', applyFilters);
+
+            // Enable clicking anywhere on table rows to view details
+            const cmpTableBody = document.querySelector('#cmpTable tbody');
+            if (cmpTableBody) {
+                cmpTableBody.addEventListener('click', function(e) {
+                    // Ignore clicks on explicit links, buttons, or form controls
+                    if (e.target.closest('a, button, input, select, textarea')) {
+                        return;
+                    }
+                    // Ignore if user is selecting text (e.g., copying PO number)
+                    const selection = window.getSelection();
+                    if (selection && selection.toString().trim().length > 0) {
+                        return;
+                    }
+                    const row = e.target.closest('tr');
+                    if (!row || !cmpTableBody.contains(row)) return;
+
+                    const viewLink = row.querySelector('a.btn-outline-primary');
+                    if (viewLink) {
+                        if (e.ctrlKey || e.metaKey) {
+                            window.open(viewLink.href, '_blank');
+                        } else {
+                            window.location.href = viewLink.href;
+                        }
+                    }
+                });
+
+                cmpTableBody.addEventListener('auxclick', function(e) {
+                    if (e.button === 1) { // Middle click
+                        if (e.target.closest('a, button, input, select, textarea')) {
+                            return;
+                        }
+                        const row = e.target.closest('tr');
+                        if (!row || !cmpTableBody.contains(row)) return;
+
+                        const viewLink = row.querySelector('a.btn-outline-primary');
+                        if (viewLink) {
+                            window.open(viewLink.href, '_blank');
+                        }
+                    }
+                });
+            }
         </script>
     @endif
 
