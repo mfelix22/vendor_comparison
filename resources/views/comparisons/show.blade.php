@@ -430,6 +430,10 @@
                             $vpRows2 = $comparison->vendor_prices ?? [];
                             $vendorTotals = [];
                             foreach ($vpVendors as $vi => $v) {
+                                $dType = $v['discount_type'] ?? ((float) ($v['discount'] ?? 0) > 0 ? 'percent' : ((float) ($v['fix_discount'] ?? 0) > 0 ? 'fixed' : ''));
+                                $vendorDisc = (float) ($v['discount'] ?? 0);
+                                $vendorFix = (float) ($v['fix_discount'] ?? 0);
+                                $dRate = $vendorDisc / 100;
                                 $total = 0;
                                 $cantSupply = false;
                                 foreach ($vpRows2 as $row) {
@@ -439,13 +443,20 @@
                                         $cantSupply = true;
                                         break;
                                     }
-                                    $total += $price * $qty;
+                                    $pricelist = (float) ($row['pricelist_original'] ?? 0);
+                                    // Backward-compat: if stored price ≈ pricelist, it was base price
+                                    $isBasePrice = $pricelist > 0 && abs($price - $pricelist) < 2;
+                                    $total += (($dType === 'percent' && $vendorDisc > 0 && $isBasePrice)
+                                        ? $price * (1 - $dRate)
+                                        : $price) * $qty;
                                 }
                                 if (!$cantSupply && $total > 0) {
-                                    $disc = (float) ($v['discount'] ?? 0);
+                                    if ($dType === 'fixed' && $vendorFix > 0) {
+                                        $total = max(0, $total - $vendorFix);
+                                    }
                                     $vendorTotals[$vi] = [
                                         'name' => $v['name'],
-                                        'total' => $total * (1 - $disc / 100),
+                                        'total' => $total,
                                     ];
                                 }
                             }

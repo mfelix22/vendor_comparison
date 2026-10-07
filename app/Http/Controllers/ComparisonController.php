@@ -33,7 +33,7 @@ class ComparisonController extends Controller
         } elseif ($user->isSupervisor()) {
             $query->where(function ($q) use ($user) {
                 $q->where('supervisor_id', $user->id)
-                  ->orWhereNull('supervisor_id');
+                    ->orWhereNull('supervisor_id');
             });
         }
 
@@ -429,20 +429,20 @@ class ComparisonController extends Controller
         // Determine prev and next for navigation
         $statusFilter = request('status');
         $query = VendorComparison::where('po_name', 'like', '%/POO/%');
-        
+
         if (Auth::user()->isCreator()) {
             $query->where('created_by', Auth::id());
         }
         if ($statusFilter) {
             $query->where('status', $statusFilter);
         }
-        
+
         $items = $query->orderByDesc('created_at')->orderByDesc('id')->get(['id', 'created_at']);
         $currentIndex = $items->search(fn($item) => $item->id === $comparison->id);
-        
+
         $prevId = null;
         $nextId = null;
-        
+
         if ($currentIndex !== false) {
             if ($currentIndex > 0) {
                 $prevId = $items[$currentIndex - 1]->id; // Previous in array (newer)
@@ -452,12 +452,12 @@ class ComparisonController extends Controller
             }
         } elseif ($statusFilter) {
             // Item not in list (e.g. status just changed). Find where it would be.
-            $nextIndex = $items->search(function($item) use ($comparison) {
+            $nextIndex = $items->search(function ($item) use ($comparison) {
                 if ($item->created_at->lt($comparison->created_at)) return true;
                 if ($item->created_at->eq($comparison->created_at) && $item->id < $comparison->id) return true;
                 return false;
             });
-            
+
             if ($nextIndex !== false) {
                 $nextId = $items[$nextIndex]->id;
                 if ($nextIndex > 0) {
