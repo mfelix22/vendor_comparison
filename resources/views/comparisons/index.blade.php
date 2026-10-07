@@ -86,12 +86,12 @@
                                 <th class="text-center">Status</th>
                                 <th class="text-center">Supervisor</th>
                                 <th class="text-center">Manager</th>
-                                <th class="text-center">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($comparisons as $c)
                                 <tr
+                                    data-href="{{ route('comparisons.show', $c) }}"
                                     data-status="{{ $c->status }}"
                                     data-search="{{ strtolower($c->po_name . ' ' . $c->po_vendor . ' ' . $c->selected_vendor) }}">
                                     <td class="ps-3 fw-semibold">{{ $c->po_name }}</td>
@@ -144,18 +144,6 @@
                                             <span class="text-muted small">—</span>
                                         @endif
                                     </td>
-                                    <td class="text-center">
-                                        <a href="{{ route('comparisons.show', $c) }}"
-                                            class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-eye me-1"></i>View
-                                            @if (
-                                                (Auth::user()->isSupervisor() && $c->isPendingSupervisor()) ||
-                                                (Auth::user()->isManager() && $c->isPendingManager()) ||
-                                                $c->canBypassApprove(Auth::user()))
-                                                <span class="badge bg-warning text-dark ms-1">Action</span>
-                                            @endif
-                                        </a>
-                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -181,15 +169,14 @@
                     const matchesStatus = !status || row.dataset.status === status;
                     row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
                     
-                    const viewLink = row.querySelector('a.btn-outline-primary');
-                    if (viewLink) {
-                        let url = new URL(viewLink.href);
+                    if (row.dataset.href) {
+                        let url = new URL(row.dataset.href, window.location.origin);
                         if (status) {
                             url.searchParams.set('status', status);
                         } else {
                             url.searchParams.delete('status');
                         }
-                        viewLink.href = url.toString();
+                        row.dataset.href = url.toString();
                     }
                 });
             }
@@ -213,12 +200,11 @@
                     const row = e.target.closest('tr');
                     if (!row || !cmpTableBody.contains(row)) return;
 
-                    const viewLink = row.querySelector('a.btn-outline-primary');
-                    if (viewLink) {
+                    if (row.dataset.href) {
                         if (e.ctrlKey || e.metaKey) {
-                            window.open(viewLink.href, '_blank');
+                            window.open(row.dataset.href, '_blank');
                         } else {
-                            window.location.href = viewLink.href;
+                            window.location.href = row.dataset.href;
                         }
                     }
                 });
@@ -231,9 +217,8 @@
                         const row = e.target.closest('tr');
                         if (!row || !cmpTableBody.contains(row)) return;
 
-                        const viewLink = row.querySelector('a.btn-outline-primary');
-                        if (viewLink) {
-                            window.open(viewLink.href, '_blank');
+                        if (row.dataset.href) {
+                            window.open(row.dataset.href, '_blank');
                         }
                     }
                 });
