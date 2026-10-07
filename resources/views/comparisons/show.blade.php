@@ -581,6 +581,19 @@
                             </div>
                         </div>
 
+                        {{-- ── Legend ── --}}
+                        <div class="d-flex gap-3 mb-3 flex-wrap align-items-center">
+                            <span class="fw-semibold small">Legend:</span>
+                            <span class="badge price-best px-2 py-1">&#9733; Best Price</span>
+                            <span class="badge price-current px-2 py-1">&#9830; Current RFQ Vendor</span>
+                            <span class="badge price-worst px-2 py-1">&#9660; Highest Price</span>
+                            <span class="badge bg-primary px-2 py-1">&#128197; Latest Purchase</span>
+                            <span class="ms-auto text-muted small">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Shows key purchase history benchmarks (Latest, Best Price, Highest Price) per product.
+                            </span>
+                        </div>
+
                         {{-- Per-product vendor comparison (condensed) --}}
                         @php $currency = is_array($rfq['currency_id']) ? $rfq['currency_id'][1] : 'IDR'; @endphp
                         @foreach ($rfq['lines'] as $line)
@@ -592,182 +605,256 @@
                                 $productName = $line['product_id'][1];
                                 $uom = is_array($line['product_uom']) ? $line['product_uom'][1] : '';
                                 $rfqVendorId = is_array($rfq['partner_id']) ? $rfq['partner_id'][0] : null;
-                                $vendorRows = $history[$productId] ?? [];
-                                $allPrices = array_column(array_values($vendorRows), 'price_unit');
-                                $allPrices[] = $line['price_unit'];
-                                $allPrices = array_filter($allPrices, fn($p) => $p > 0);
-                                $bestPrice = !empty($allPrices) ? min($allPrices) : null;
-                                $worstPrice = !empty($allPrices) ? max($allPrices) : null;
                                 $rfqVendorNm = is_array($rfq['partner_id']) ? $rfq['partner_id'][1] : '—';
+                                $historyKey = $productId . '::' . \App\Models\VendorComparison::normalizeDescription($line['name'] ?? '');
+                                $vendorRows = $history[$historyKey] ?? $history[$productId] ?? [];
                                 $otherRows = array_values(array_values($vendorRows));
+                                $totalHistoryCount = count($otherRows);
+
+                                // 1. Most recent purchase (by date desc)
                                 $byDate = $otherRows;
                                 usort($byDate, fn($a, $b) => strtotime($b['date']) <=> strtotime($a['date']));
                                 $mostRecentRow = $byDate[0] ?? null;
-                                $byPrice = $otherRows;
-                                usort($byPrice, fn($a, $b) => $a['price_unit'] <=> $b['price_unit']);
-                                $cheapRows = array_slice(
-                                    array_values(
-                                        array_filter(
-                                            $byPrice,
-                                            fn($r) => !$mostRecentRow ||
-                                                $r['vendor_id'] !== $mostRecentRow['vendor_id'],
-                                        ),
-                                    ),
-                                    0,
-                                    3,
-                                );
-                                $totalHistoryCount = count($otherRows);
+
+                                // 2. Best price purchase in history (lowest price, most recent date on tie)
+                                $byPriceAsc = $otherRows;
+                                usort($byPriceAsc, function($a, $b) {
+                                    if ($a['price_unit'] == $b['price_unit']) {
+                                        return strtotime($b['date']) <=> strtotime($a['date']);
+                                    }
+                                    return $a['price_unit'] <=> $b['price_unit'];
+                                });
+                                $bestPriceRow = $byPriceAsc[0] ?? null;
+
+                                // 3. Highest price purchase in history (highest price, most recent date on tie)
+                                $byPriceDesc = $otherRows;
+                                usort($byPriceDesc, function($a, $b) {
+                                    if ($a['price_unit'] == $b['price_unit']) {
+                                        return strtotime($b['date']) <=> strtotime($a['date']);
+                                    }
+                                    return $b['price_unit'] <=> $a['price_unit'];
+                                });
+                                $worstPriceRow = $byPriceDesc[0] ?? null;
+
+                                // Pool valid prices to determine genuine variation
+                                $pricePool = array_filter([
+                                    $line['price_unit'],
+                                    $mostRecentRow['price_unit'] ?? null,
+                                    $bestPriceRow['price_unit'] ?? null,
+                                    $worstPriceRow['price_unit'] ?? null,
+                                ], fn($p) => $p !== null && $p > 0);
+
+                                $uniquePrices = array_unique($pricePool);
+                                $hasVariation = count($uniquePrices) > 1;
+                                $globalMin = $hasVariation ? min($uniquePrices) : null;
+                                $globalMax = $hasVariation ? max($uniquePrices) : null;
+
+                                // Current RFQ state
+                                $isCurrentBest = $hasVariation && $line['price_unit'] == $globalMin;
+                                $isCurrentWorst = $hasVariation && $line['price_unit'] == $globalMax;
+                                $currentClass = 'price-current';
+                                if ($isCurrentBest) {
+                                    $currentClass = 'price-best';
+                                } elseif ($isCurrentWorst) {
+                                    $currentClass = 'price-worst';
+                                }
+
+                                // Latest Purchase state
+                                $isLatestBest = $hasVariation && $mostRecentRow && $mostRecentRow['price_unit'] == $globalMin;
+                                $isLatestWorst = $hasVariation && $mostRecentRow && $mostRecentRow['price_unit'] == $globalMax;
+
+                                // Determine whether standalone Best Price row is needed (distinct from Latest)
+                                $showBestRow = $hasVariation 
+                                    && $bestPriceRow 
+                                    && $bestPriceRow['order_id'] !== ($mostRecentRow['order_id'] ?? null)
+                                    && $bestPriceRow['price_unit'] < ($mostRecentRow['price_unit'] ?? 0);
+
+                                // Determine whether standalone Highest Price row is needed (distinct from Latest and Best)
+                                $showWorstRow = $hasVariation 
+                                    && $worstPriceRow 
+                                    && $worstPriceRow['order_id'] !== ($mostRecentRow['order_id'] ?? null)
+                                    && $worstPriceRow['order_id'] !== ($bestPriceRow['order_id'] ?? null)
+                                    && $worstPriceRow['price_unit'] > ($mostRecentRow['price_unit'] ?? 0)
+                                    && $worstPriceRow['price_unit'] > ($bestPriceRow['price_unit'] ?? 0);
                             @endphp
-                            <div class="card mb-3">
-                                <div class="card-header py-2 d-flex align-items-center gap-2 flex-wrap">
-                                    <i class="bi bi-box-seam text-muted"></i>
+                            <div class="card product-item-card mb-4 shadow-sm" style="border: 2px solid #94a3b8; border-radius: 8px; overflow: hidden;">
+                                <div class="card-header py-2 d-flex align-items-center gap-2 flex-wrap" style="background-color: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
+                                    <i class="bi bi-box-seam text-secondary"></i>
                                     <span class="badge bg-secondary">{{ $productName }}</span>
-                                    <span class="fw-semibold">{{ $line['name'] }}</span>
-                                    <span class="badge bg-light text-dark border">{{ $line['product_qty'] }}
+                                    <span class="fw-semibold text-dark">{{ $line['name'] }}</span>
+                                    <span class="badge bg-white text-dark border">{{ $line['product_qty'] }}
                                         {{ $uom }}</span>
                                     <span class="ms-auto text-muted small">
                                         RFQ Unit Price:&nbsp;
                                         <strong @class([
-                                            'text-success' =>
-                                                $bestPrice !== null &&
-                                                $line['price_unit'] == $bestPrice &&
-                                                count($allPrices) > 1,
-                                            'text-danger' =>
-                                                $worstPrice !== null &&
-                                                $line['price_unit'] == $worstPrice &&
-                                                $bestPrice !== $worstPrice &&
-                                                count($allPrices) > 1,
+                                            'text-success' => $isCurrentBest,
+                                            'text-danger'  => $isCurrentWorst,
                                         ])>
                                             {{ $currency }} {{ number_format($line['price_unit'], 2, ',', '.') }}
                                         </strong>
                                     </span>
                                 </div>
                                 <div class="card-body p-0">
+                                    {{-- TABLE 1: Current RFQ Quote --}}
                                     <div class="table-responsive">
                                         <table class="table table-bordered table-sm align-middle mb-0">
                                             <thead>
-                                                <tr>
-                                                    <th class="ps-3">Vendor</th>
-                                                    <th class="text-center">Unit Price</th>
-                                                    <th class="text-center">Qty</th>
-                                                    <th class="text-center">UoM</th>
-                                                    <th>Last PO</th>
-                                                    <th>Last Purchase Date</th>
-                                                    <th class="text-center">Note</th>
+                                                <tr class="table-light text-muted small text-nowrap">
+                                                    <th class="ps-3" style="width: 30%;">Current Vendor</th>
+                                                    <th class="text-center" style="width: 16%;">Quoted Price</th>
+                                                    <th class="text-center" style="width: 6%;">Qty</th>
+                                                    <th class="text-center" style="width: 6%;">UoM</th>
+                                                    <th style="width: 15%;">RFQ / PO</th>
+                                                    <th style="width: 14%;">Date</th>
+                                                    <th class="text-center" style="width: 13%;">Note</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                @php
-                                                    $isCurrentBest =
-                                                        $bestPrice !== null &&
-                                                        $line['price_unit'] == $bestPrice &&
-                                                        count($allPrices) > 1;
-                                                    $isCurrentWorst =
-                                                        $worstPrice !== null &&
-                                                        $line['price_unit'] == $worstPrice &&
-                                                        $bestPrice !== $worstPrice;
-                                                    $currentClass = 'price-current';
-                                                    if ($isCurrentBest) {
-                                                        $currentClass = 'price-best';
-                                                    } elseif ($isCurrentWorst) {
-                                                        $currentClass = 'price-worst';
-                                                    }
-                                                @endphp
                                                 <tr class="{{ $currentClass }}">
                                                     <td class="ps-3 fw-semibold">
-                                                        <i
-                                                            class="bi bi-star-fill text-warning me-1"></i>{{ $rfqVendorNm }}
+                                                        <i class="bi bi-star-fill text-warning me-1"></i>{{ $rfqVendorNm }}
                                                     </td>
-                                                    <td class="text-center fw-bold">{{ $currency }}
-                                                        {{ number_format($line['price_unit'], 2, ',', '.') }}</td>
+                                                    <td class="text-center fw-bold">
+                                                        {{ $currency }} {{ number_format($line['price_unit'], 2, ',', '.') }}
+                                                    </td>
                                                     <td class="text-center">{{ $line['product_qty'] }}</td>
                                                     <td class="text-center">{{ $uom }}</td>
                                                     <td class="text-muted">{{ $rfq['name'] }}</td>
                                                     <td class="text-muted">
                                                         {{ \Carbon\Carbon::parse($rfq['date_order'])->format('d M Y') }}
                                                     </td>
-                                                    <td class="text-center"><span
-                                                            class="badge bg-warning text-dark">Current RFQ</span></td>
+                                                    <td class="text-center">
+                                                        <span class="badge bg-warning text-dark">Current RFQ</span>
+                                                        @if ($isCurrentBest)
+                                                            <span class="badge bg-success">Best Price</span>
+                                                        @elseif ($isCurrentWorst)
+                                                            <span class="badge bg-danger">Highest Price</span>
+                                                        @endif
+                                                    </td>
                                                 </tr>
 
+                                                {{-- Divider: Purchase History --}}
+                                                <tr class="border-top border-bottom" style="background-color: #f8fafc;">
+                                                    <td colspan="7" class="px-3 py-2">
+                                                        <div class="d-flex align-items-center justify-content-between">
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <i class="bi bi-clock-history text-primary fs-6"></i>
+                                                                <span class="fw-bold text-dark" style="font-size: 0.82rem; letter-spacing: 0.02em;">Purchase History</span>
+                                                                <span class="badge bg-secondary-subtle text-secondary border" style="font-size: 0.68rem; font-weight: 500;">Odoo</span>
+                                                            </div>
+                                                            @if ($totalHistoryCount > 0)
+                                                                <span class="badge bg-white text-secondary border font-monospace shadow-sm" style="font-size: 0.72rem; font-weight: 500;">
+                                                                    <i class="bi bi-receipt me-1"></i>{{ $totalHistoryCount }} past {{ Str::plural('purchase', $totalHistoryCount) }}
+                                                                </span>
+                                                            @endif
+                                                        </div>
+                                                    </td>
+                                                </tr>
+
+                                                {{-- Historical Table Header Row --}}
+                                                <tr class="table-light text-muted small text-nowrap">
+                                                    <th class="ps-3">Historical Vendor</th>
+                                                    <th class="text-center">Unit Price</th>
+                                                    <th class="text-center">Qty</th>
+                                                    <th class="text-center">UoM</th>
+                                                    <th>Past PO</th>
+                                                    <th>Purchase Date</th>
+                                                    <th class="text-center">Note</th>
+                                                </tr>
+
+                                                {{-- Row 2: Latest Purchase --}}
                                                 @if ($mostRecentRow)
-                                                    @php $isBest = $bestPrice !== null && $mostRecentRow['price_unit'] == $bestPrice; @endphp
-                                                    <tr class="table-info" style="border-left:3px solid #0d6efd;">
-                                                        <td class="ps-3 fw-semibold">{{ $mostRecentRow['vendor_name'] }}
-                                                        </td>
+                                                    <tr class="table-info">
+                                                        <td class="ps-3 fw-semibold" style="box-shadow: inset 4px 0 0 #0d6efd;">{{ $mostRecentRow['vendor_name'] }}</td>
                                                         <td class="text-center fw-semibold">
                                                             {{ $currency }}
                                                             {{ number_format($mostRecentRow['price_unit'], 2, ',', '.') }}
-                                                            @if ($isBest)
-                                                                <i class="bi bi-check-circle-fill text-success ms-1"
-                                                                    title="Best Price"></i>
-                                                            @endif
                                                         </td>
                                                         <td class="text-center">{{ $mostRecentRow['product_qty'] }}</td>
                                                         <td class="text-center">{{ $mostRecentRow['uom'] }}</td>
-                                                        <td class="text-muted small">{{ $mostRecentRow['po_name'] }}</td>
+                                                        <td>
+                                                            @if (!empty($mostRecentRow['order_id']))
+                                                                <a href="{{ route('rfq.show', $mostRecentRow['order_id']) }}" class="text-decoration-none small">
+                                                                    {{ $mostRecentRow['po_name'] }}
+                                                                </a>
+                                                            @else
+                                                                <span class="text-muted small">{{ $mostRecentRow['po_name'] }}</span>
+                                                            @endif
+                                                        </td>
                                                         <td class="fw-semibold">
                                                             {{ \Carbon\Carbon::parse($mostRecentRow['date'])->format('d M Y H:i') }}
                                                         </td>
                                                         <td class="text-center">
                                                             <span class="badge bg-primary">Latest Purchase</span>
-                                                            @if ($isBest)
+                                                            @if ($isLatestBest)
                                                                 <span class="badge bg-success">Best Price</span>
+                                                            @elseif ($isLatestWorst)
+                                                                <span class="badge bg-danger">Highest Price</span>
                                                             @endif
                                                         </td>
                                                     </tr>
                                                 @endif
 
-                                                @foreach ($cheapRows as $row)
-                                                    @php
-                                                        $isBest =
-                                                            $bestPrice !== null && $row['price_unit'] == $bestPrice;
-                                                        $isWorst =
-                                                            $worstPrice !== null &&
-                                                            $row['price_unit'] == $worstPrice &&
-                                                            $bestPrice !== $worstPrice;
-                                                    @endphp
-                                                    <tr
-                                                        class="{{ $isBest ? 'price-best' : ($isWorst ? 'price-worst' : '') }}">
-                                                        <td class="ps-3">{{ $row['vendor_name'] }}</td>
+                                                {{-- Row 3: Best Price (shown if distinct from Latest Purchase) --}}
+                                                @if ($showBestRow)
+                                                    <tr class="price-best">
+                                                        <td class="ps-3 fw-semibold">{{ $bestPriceRow['vendor_name'] }}</td>
+                                                        <td class="text-center fw-semibold">
+                                                            {{ $currency }}
+                                                            {{ number_format($bestPriceRow['price_unit'], 2, ',', '.') }}
+                                                        </td>
+                                                        <td class="text-center">{{ $bestPriceRow['product_qty'] }}</td>
+                                                        <td class="text-center">{{ $bestPriceRow['uom'] }}</td>
+                                                        <td>
+                                                            @if (!empty($bestPriceRow['order_id']))
+                                                                <a href="{{ route('rfq.show', $bestPriceRow['order_id']) }}" class="text-decoration-none small">
+                                                                    {{ $bestPriceRow['po_name'] }}
+                                                                </a>
+                                                            @else
+                                                                <span class="text-muted small">{{ $bestPriceRow['po_name'] }}</span>
+                                                            @endif
+                                                        </td>
+                                                        <td class="text-muted">
+                                                            {{ \Carbon\Carbon::parse($bestPriceRow['date'])->format('d M Y H:i') }}
+                                                        </td>
+                                                        <td class="text-center">
+                                                            <span class="badge bg-success">Best Price</span>
+                                                        </td>
+                                                    </tr>
+                                                @endif
+
+                                                {{-- Row 4: Highest Price (shown if distinct from Latest and Best Price) --}}
+                                                @if ($showWorstRow)
+                                                    <tr class="price-worst">
+                                                        <td class="ps-3">{{ $worstPriceRow['vendor_name'] }}</td>
                                                         <td class="text-center">
                                                             {{ $currency }}
-                                                            {{ number_format($row['price_unit'], 2, ',', '.') }}
-                                                            @if ($isBest)
-                                                                <i class="bi bi-check-circle-fill text-success ms-1"></i>
-                                                            @elseif ($isWorst)
-                                                                <i class="bi bi-arrow-up-circle-fill text-danger ms-1"></i>
+                                                            {{ number_format($worstPriceRow['price_unit'], 2, ',', '.') }}
+                                                        </td>
+                                                        <td class="text-center">{{ $worstPriceRow['product_qty'] }}</td>
+                                                        <td class="text-center">{{ $worstPriceRow['uom'] }}</td>
+                                                        <td>
+                                                            @if (!empty($worstPriceRow['order_id']))
+                                                                <a href="{{ route('rfq.show', $worstPriceRow['order_id']) }}" class="text-decoration-none small">
+                                                                    {{ $worstPriceRow['po_name'] }}
+                                                                </a>
+                                                            @else
+                                                                <span class="text-muted small">{{ $worstPriceRow['po_name'] }}</span>
                                                             @endif
                                                         </td>
-                                                        <td class="text-center">{{ $row['product_qty'] }}</td>
-                                                        <td class="text-center">{{ $row['uom'] }}</td>
-                                                        <td class="text-muted small">{{ $row['po_name'] }}</td>
                                                         <td class="text-muted">
-                                                            {{ \Carbon\Carbon::parse($row['date'])->format('d M Y H:i') }}
+                                                            {{ \Carbon\Carbon::parse($worstPriceRow['date'])->format('d M Y H:i') }}
                                                         </td>
                                                         <td class="text-center">
-                                                            @if ($isBest)
-                                                                <span class="badge bg-success">Best Price</span>
-                                                            @elseif ($isWorst)
-                                                                <span class="badge bg-danger">Highest</span>
-                                                            @endif
+                                                            <span class="badge bg-danger">Highest Price</span>
                                                         </td>
                                                     </tr>
-                                                @endforeach
+                                                @endif
 
-                                                @if (!$mostRecentRow && empty($cheapRows))
+                                                @if (!$mostRecentRow)
                                                     <tr>
                                                         <td colspan="7" class="text-center text-muted py-3 small">
-                                                            <i class="bi bi-clock-history me-1"></i>No purchase history
-                                                            from other vendors.
-                                                        </td>
-                                                    </tr>
-                                                @elseif ($totalHistoryCount > 4)
-                                                    <tr>
-                                                        <td colspan="7"
-                                                            class="text-center text-muted py-2 small fst-italic">
-                                                            Showing latest purchase + 3 cheapest of
-                                                            {{ $totalHistoryCount }} vendors in history.
+                                                            <i class="bi bi-clock-history me-1"></i>No past purchase history found in Odoo for this product.
                                                         </td>
                                                     </tr>
                                                 @endif

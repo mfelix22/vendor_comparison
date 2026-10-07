@@ -5,7 +5,7 @@
 @section('content')
 
     <div class="d-flex align-items-center justify-content-between mb-3">
-        <h4 class="fw-bold mb-0"><i class="bi bi-file-earmark-text me-2"></i>RFQ List <span class="badge bg-secondary ms-2" style="font-size:.7rem">≤ Rp 250.000</span></h4>
+        <h4 class="fw-bold mb-0"><i class="bi bi-file-earmark-text me-2"></i>RFQ List <span class="badge bg-secondary ms-2" style="font-size:.7rem">&lt; Rp 250.000 &amp; Qty &lt; 50</span></h4>
         <div class="d-flex align-items-center gap-3">
             @if ($cachedAt)
                 <span class="text-muted small">
@@ -34,7 +34,7 @@
 
     @if (empty($rfqs) && !$odooError)
         <div class="alert alert-info">
-            <i class="bi bi-info-circle me-2"></i>No RFQs with amount ≤ Rp 250.000 found.
+            <i class="bi bi-info-circle me-2"></i>No low-value RFQs (&lt; Rp 250.000 and item quantity &lt; 50) found.
         </div>
     @endif
 

@@ -86,12 +86,12 @@
                                 <th class="text-center">Status</th>
                                 <th class="text-center">Supervisor</th>
                                 <th class="text-center">Manager</th>
-                                <th class="text-center">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($comparisons as $c)
                                 <tr
+                                    data-href="{{ route('comparisons.show', $c) }}"
                                     data-status="{{ $c->status }}"
                                     data-search="{{ strtolower($c->po_name . ' ' . $c->po_vendor . ' ' . $c->selected_vendor) }}">
                                     <td class="ps-3 fw-semibold">{{ $c->po_name }}</td>
@@ -144,18 +144,6 @@
                                             <span class="text-muted small">—</span>
                                         @endif
                                     </td>
-                                    <td class="text-center">
-                                        <a href="{{ route('comparisons.show', $c) }}"
-                                            class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-eye me-1"></i>View
-                                            @if (
-                                                (Auth::user()->isSupervisor() && $c->isPendingSupervisor()) ||
-                                                (Auth::user()->isManager() && $c->isPendingManager()) ||
-                                                $c->canBypassApprove(Auth::user()))
-                                                <span class="badge bg-warning text-dark ms-1">Action</span>
-                                            @endif
-                                        </a>
-                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -163,6 +151,14 @@
                 </div>
             </div>
         </div>
+
+@push('styles')
+    <style>
+        #cmpTable tbody tr {
+            cursor: pointer;
+        }
+    </style>
+@endpush
 
         <script>
             function applyFilters() {
@@ -173,21 +169,60 @@
                     const matchesStatus = !status || row.dataset.status === status;
                     row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
                     
-                    const viewLink = row.querySelector('a.btn-outline-primary');
-                    if (viewLink) {
-                        let url = new URL(viewLink.href);
+                    if (row.dataset.href) {
+                        let url = new URL(row.dataset.href, window.location.origin);
                         if (status) {
                             url.searchParams.set('status', status);
                         } else {
                             url.searchParams.delete('status');
                         }
-                        viewLink.href = url.toString();
+                        row.dataset.href = url.toString();
                     }
                 });
             }
 
             document.getElementById('cmpSearch').addEventListener('input', applyFilters);
             document.getElementById('cmpStatus').addEventListener('change', applyFilters);
+
+            // Enable clicking anywhere on table rows to view details
+            const cmpTableBody = document.querySelector('#cmpTable tbody');
+            if (cmpTableBody) {
+                cmpTableBody.addEventListener('click', function(e) {
+                    // Ignore clicks on explicit links, buttons, or form controls
+                    if (e.target.closest('a, button, input, select, textarea')) {
+                        return;
+                    }
+                    // Ignore if user is selecting text (e.g., copying PO number)
+                    const selection = window.getSelection();
+                    if (selection && selection.toString().trim().length > 0) {
+                        return;
+                    }
+                    const row = e.target.closest('tr');
+                    if (!row || !cmpTableBody.contains(row)) return;
+
+                    if (row.dataset.href) {
+                        if (e.ctrlKey || e.metaKey) {
+                            window.open(row.dataset.href, '_blank');
+                        } else {
+                            window.location.href = row.dataset.href;
+                        }
+                    }
+                });
+
+                cmpTableBody.addEventListener('auxclick', function(e) {
+                    if (e.button === 1) { // Middle click
+                        if (e.target.closest('a, button, input, select, textarea')) {
+                            return;
+                        }
+                        const row = e.target.closest('tr');
+                        if (!row || !cmpTableBody.contains(row)) return;
+
+                        if (row.dataset.href) {
+                            window.open(row.dataset.href, '_blank');
+                        }
+                    }
+                });
+            }
         </script>
     @endif
 
