@@ -3,6 +3,7 @@
 @section('title', 'New Vehicle Costing Sheet')
 
 @push('styles')
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
 <style>
     .costing-table th, .costing-table td {
         vertical-align: middle;
@@ -74,24 +75,35 @@
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-7">
-                    <label class="form-label small fw-semibold">Customer / Instansi / Project <span class="text-danger">*</span></label>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold mb-1">
+                            Cari Supplier <span class="text-muted fw-normal">(opsional, untuk auto-isi)</span>
+                        </label>
+                        <select class="form-select form-select-sm" id="supplierSelect">
+                            <option value="">— Pilih supplier —</option>
+                            @foreach ($vendors as $v)
+                                <option value="{{ $v['name'] }}">{{ $v['name'] }}{{ !empty($v['city']) ? ' - ' . $v['city'] : '' }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <label class="form-label small fw-semibold">Nama Calon Vendor / Customer / Project <span class="text-danger">*</span></label>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text"><i class="bi bi-building"></i></span>
-                        <input type="text" name="customer_name" id="customerNameInput" list="customerList"
+                        <input type="text" name="customer_name" id="customerNameInput"
                             class="form-control form-control-sm @error('customer_name') is-invalid @enderror"
-                            placeholder="e.g. Sekretariat Jendral Biro Perencanaan Kementrian Perhubungan RI"
+                            placeholder="Pilih supplier dari dropdown di atas atau ketik nama langsung..."
                             value="{{ old('customer_name') }}" required autocomplete="off">
-                        <datalist id="customerList"></datalist>
                     </div>
-                    <div class="form-text small">Type to search existing Odoo partners or enter custom project name.</div>
+                    <div class="text-muted small mt-1">Pilih supplier dari Odoo di atas untuk auto-isi atau ketik nama secara bebas.</div>
                     @error('customer_name')
                         <div class="text-danger small mt-1">{{ $message }}</div>
                     @enderror
                 </div>
                 <div class="col-md-5">
                     <label class="form-label small fw-semibold">Internal Notes / Reference</label>
-                    <input type="text" name="notes" class="form-control form-control-sm"
-                        placeholder="Optional remarks or procurement notes..." value="{{ old('notes') }}">
+                    <textarea name="notes" rows="3" class="form-control form-control-sm"
+                        placeholder="Optional remarks or procurement notes...">{{ old('notes') }}</textarea>
                 </div>
             </div>
         </div>
@@ -206,17 +218,9 @@
 </form>
 
 {{-- Datalists for brands and products --}}
-<datalist id="brandList">
+<datalist id="globalBrandList">
     @foreach ($brands as $b)
         <option value="{{ $b }}"></option>
-    @endforeach
-</datalist>
-
-<datalist id="carProductList">
-    @foreach ($products as $p)
-        <option value="{{ $p['name'] }}" data-brand="{{ is_array($p['vehicle_brand_id'] ?? null) ? $p['vehicle_brand_id'][1] : '' }}" data-id="{{ $p['id'] }}">
-            {{ $p['display_name'] }}
-        </option>
     @endforeach
 </datalist>
 
@@ -228,15 +232,11 @@
     let vehicleCount = 0;
     let accessoryCount = 0;
     const bbnOptions = @json($bbnList);
-    const initialTemplates = [
-        { name: "Wall Charger", defaultAmount: 11500000 },
-        { name: "Biaya lepas Wall Charger", defaultAmount: 2000000 },
-        { name: "KF Antigores 80%\nBaris Penumpang & Bagasi", defaultAmount: 600000 },
-        { name: "Talang Air", defaultAmount: 1000000 }
-    ];
+    const odooBrands = @json($brands);
+    const odooProducts = @json($products);
 
     function formatRupiah(num) {
-        if (isNaN(num) || num === null) num = 0;
+        if (isNaN(num) || num === null || num === '') num = 0;
         return 'Rp ' + Math.round(num).toLocaleString('id-ID');
     }
 
@@ -247,11 +247,11 @@
 
         const brand = data.brand || '';
         const vType = data.vehicle_type || '';
-        const bbn = data.bbn || 'JKT';
-        const pemakaian = data.pemakaian || 'Jabodetabek';
-        const otr = data.harga_otr || 0;
-        const diskon = data.diskon || 0;
-        const estimasi = data.estimasi_kenaikan || 0;
+        const bbn = data.bbn || '';
+        const pemakaian = data.pemakaian || '';
+        const otr = (data.harga_otr !== undefined && data.harga_otr !== null && data.harga_otr !== '') ? data.harga_otr : '';
+        const diskon = (data.diskon !== undefined && data.diskon !== null && data.diskon !== '') ? data.diskon : '';
+        const estimasi = (data.estimasi_kenaikan !== undefined && data.estimasi_kenaikan !== null && data.estimasi_kenaikan !== '') ? data.estimasi_kenaikan : '';
 
         // 1. Header Cell
         const th = document.createElement('th');
@@ -271,17 +271,19 @@
         const tdBrand = document.createElement('td');
         tdBrand.id = `cellBrand_${vIndex}`;
         tdBrand.innerHTML = `
-            <input type="text" name="vehicles[${vIndex}][brand]" list="brandList" class="form-control form-control-sm"
-                placeholder="e.g. Chery, BYD..." value="${brand}">
+            <input type="text" name="vehicles[${vIndex}][brand]" id="inputBrand_${vIndex}" list="globalBrandList" class="form-control form-control-sm"
+                placeholder="Choose brand from Odoo or type..." value="${brand}" oninput="onBrandChanged(${vIndex})">
         `;
         document.getElementById('rowBrand').appendChild(tdBrand);
 
-        // 3. Type Kendaraan Cell
+        // 3. Type Kendaraan Cell (Linked to Odoo products)
         const tdType = document.createElement('td');
         tdType.id = `cellType_${vIndex}`;
         tdType.innerHTML = `
-            <input type="text" name="vehicles[${vIndex}][vehicle_type]" list="carProductList" class="form-control form-control-sm"
-                placeholder="e.g. E5, J6 RWD..." value="${vType}">
+            <input type="text" name="vehicles[${vIndex}][vehicle_type]" id="inputType_${vIndex}" list="productList_${vIndex}" class="form-control form-control-sm"
+                placeholder="Choose type from Odoo or type..." value="${vType}" oninput="onProductChanged(${vIndex})">
+            <input type="hidden" name="vehicles[${vIndex}][odoo_product_id]" id="inputOdooProductId_${vIndex}" value="">
+            <datalist id="productList_${vIndex}"></datalist>
         `;
         document.getElementById('rowType').appendChild(tdType);
 
@@ -305,7 +307,7 @@
         tdPemakaian.id = `cellPemakaian_${vIndex}`;
         tdPemakaian.innerHTML = `
             <input type="text" name="vehicles[${vIndex}][pemakaian]" class="form-control form-control-sm"
-                placeholder="e.g. Jabodetabek" value="${pemakaian}">
+                placeholder="e.g. Jabodetabek / Operasional" value="${pemakaian}">
         `;
         document.getElementById('rowPemakaian').appendChild(tdPemakaian);
 
@@ -315,7 +317,7 @@
         tdOtr.innerHTML = `
             <input type="number" step="any" name="vehicles[${vIndex}][harga_otr]" class="form-control form-control-sm num-input"
                 id="inputOtr_${vIndex}" value="${otr}" placeholder="0" oninput="calculateColumn(${vIndex})">
-            <div class="formatted-display" id="dispOtr_${vIndex}"></div>
+            <div class="formatted-display" id="dispOtr_${vIndex}">${otr ? formatRupiah(otr) : 'Rp 0'}</div>
         `;
         document.getElementById('rowOtr').appendChild(tdOtr);
 
@@ -325,7 +327,7 @@
         tdDiskon.innerHTML = `
             <input type="number" step="any" name="vehicles[${vIndex}][diskon]" class="form-control form-control-sm num-input"
                 id="inputDiskon_${vIndex}" value="${diskon}" placeholder="0" oninput="calculateColumn(${vIndex})">
-            <div class="formatted-display" id="dispDiskon_${vIndex}"></div>
+            <div class="formatted-display" id="dispDiskon_${vIndex}">${diskon ? formatRupiah(diskon) : 'Rp 0'}</div>
         `;
         document.getElementById('rowDiskon').appendChild(tdDiskon);
 
@@ -342,7 +344,7 @@
         tdEstimasi.innerHTML = `
             <input type="number" step="any" name="vehicles[${vIndex}][estimasi_kenaikan]" class="form-control form-control-sm num-input"
                 id="inputEstimasi_${vIndex}" value="${estimasi}" placeholder="0" oninput="calculateColumn(${vIndex})">
-            <div class="formatted-display" id="dispEstimasi_${vIndex}"></div>
+            <div class="formatted-display" id="dispEstimasi_${vIndex}">${estimasi ? formatRupiah(estimasi) : 'Rp 0'}</div>
         `;
         document.getElementById('rowEstimasi').appendChild(tdEstimasi);
 
@@ -358,11 +360,11 @@
             const aIdx = accRow.getAttribute('data-acc-index');
             const tdAcc = document.createElement('td');
             tdAcc.id = `cellAcc_${aIdx}_${vIndex}`;
-            const defAmt = accRow.getAttribute('data-default-amount') || 0;
+            const defAmt = accRow.getAttribute('data-default-amount') || '';
             tdAcc.innerHTML = `
                 <input type="number" step="any" name="accessories[${aIdx}][amounts][${vIndex}]" class="form-control form-control-sm num-input"
                     id="inputAcc_${aIdx}_${vIndex}" value="${defAmt}" placeholder="0" oninput="calculateColumn(${vIndex})">
-                <div class="formatted-display" id="dispAcc_${aIdx}_${vIndex}"></div>
+                <div class="formatted-display" id="dispAcc_${aIdx}_${vIndex}">${defAmt ? formatRupiah(defAmt) : 'Rp 0'}</div>
             `;
             accRow.appendChild(tdAcc);
         });
@@ -381,8 +383,59 @@
         tdGrand.innerHTML = `<span id="valGrand_${vIndex}">Rp 0</span>`;
         document.getElementById('rowGrandTotal').appendChild(tdGrand);
 
+        // Populate product list for this column
+        updateProductDatalist(vIndex, brand);
+
         updateRemoveColButtonsState();
         calculateColumn(vIndex);
+    }
+
+    // Update product datalist for a vehicle column based on selected Brand
+    function updateProductDatalist(vIndex, selectedBrand = '') {
+        const datalist = document.getElementById(`productList_${vIndex}`);
+        if (!datalist) return;
+        datalist.innerHTML = '';
+
+        const brandLower = selectedBrand.trim().toLowerCase();
+
+        odooProducts.forEach(p => {
+            const pBrand = (Array.isArray(p.vehicle_brand_id) && p.vehicle_brand_id[1]) ? p.vehicle_brand_id[1] : '';
+            if (!brandLower || pBrand.toLowerCase().includes(brandLower)) {
+                const opt = document.createElement('option');
+                opt.value = p.name;
+                opt.label = p.display_name;
+                opt.setAttribute('data-id', p.id);
+                opt.setAttribute('data-brand', pBrand.split(' - ')[0] || pBrand);
+                datalist.appendChild(opt);
+            }
+        });
+    }
+
+    function onBrandChanged(vIndex) {
+        const brandInput = document.getElementById(`inputBrand_${vIndex}`);
+        const brandVal = brandInput ? brandInput.value : '';
+        updateProductDatalist(vIndex, brandVal);
+    }
+
+    function onProductChanged(vIndex) {
+        const typeInput = document.getElementById(`inputType_${vIndex}`);
+        const hiddenId = document.getElementById(`inputOdooProductId_${vIndex}`);
+        const brandInput = document.getElementById(`inputBrand_${vIndex}`);
+        const datalist = document.getElementById(`productList_${vIndex}`);
+
+        if (!typeInput || !datalist) return;
+
+        const val = typeInput.value.trim();
+        const matched = Array.from(datalist.options).find(opt => opt.value === val);
+
+        if (matched) {
+            if (hiddenId) hiddenId.value = matched.getAttribute('data-id') || '';
+            const brandFromProduct = matched.getAttribute('data-brand');
+            if (brandInput && !brandInput.value.trim() && brandFromProduct) {
+                brandInput.value = brandFromProduct;
+                updateProductDatalist(vIndex, brandFromProduct);
+            }
+        }
     }
 
     // Remove Vehicle Column
@@ -430,7 +483,7 @@
     }
 
     // Add Accessory Row
-    function addAccessoryRow(name = '', defaultAmount = 0) {
+    function addAccessoryRow(name = '', defaultAmount = '') {
         const aIndex = accessoryCount;
         accessoryCount++;
 
@@ -439,7 +492,6 @@
         tr.setAttribute('data-acc-index', aIndex);
         tr.setAttribute('data-default-amount', defaultAmount);
 
-        // First label cell with custom name input and delete row button (-)
         const tdLabel = document.createElement('td');
         tdLabel.className = 'costing-label-col';
         tdLabel.innerHTML = `
@@ -453,7 +505,6 @@
         `;
         tr.appendChild(tdLabel);
 
-        // Append amount cell for each currently active vehicle column
         document.querySelectorAll('th[id^="colHeader_"]').forEach(col => {
             const vIndex = col.id.replace('colHeader_', '');
             const tdAcc = document.createElement('td');
@@ -461,28 +512,24 @@
             tdAcc.innerHTML = `
                 <input type="number" step="any" name="accessories[${aIndex}][amounts][${vIndex}]" class="form-control form-control-sm num-input"
                     id="inputAcc_${aIndex}_${vIndex}" value="${defaultAmount}" placeholder="0" oninput="calculateColumn(${vIndex})">
-                <div class="formatted-display" id="dispAcc_${aIndex}_${vIndex}">${formatRupiah(defaultAmount)}</div>
+                <div class="formatted-display" id="dispAcc_${aIndex}_${vIndex}">${defaultAmount ? formatRupiah(defaultAmount) : 'Rp 0'}</div>
             `;
             tr.appendChild(tdAcc);
         });
 
-        // Insert before Total Acc row
         const rowTotalAcc = document.getElementById('rowTotalAcc');
         rowTotalAcc.parentNode.insertBefore(tr, rowTotalAcc);
 
-        // Recalculate all columns
         document.querySelectorAll('th[id^="colHeader_"]').forEach(col => {
             const vIndex = col.id.replace('colHeader_', '');
             calculateColumn(vIndex);
         });
     }
 
-    // Remove Accessory Row
     function removeAccessoryRow(aIndex) {
         const tr = document.getElementById(`accRow_${aIndex}`);
         if (tr) {
             tr.remove();
-            // Recalculate all columns
             document.querySelectorAll('th[id^="colHeader_"]').forEach(col => {
                 const vIndex = col.id.replace('colHeader_', '');
                 calculateColumn(vIndex);
@@ -502,7 +549,6 @@
         const diskon = parseFloat(diskonInput ? diskonInput.value : 0) || 0;
         const estimasi = parseFloat(estimasiInput ? estimasiInput.value : 0) || 0;
 
-        // Displays
         const dispOtr = document.getElementById(`dispOtr_${vIndex}`);
         if (dispOtr) dispOtr.innerText = formatRupiah(otr);
 
@@ -541,65 +587,29 @@
         if (valGrand) valGrand.innerText = formatRupiah(grandTotal);
     }
 
-    // Customer Auto-suggest from Odoo
-    const customerInput = document.getElementById('customerNameInput');
-    const customerList = document.getElementById('customerList');
-    let searchTimeout;
-
-    customerInput.addEventListener('input', function() {
-        clearTimeout(searchTimeout);
-        const q = this.value.trim();
-        if (q.length < 2) return;
-
-        searchTimeout = setTimeout(() => {
-            fetch(`{{ route('costing.api.customers') }}?q=${encodeURIComponent(q)}`)
-                .then(res => res.json())
-                .then(data => {
-                    customerList.innerHTML = '';
-                    data.forEach(p => {
-                        const opt = document.createElement('option');
-                        opt.value = p.name;
-                        customerList.appendChild(opt);
-                    });
-                })
-                .catch(() => {});
-        }, 300);
-    });
-
-    // Initialize default state
+    // Initialize default state: 2 clean empty columns, NO pre-filled mock data
     document.addEventListener('DOMContentLoaded', function() {
-        // Add 2 initial vehicle columns matching the template concept
-        addVehicleColumn({
-            brand: 'Chery',
-            vehicle_type: 'E5',
-            bbn: 'JKT',
-            pemakaian: 'Jabodetabek',
-            harga_otr: 419900000,
-            diskon: 0,
-            estimasi_kenaikan: 0
-        });
-
-        addVehicleColumn({
-            brand: 'Chery',
-            vehicle_type: 'J6 RWD',
-            bbn: 'JKT',
-            pemakaian: 'Jabodetabek',
-            harga_otr: 560500000,
-            diskon: 0,
-            estimasi_kenaikan: 0
-        });
-
-        // Add initial template accessories
-        initialTemplates.forEach(t => {
-            addAccessoryRow(t.name, t.defaultAmount);
-        });
-
-        // Set specific accessory amount for vehicle #2 if desired (KF Antigores 800k in template)
-        const kfInpV2 = document.getElementById('inputAcc_2_1');
-        if (kfInpV2) {
-            kfInpV2.value = 800000;
-            calculateColumn(1);
+        // Init TomSelect on supplier dropdown matching Comparison
+        const supplierSelectEl = document.getElementById('supplierSelect');
+        if (supplierSelectEl && typeof TomSelect !== 'undefined') {
+            new TomSelect(supplierSelectEl, {
+                maxOptions: 250,
+                searchField: ['text'],
+                placeholder: '— Pilih supplier —',
+                onChange(val) {
+                    if (val) {
+                        const custInp = document.getElementById('customerNameInput');
+                        if (custInp) {
+                            custInp.value = val;
+                        }
+                    }
+                }
+            });
         }
+
+        // Start with 2 clean empty columns ready for user input
+        addVehicleColumn();
+        addVehicleColumn();
 
         // Add Vehicle Button Event
         document.getElementById('addVehicleBtn').addEventListener('click', function() {
@@ -607,4 +617,5 @@
         });
     });
 </script>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 @endpush

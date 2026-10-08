@@ -66,10 +66,10 @@ class CostingOdooService
 
         try {
             $partners = $this->odoo->call('res.partner', 'search_read', [
-                [['name', 'ilike', $query]]
+                [['|', ['name', 'ilike', $query], ['display_name', 'ilike', $query]]]
             ], [
                 'fields' => ['id', 'name', 'display_name'],
-                'limit'  => 15,
+                'limit'  => 20,
             ]);
 
             return $partners ?? [];

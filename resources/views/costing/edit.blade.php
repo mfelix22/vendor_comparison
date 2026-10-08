@@ -3,6 +3,7 @@
 @section('title', 'Edit Costing ' . $costing->costing_number)
 
 @push('styles')
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
 <style>
     .costing-table th, .costing-table td {
         vertical-align: middle;
@@ -75,15 +76,29 @@
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-7">
-                    <label class="form-label small fw-semibold">Customer / Instansi / Project <span class="text-danger">*</span></label>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold mb-1">
+                            Cari Supplier <span class="text-muted fw-normal">(opsional, untuk auto-isi)</span>
+                        </label>
+                        <select class="form-select form-select-sm" id="supplierSelect">
+                            <option value="">— Pilih supplier —</option>
+                            @foreach ($vendors as $v)
+                                <option value="{{ $v['name'] }}" {{ old('customer_name', $costing->customer_name) === $v['name'] ? 'selected' : '' }}>
+                                    {{ $v['name'] }}{{ !empty($v['city']) ? ' - ' . $v['city'] : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <label class="form-label small fw-semibold">Nama Calon Vendor / Customer / Project <span class="text-danger">*</span></label>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text"><i class="bi bi-building"></i></span>
-                        <input type="text" name="customer_name" id="customerNameInput" list="customerList"
+                        <input type="text" name="customer_name" id="customerNameInput"
                             class="form-control form-control-sm @error('customer_name') is-invalid @enderror"
-                            placeholder="e.g. Sekretariat Jendral Biro Perencanaan Kementrian Perhubungan RI"
+                            placeholder="Pilih supplier dari dropdown di atas atau ketik nama langsung..."
                             value="{{ old('customer_name', $costing->customer_name) }}" required autocomplete="off">
-                        <datalist id="customerList"></datalist>
                     </div>
+                    <div class="text-muted small mt-1">Pilih supplier dari Odoo di atas untuk auto-isi atau ketik nama secara bebas.</div>
                     @error('customer_name')
                         <div class="text-danger small mt-1">{{ $message }}</div>
                     @enderror
@@ -193,17 +208,9 @@
     </div>
 </form>
 
-<datalist id="brandList">
+<datalist id="globalBrandList">
     @foreach ($brands as $b)
         <option value="{{ $b }}"></option>
-    @endforeach
-</datalist>
-
-<datalist id="carProductList">
-    @foreach ($products as $p)
-        <option value="{{ $p['name'] }}" data-brand="{{ is_array($p['vehicle_brand_id'] ?? null) ? $p['vehicle_brand_id'][1] : '' }}" data-id="{{ $p['id'] }}">
-            {{ $p['display_name'] }}
-        </option>
     @endforeach
 </datalist>
 
@@ -214,11 +221,13 @@
     let vehicleCount = 0;
     let accessoryCount = 0;
     const bbnOptions = @json($bbnList);
+    const odooBrands = @json($brands);
+    const odooProducts = @json($products);
     const existingVehicles = @json($costing->vehicles);
     const existingAccRows = @json($accRows);
 
     function formatRupiah(num) {
-        if (isNaN(num) || num === null) num = 0;
+        if (isNaN(num) || num === null || num === '') num = 0;
         return 'Rp ' + Math.round(num).toLocaleString('id-ID');
     }
 
@@ -228,11 +237,11 @@
 
         const brand = data.brand || '';
         const vType = data.vehicle_type || '';
-        const bbn = data.bbn || 'JKT';
-        const pemakaian = data.pemakaian || 'Jabodetabek';
-        const otr = data.harga_otr || 0;
-        const diskon = data.diskon || 0;
-        const estimasi = data.estimasi_kenaikan || 0;
+        const bbn = data.bbn || '';
+        const pemakaian = data.pemakaian || '';
+        const otr = (data.harga_otr !== undefined && data.harga_otr !== null && data.harga_otr !== '') ? data.harga_otr : '';
+        const diskon = (data.diskon !== undefined && data.diskon !== null && data.diskon !== '') ? data.diskon : '';
+        const estimasi = (data.estimasi_kenaikan !== undefined && data.estimasi_kenaikan !== null && data.estimasi_kenaikan !== '') ? data.estimasi_kenaikan : '';
 
         const th = document.createElement('th');
         th.className = 'costing-header-col text-center py-2';
@@ -249,12 +258,16 @@
 
         const tdBrand = document.createElement('td');
         tdBrand.id = `cellBrand_${vIndex}`;
-        tdBrand.innerHTML = `<input type="text" name="vehicles[${vIndex}][brand]" list="brandList" class="form-control form-control-sm" placeholder="e.g. Chery..." value="${brand}">`;
+        tdBrand.innerHTML = `<input type="text" name="vehicles[${vIndex}][brand]" id="inputBrand_${vIndex}" list="globalBrandList" class="form-control form-control-sm" placeholder="Choose brand from Odoo or type..." value="${brand}" oninput="onBrandChanged(${vIndex})">`;
         document.getElementById('rowBrand').appendChild(tdBrand);
 
         const tdType = document.createElement('td');
         tdType.id = `cellType_${vIndex}`;
-        tdType.innerHTML = `<input type="text" name="vehicles[${vIndex}][vehicle_type]" list="carProductList" class="form-control form-control-sm" placeholder="e.g. E5..." value="${vType}">`;
+        tdType.innerHTML = `
+            <input type="text" name="vehicles[${vIndex}][vehicle_type]" id="inputType_${vIndex}" list="productList_${vIndex}" class="form-control form-control-sm" placeholder="Choose type from Odoo or type..." value="${vType}" oninput="onProductChanged(${vIndex})">
+            <input type="hidden" name="vehicles[${vIndex}][odoo_product_id]" id="inputOdooProductId_${vIndex}" value="${data.odoo_product_id || ''}">
+            <datalist id="productList_${vIndex}"></datalist>
+        `;
         document.getElementById('rowType').appendChild(tdType);
 
         const tdBbn = document.createElement('td');
@@ -336,8 +349,59 @@
         tdGrand.innerHTML = `<span id="valGrand_${vIndex}">Rp 0</span>`;
         document.getElementById('rowGrandTotal').appendChild(tdGrand);
 
+        // Populate product list for this column
+        updateProductDatalist(vIndex, brand);
+
         updateRemoveColButtonsState();
         calculateColumn(vIndex);
+    }
+
+    // Update product datalist for a vehicle column based on selected Brand
+    function updateProductDatalist(vIndex, selectedBrand = '') {
+        const datalist = document.getElementById(`productList_${vIndex}`);
+        if (!datalist) return;
+        datalist.innerHTML = '';
+
+        const brandLower = selectedBrand.trim().toLowerCase();
+
+        odooProducts.forEach(p => {
+            const pBrand = (Array.isArray(p.vehicle_brand_id) && p.vehicle_brand_id[1]) ? p.vehicle_brand_id[1] : '';
+            if (!brandLower || pBrand.toLowerCase().includes(brandLower)) {
+                const opt = document.createElement('option');
+                opt.value = p.name;
+                opt.label = p.display_name;
+                opt.setAttribute('data-id', p.id);
+                opt.setAttribute('data-brand', pBrand.split(' - ')[0] || pBrand);
+                datalist.appendChild(opt);
+            }
+        });
+    }
+
+    function onBrandChanged(vIndex) {
+        const brandInput = document.getElementById(`inputBrand_${vIndex}`);
+        const brandVal = brandInput ? brandInput.value : '';
+        updateProductDatalist(vIndex, brandVal);
+    }
+
+    function onProductChanged(vIndex) {
+        const typeInput = document.getElementById(`inputType_${vIndex}`);
+        const hiddenId = document.getElementById(`inputOdooProductId_${vIndex}`);
+        const brandInput = document.getElementById(`inputBrand_${vIndex}`);
+        const datalist = document.getElementById(`productList_${vIndex}`);
+
+        if (!typeInput || !datalist) return;
+
+        const val = typeInput.value.trim();
+        const matched = Array.from(datalist.options).find(opt => opt.value === val);
+
+        if (matched) {
+            if (hiddenId) hiddenId.value = matched.getAttribute('data-id') || '';
+            const brandFromProduct = matched.getAttribute('data-brand');
+            if (brandInput && !brandInput.value.trim() && brandFromProduct) {
+                brandInput.value = brandFromProduct;
+                updateProductDatalist(vIndex, brandFromProduct);
+            }
+        }
     }
 
     function removeVehicleColumn(vIndex) {
@@ -500,9 +564,28 @@
             });
         }
 
+        // Init TomSelect on supplier dropdown matching Comparison
+        const supplierSelectEl = document.getElementById('supplierSelect');
+        if (supplierSelectEl && typeof TomSelect !== 'undefined') {
+            new TomSelect(supplierSelectEl, {
+                maxOptions: 250,
+                searchField: ['text'],
+                placeholder: '— Pilih supplier —',
+                onChange(val) {
+                    if (val) {
+                        const custInp = document.getElementById('customerNameInput');
+                        if (custInp) {
+                            custInp.value = val;
+                        }
+                    }
+                }
+            });
+        }
+
         document.getElementById('addVehicleBtn').addEventListener('click', function() {
             addVehicleColumn();
         });
     });
 </script>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 @endpush

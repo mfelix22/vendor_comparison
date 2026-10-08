@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\DB;
 class CostingController extends Controller
 {
     public function __construct(
-        private CostingOdooService $odooService
+        private CostingOdooService $odooService,
+        private \App\Services\OdooService $odoo
     ) {}
 
     /**
@@ -49,8 +50,9 @@ class CostingController extends Controller
         $templates = CostingAccessoryTemplate::orderBy('sort_order')->get();
         $brands    = $this->odooService->getCarBrands();
         $products  = $this->odooService->getCarProducts();
+        $vendors   = $this->odoo->getVendors();
 
-        return view('costing.create', compact('bbnList', 'templates', 'brands', 'products'));
+        return view('costing.create', compact('bbnList', 'templates', 'brands', 'products', 'vendors'));
     }
 
     /**
@@ -216,7 +218,9 @@ class CostingController extends Controller
             }
         }
 
-        return view('costing.edit', compact('costing', 'bbnList', 'templates', 'brands', 'products', 'accRows'));
+        $vendors   = $this->odoo->getVendors();
+
+        return view('costing.edit', compact('costing', 'bbnList', 'templates', 'brands', 'products', 'accRows', 'vendors'));
     }
 
     /**
