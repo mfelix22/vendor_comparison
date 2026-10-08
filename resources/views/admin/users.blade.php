@@ -56,7 +56,11 @@
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
-                <div class="col-md-2 d-flex align-items-end">
+                <div class="col-md-2 d-flex flex-column justify-content-end">
+                    <div class="form-check form-switch mb-1">
+                        <input class="form-check-input" type="checkbox" name="has_costing_access" id="hasCostingAccessCreate" value="1" {{ old('has_costing_access') ? 'checked' : '' }}>
+                        <label class="form-check-label small fw-semibold" for="hasCostingAccessCreate">Costing Access</label>
+                    </div>
                     <button type="submit" class="btn btn-primary btn-sm w-100">
                         <i class="bi bi-plus-circle me-1"></i>Add User
                     </button>
@@ -74,6 +78,7 @@
                         <th class="ps-3">Name</th>
                         <th>Email</th>
                         <th class="text-center">Role</th>
+                        <th class="text-center">Costing Access</th>
                         <th class="text-center">Comparisons Created</th>
                         <th class="text-center">Joined</th>
                         <th class="text-center" style="width:100px">Actions</th>
@@ -100,6 +105,13 @@
                                         'controller' => 'bg-success',
                                         default => 'bg-secondary',
                                     } }}">{{ $u->roleBadge() }}</span>
+                            </td>
+                            <td class="text-center">
+                                @if ($u->canAccessCosting())
+                                    <span class="badge bg-success text-white"><i class="bi bi-check-circle me-1"></i>Allowed</span>
+                                @else
+                                    <span class="badge bg-light text-muted border">No</span>
+                                @endif
                             </td>
                             <td class="text-center">{{ $u->comparisonsCreated()->count() }}</td>
                             <td class="text-center text-muted small">{{ $u->created_at->format('d M Y') }}</td>
@@ -158,6 +170,15 @@
                                                     <option value="admin" {{ $u->role === 'admin' ? 'selected' : '' }}>
                                                         Admin</option>
                                                 </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" name="has_costing_access"
+                                                        id="hasCostingAccessEdit{{ $u->id }}" value="1"
+                                                        {{ $u->has_costing_access ? 'checked' : '' }}>
+                                                    <label class="form-check-label fw-semibold"
+                                                        for="hasCostingAccessEdit{{ $u->id }}">Grant Costing Access</label>
+                                                </div>
                                             </div>
                                             <div class="mb-3">
                                                 <label class="form-label fw-semibold">New Password <span

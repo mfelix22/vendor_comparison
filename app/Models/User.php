@@ -23,6 +23,7 @@ class User extends Authenticatable
         'role',
         'email',
         'password',
+        'has_costing_access',
     ];
 
     public function isCreator(): bool
@@ -72,6 +73,11 @@ class User extends Authenticatable
         return $this->hasMany(VendorComparison::class, 'created_by');
     }
 
+    public function canAccessCosting(): bool
+    {
+        return $this->isAdmin() || (bool) $this->has_costing_access;
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -92,6 +98,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'has_costing_access' => 'boolean',
         ];
     }
 }
