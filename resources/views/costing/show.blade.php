@@ -1,17 +1,30 @@
 @extends('layouts.app')
 
 @section('title', 'Costing ' . $costing->costing_number)
+@section('main_container_class', 'container-fluid px-3 px-xl-4')
 
 @push('styles')
 <style>
+    .costing-view-table {
+        width: 100% !important;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
     .costing-view-table th, .costing-view-table td {
         vertical-align: middle;
-        padding: 0.65rem 0.85rem;
+        padding: 0.25rem 0.4rem;
+        height: 34px;
     }
     .costing-label-col {
-        width: 250px;
+        width: 235px !important;
+        min-width: 235px !important;
         background-color: #f8fafc;
         font-weight: 600;
+        font-size: 0.82rem;
+    }
+    .costing-view-table th:not(.costing-label-col),
+    .costing-view-table td:not(.costing-label-col) {
+        min-width: 210px !important;
     }
     @media print {
         .no-print {
@@ -85,7 +98,7 @@
                         <tr class="table-light">
                             <th class="costing-label-col py-3">Vehicle Details</th>
                             @foreach ($costing->vehicles as $v)
-                                <th class="text-center py-3 bg-white" style="min-width: 220px;">
+                                <th class="text-center py-2 bg-white">
                                     <div class="fw-bold text-primary">{{ $v->brand }}</div>
                                     <div class="text-dark small fw-semibold">{{ $v->vehicle_type }}</div>
                                 </th>
@@ -144,7 +157,7 @@
                             @endforeach
                         </tr>
                         <tr class="table-warning fw-bold">
-                            <td class="costing-label-col text-dark">Harga setelah estimasi kenaikan :</td>
+                            <td class="costing-label-col text-dark text-nowrap">Harga setelah estimasi kenaikan :</td>
                             @foreach ($costing->vehicles as $v)
                                 <td class="text-end font-monospace text-dark">Rp {{ number_format($v->harga_setelah_kenaikan, 0, ',', '.') }}</td>
                             @endforeach
@@ -152,8 +165,8 @@
 
                         {{-- Section: Accessories --}}
                         <tr class="table-light">
-                            <td class="costing-label-col fw-bold text-primary py-2" colspan="{{ $costing->vehicles->count() + 1 }}">
-                                <i class="bi bi-wrench-adjustable me-1"></i>Tambahan (Accessories & Upgrades) :
+                            <td class="fw-bold text-primary py-2 px-3 border-top border-bottom bg-light" colspan="{{ $costing->vehicles->count() + 1 }}">
+                                <i class="bi bi-wrench-adjustable me-1"></i>Tambahan (Accessories & Upgrades)
                             </td>
                         </tr>
 

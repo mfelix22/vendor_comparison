@@ -259,7 +259,7 @@
         </div>
     </nav>
 
-    <main class="container-xl pb-4">
+    <main class="@yield('main_container_class', 'container-xl') pb-4">
         {{-- Flash messages --}}
         @if (session('success'))
             <div class="alert alert-success alert-dismissible fade show mb-3" role="alert">

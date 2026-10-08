@@ -1,26 +1,42 @@
 @extends('layouts.app')
 
 @section('title', 'Edit Costing ' . $costing->costing_number)
+@section('main_container_class', 'container-fluid px-3 px-xl-4')
 
 @push('styles')
 <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
 <style>
+    .costing-table {
+        width: 100% !important;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
     .costing-table th, .costing-table td {
         vertical-align: middle;
-        padding: 0.5rem 0.65rem;
-    }
-    .costing-header-col {
-        min-width: 250px;
-        max-width: 320px;
+        padding: 0.25rem 0.4rem;
+        height: 34px;
     }
     .costing-label-col {
-        width: 220px;
-        min-width: 200px;
+        width: 235px !important;
+        min-width: 235px !important;
         background-color: #f8fafc;
         font-weight: 600;
         position: sticky;
         left: 0;
         z-index: 2;
+        font-size: 0.82rem;
+    }
+    .costing-header-col,
+    .costing-table th:not(.costing-label-col),
+    .costing-table td:not(.costing-label-col) {
+        min-width: 210px !important;
+        box-sizing: border-box;
+    }
+    .costing-table .form-control,
+    .costing-table .form-select {
+        font-size: 0.82rem;
+        padding: 0.2rem 0.4rem;
+        height: 29px;
     }
     .costing-calc-row {
         background-color: #f0fdf4 !important;
@@ -33,13 +49,7 @@
     .costing-grand-row {
         background-color: #ede9fe !important;
         font-weight: 700;
-        font-size: 0.95rem;
-    }
-    .formatted-display {
-        font-size: 0.75rem;
-        color: #4b5563;
-        font-weight: 500;
-        margin-top: 0.15rem;
+        font-size: 0.875rem;
     }
 </style>
 @endpush
@@ -80,7 +90,7 @@
                         <label class="form-label small fw-semibold mb-1">
                             Cari Supplier <span class="text-muted fw-normal">(opsional, untuk auto-isi)</span>
                         </label>
-                        <select class="form-select form-select-sm" id="supplierSelect">
+                        <select class="form-select form-select-sm" id="supplierSelect" onchange="onSupplierSelected(this)">
                             <option value="">— Pilih supplier —</option>
                             @foreach ($vendors as $v)
                                 <option value="{{ $v['name'] }}" {{ old('customer_name', $costing->customer_name) === $v['name'] ? 'selected' : '' }}>
@@ -157,33 +167,17 @@
                             <td class="costing-label-col">Estimasi kenaikan harga :</td>
                         </tr>
                         <tr id="rowAfterInc" class="costing-inc-row">
-                            <td class="costing-label-col text-dark fw-bold">Harga setelah estimasi kenaikan :</td>
+                            <td class="costing-label-col text-dark fw-bold text-nowrap">Harga setelah estimasi kenaikan :</td>
                         </tr>
 
                         {{-- Section: Accessories Header --}}
                         <tr class="table-light">
-                            <td class="costing-label-col fw-bold text-primary py-2" colspan="100%">
+                            <td class="fw-bold text-primary py-2 px-3 border-top border-bottom bg-light" id="accHeaderCell" colspan="3">
                                 <div class="d-flex align-items-center justify-content-between">
-                                    <span><i class="bi bi-wrench-adjustable me-1"></i>Tambahan (Accessories & Upgrades) :</span>
-                                    <div class="d-flex gap-2">
-                                        <div class="dropdown">
-                                            <button class="btn btn-xs btn-outline-secondary dropdown-toggle py-0 px-2" type="button" data-bs-toggle="dropdown">
-                                                <i class="bi bi-bookmark-plus me-1"></i>Add from Template
-                                            </button>
-                                            <ul class="dropdown-menu dropdown-menu-end shadow-sm" id="presetMenu">
-                                                @foreach ($templates as $tmpl)
-                                                    <li>
-                                                        <a class="dropdown-item small" href="#" onclick="addAccessoryRow('{{ addslashes($tmpl->name) }}', {{ $tmpl->default_amount }}); return false;">
-                                                            {{ $tmpl->name }} (Rp {{ number_format($tmpl->default_amount, 0, ',', '.') }})
-                                                        </a>
-                                                    </li>
-                                                @endforeach
-                                            </ul>
-                                        </div>
-                                        <button type="button" class="btn btn-xs btn-primary py-0 px-2" onclick="addAccessoryRow(''); return false;">
-                                            <i class="bi bi-plus me-1"></i>Add Custom Row (+)
-                                        </button>
-                                    </div>
+                                    <span><i class="bi bi-wrench-adjustable me-1"></i>Tambahan (Accessories & Upgrades)</span>
+                                    <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2" onclick="addAccessoryRow(''); return false;">
+                                        <i class="bi bi-plus me-1"></i>Add Row (+)
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -217,7 +211,15 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 <script>
+    function onSupplierSelected(sel) {
+        if (sel && sel.value) {
+            const inp = document.getElementById('customerNameInput');
+            if (inp) inp.value = sel.value;
+        }
+    }
+
     let vehicleCount = 0;
     let accessoryCount = 0;
     const bbnOptions = @json($bbnList);
@@ -248,7 +250,7 @@
         th.id = `colHeader_${vIndex}`;
         th.innerHTML = `
             <div class="d-flex align-items-center justify-content-between bg-white p-2 rounded border shadow-sm">
-                <span class="fw-bold text-primary small"><i class="bi bi-car-front me-1"></i>Vehicle #${vIndex + 1}</span>
+                <span class="fw-bold text-primary small vehicle-col-title"><i class="bi bi-car-front me-1"></i>Vehicle #${vIndex + 1}</span>
                 <button type="button" class="btn btn-xs btn-outline-danger py-0 px-2 remove-col-btn" title="Remove Vehicle (-)" onclick="removeVehicleColumn(${vIndex})">
                     <i class="bi bi-dash-lg"></i>
                 </button>
@@ -272,7 +274,7 @@
 
         const tdBbn = document.createElement('td');
         tdBbn.id = `cellBbn_${vIndex}`;
-        let bbnOptsHtml = `<option value="">-- Select BBN --</option>`;
+        let bbnOptsHtml = `<option value="">-- BBN --</option>`;
         bbnOptions.forEach(b => {
             const isSel = (b.kode === bbn || b.display_name === bbn) ? 'selected' : '';
             bbnOptsHtml += `<option value="${b.kode}" ${isSel}>${b.display_name}</option>`;
@@ -288,40 +290,37 @@
         const tdOtr = document.createElement('td');
         tdOtr.id = `cellOtr_${vIndex}`;
         tdOtr.innerHTML = `
-            <input type="number" step="any" name="vehicles[${vIndex}][harga_otr]" class="form-control form-control-sm num-input"
-                id="inputOtr_${vIndex}" value="${otr}" placeholder="0" oninput="calculateColumn(${vIndex})">
-            <div class="formatted-display" id="dispOtr_${vIndex}"></div>
+            <input type="number" step="any" name="vehicles[${vIndex}][harga_otr]" class="form-control form-control-sm text-end num-input"
+                id="inputOtr_${vIndex}" value="${otr}" placeholder="0" oninput="calculateColumn(${vIndex})" title="${otr ? formatRupiah(otr) : ''}">
         `;
         document.getElementById('rowOtr').appendChild(tdOtr);
 
         const tdDiskon = document.createElement('td');
         tdDiskon.id = `cellDiskon_${vIndex}`;
         tdDiskon.innerHTML = `
-            <input type="number" step="any" name="vehicles[${vIndex}][diskon]" class="form-control form-control-sm num-input"
-                id="inputDiskon_${vIndex}" value="${diskon}" placeholder="0" oninput="calculateColumn(${vIndex})">
-            <div class="formatted-display" id="dispDiskon_${vIndex}"></div>
+            <input type="number" step="any" name="vehicles[${vIndex}][diskon]" class="form-control form-control-sm text-end num-input"
+                id="inputDiskon_${vIndex}" value="${diskon}" placeholder="0" oninput="calculateColumn(${vIndex})" title="${diskon ? formatRupiah(diskon) : ''}">
         `;
         document.getElementById('rowDiskon').appendChild(tdDiskon);
 
         const tdNett = document.createElement('td');
         tdNett.id = `cellNett_${vIndex}`;
         tdNett.className = 'fw-bold text-success';
-        tdNett.innerHTML = `<span id="valNett_${vIndex}">Rp 0</span>`;
+        tdNett.innerHTML = `<div class="text-end small" id="valNett_${vIndex}">Rp 0</div>`;
         document.getElementById('rowNett').appendChild(tdNett);
 
         const tdEstimasi = document.createElement('td');
         tdEstimasi.id = `cellEstimasi_${vIndex}`;
         tdEstimasi.innerHTML = `
-            <input type="number" step="any" name="vehicles[${vIndex}][estimasi_kenaikan]" class="form-control form-control-sm num-input"
-                id="inputEstimasi_${vIndex}" value="${estimasi}" placeholder="0" oninput="calculateColumn(${vIndex})">
-            <div class="formatted-display" id="dispEstimasi_${vIndex}"></div>
+            <input type="number" step="any" name="vehicles[${vIndex}][estimasi_kenaikan]" class="form-control form-control-sm text-end num-input"
+                id="inputEstimasi_${vIndex}" value="${estimasi}" placeholder="0" oninput="calculateColumn(${vIndex})" title="${estimasi ? formatRupiah(estimasi) : ''}">
         `;
         document.getElementById('rowEstimasi').appendChild(tdEstimasi);
 
         const tdAfterInc = document.createElement('td');
         tdAfterInc.id = `cellAfterInc_${vIndex}`;
         tdAfterInc.className = 'fw-bold';
-        tdAfterInc.innerHTML = `<span id="valAfterInc_${vIndex}">Rp 0</span>`;
+        tdAfterInc.innerHTML = `<div class="text-end small" id="valAfterInc_${vIndex}">Rp 0</div>`;
         document.getElementById('rowAfterInc').appendChild(tdAfterInc);
 
         document.querySelectorAll('tr[id^="accRow_"]').forEach(accRow => {
@@ -330,9 +329,8 @@
             tdAcc.id = `cellAcc_${aIdx}_${vIndex}`;
             const defAmt = accRow.getAttribute('data-default-amount') || 0;
             tdAcc.innerHTML = `
-                <input type="number" step="any" name="accessories[${aIdx}][amounts][${vIndex}]" class="form-control form-control-sm num-input"
-                    id="inputAcc_${aIdx}_${vIndex}" value="${defAmt}" placeholder="0" oninput="calculateColumn(${vIndex})">
-                <div class="formatted-display" id="dispAcc_${aIdx}_${vIndex}"></div>
+                <input type="number" step="any" name="accessories[${aIdx}][amounts][${vIndex}]" class="form-control form-control-sm text-end num-input"
+                    id="inputAcc_${aIdx}_${vIndex}" value="${defAmt}" placeholder="0" oninput="calculateColumn(${vIndex})" title="${defAmt ? formatRupiah(defAmt) : ''}">
             `;
             accRow.appendChild(tdAcc);
         });
@@ -340,19 +338,21 @@
         const tdTotalAcc = document.createElement('td');
         tdTotalAcc.id = `cellTotalAcc_${vIndex}`;
         tdTotalAcc.className = 'fw-bold';
-        tdTotalAcc.innerHTML = `<span id="valTotalAcc_${vIndex}">Rp 0</span>`;
+        tdTotalAcc.innerHTML = `<div class="text-end small" id="valTotalAcc_${vIndex}">Rp 0</div>`;
         document.getElementById('rowTotalAcc').appendChild(tdTotalAcc);
 
         const tdGrand = document.createElement('td');
         tdGrand.id = `cellGrand_${vIndex}`;
-        tdGrand.className = 'fw-bold text-primary fs-6';
-        tdGrand.innerHTML = `<span id="valGrand_${vIndex}">Rp 0</span>`;
+        tdGrand.className = 'fw-bold text-primary';
+        tdGrand.innerHTML = `<div class="text-end small" id="valGrand_${vIndex}">Rp 0</div>`;
         document.getElementById('rowGrandTotal').appendChild(tdGrand);
 
         // Populate product list for this column
         updateProductDatalist(vIndex, brand);
 
         updateRemoveColButtonsState();
+        renumberVehicleColumns();
+        updateAccHeaderColspan();
         calculateColumn(vIndex);
     }
 
@@ -435,6 +435,26 @@
 
         document.querySelectorAll(`td[id^="cellAcc_"][id$="_${vIndex}"]`).forEach(el => el.remove());
         updateRemoveColButtonsState();
+        renumberVehicleColumns();
+        updateAccHeaderColspan();
+    }
+
+    function updateAccHeaderColspan() {
+        const accHdr = document.getElementById('accHeaderCell');
+        const activeCols = document.querySelectorAll('th[id^="colHeader_"]').length;
+        if (accHdr) {
+            accHdr.colSpan = activeCols + 1;
+        }
+    }
+
+    function renumberVehicleColumns() {
+        const activeHeaders = document.querySelectorAll('th[id^="colHeader_"]');
+        activeHeaders.forEach((th, idx) => {
+            const titleSpan = th.querySelector('.vehicle-col-title');
+            if (titleSpan) {
+                titleSpan.innerHTML = `<i class="bi bi-car-front me-1"></i>Vehicle #${idx + 1}`;
+            }
+        });
     }
 
     function updateRemoveColButtonsState() {
@@ -461,7 +481,7 @@
                     <i class="bi bi-dash"></i>
                 </button>
                 <input type="text" name="accessories[${aIndex}][name]" class="form-control form-control-sm py-1 fw-semibold"
-                    placeholder="Accessory Name..." value="${name}" required style="font-size:0.8rem">
+                    placeholder="Accessory / Upgrade name..." value="${name}" style="font-size:0.8rem">
             </div>
         `;
         tr.appendChild(tdLabel);
@@ -472,9 +492,8 @@
             tdAcc.id = `cellAcc_${aIndex}_${vIndex}`;
             const val = (amountsPerVeh[colIdx] !== undefined) ? amountsPerVeh[colIdx] : defaultAmount;
             tdAcc.innerHTML = `
-                <input type="number" step="any" name="accessories[${aIndex}][amounts][${vIndex}]" class="form-control form-control-sm num-input"
-                    id="inputAcc_${aIndex}_${vIndex}" value="${val}" placeholder="0" oninput="calculateColumn(${vIndex})">
-                <div class="formatted-display" id="dispAcc_${aIndex}_${vIndex}">${formatRupiah(val)}</div>
+                <input type="number" step="any" name="accessories[${aIndex}][amounts][${vIndex}]" class="form-control form-control-sm text-end num-input"
+                    id="inputAcc_${aIndex}_${vIndex}" value="${val}" placeholder="0" oninput="calculateColumn(${vIndex})" title="${val ? formatRupiah(val) : ''}">
             `;
             tr.appendChild(tdAcc);
         });
@@ -510,14 +529,9 @@
         const diskon = parseFloat(diskonInput ? diskonInput.value : 0) || 0;
         const estimasi = parseFloat(estimasiInput ? estimasiInput.value : 0) || 0;
 
-        const dispOtr = document.getElementById(`dispOtr_${vIndex}`);
-        if (dispOtr) dispOtr.innerText = formatRupiah(otr);
-
-        const dispDiskon = document.getElementById(`dispDiskon_${vIndex}`);
-        if (dispDiskon) dispDiskon.innerText = formatRupiah(diskon);
-
-        const dispEstimasi = document.getElementById(`dispEstimasi_${vIndex}`);
-        if (dispEstimasi) dispEstimasi.innerText = formatRupiah(estimasi);
+        if (otrInput) otrInput.title = otr ? formatRupiah(otr) : '';
+        if (diskonInput) diskonInput.title = diskon ? formatRupiah(diskon) : '';
+        if (estimasiInput) estimasiInput.title = estimasi ? formatRupiah(estimasi) : '';
 
         const nett = Math.max(0, otr - diskon);
         const valNett = document.getElementById(`valNett_${vIndex}`);
@@ -531,9 +545,7 @@
         document.querySelectorAll(`input[id^="inputAcc_"][id$="_${vIndex}"]`).forEach(accInp => {
             const amt = parseFloat(accInp.value) || 0;
             totalAcc += amt;
-            const aIdx = accInp.id.replace('inputAcc_', '').replace(`_${vIndex}`, '');
-            const dispAcc = document.getElementById(`dispAcc_${aIdx}_${vIndex}`);
-            if (dispAcc) dispAcc.innerText = formatRupiah(amt);
+            accInp.title = amt ? formatRupiah(amt) : '';
         });
 
         const valTotalAcc = document.getElementById(`valTotalAcc_${vIndex}`);
@@ -562,6 +574,8 @@
                 });
                 addAccessoryRow(accData.name, 0, amountsPerVeh);
             });
+        } else {
+            addAccessoryRow('', '');
         }
 
         // Init TomSelect on supplier dropdown matching Comparison
@@ -587,5 +601,4 @@
         });
     });
 </script>
-<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 @endpush

@@ -74,7 +74,7 @@ class CostingController extends Controller
             'vehicles.*.diskon'         => ['nullable', 'numeric', 'min:0'],
             'vehicles.*.estimasi_kenaikan'=> ['nullable', 'numeric', 'min:0'],
             'accessories'               => ['nullable', 'array'],
-            'accessories.*.name'        => ['required_with:accessories', 'string', 'max:255'],
+            'accessories.*.name'        => ['nullable', 'string', 'max:255'],
             'accessories.*.amounts'     => ['nullable', 'array'],
         ]);
 
@@ -103,6 +103,7 @@ class CostingController extends Controller
 
             // Save vehicles
             $createdVehicles = [];
+            $sortOrder = 0;
             foreach ($validated['vehicles'] as $vIndex => $vData) {
                 $otr       = (float) ($vData['harga_otr'] ?? 0);
                 $diskon    = (float) ($vData['diskon'] ?? 0);
@@ -112,7 +113,7 @@ class CostingController extends Controller
 
                 $vehicle = CostingVehicle::create([
                     'costing_id'             => $costing->id,
-                    'sort_order'             => $vIndex,
+                    'sort_order'             => $sortOrder++,
                     'brand'                  => $vData['brand'] ?? '',
                     'vehicle_type'           => $vData['vehicle_type'] ?? '',
                     'odoo_product_id'        => !empty($vData['odoo_product_id']) ? (int) $vData['odoo_product_id'] : null,
@@ -242,7 +243,7 @@ class CostingController extends Controller
             'vehicles.*.diskon'         => ['nullable', 'numeric', 'min:0'],
             'vehicles.*.estimasi_kenaikan'=> ['nullable', 'numeric', 'min:0'],
             'accessories'               => ['nullable', 'array'],
-            'accessories.*.name'        => ['required_with:accessories', 'string', 'max:255'],
+            'accessories.*.name'        => ['nullable', 'string', 'max:255'],
             'accessories.*.amounts'     => ['nullable', 'array'],
         ]);
 
@@ -258,6 +259,7 @@ class CostingController extends Controller
 
             // Re-create vehicles
             $createdVehicles = [];
+            $sortOrder = 0;
             foreach ($validated['vehicles'] as $vIndex => $vData) {
                 $otr       = (float) ($vData['harga_otr'] ?? 0);
                 $diskon    = (float) ($vData['diskon'] ?? 0);
@@ -267,7 +269,7 @@ class CostingController extends Controller
 
                 $vehicle = CostingVehicle::create([
                     'costing_id'             => $costing->id,
-                    'sort_order'             => $vIndex,
+                    'sort_order'             => $sortOrder++,
                     'brand'                  => $vData['brand'] ?? '',
                     'vehicle_type'           => $vData['vehicle_type'] ?? '',
                     'odoo_product_id'        => !empty($vData['odoo_product_id']) ? (int) $vData['odoo_product_id'] : null,
