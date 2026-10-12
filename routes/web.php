@@ -48,4 +48,21 @@ Route::middleware('auth')->group(function () {
     Route::post('/admin/users', [AdminController::class, 'store'])->name('admin.users.store');
     Route::put('/admin/users/{user}', [AdminController::class, 'update'])->name('admin.users.update');
     Route::delete('/admin/users/{user}', [AdminController::class, 'destroy'])->name('admin.users.destroy');
+
+    // ── Costing Module (Isolated) ──────────────────────────
+    Route::middleware('costing.access')->prefix('costing')->name('costing.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Costing\CostingController::class, 'index'])->name('index');
+        Route::get('/create', [App\Http\Controllers\Costing\CostingController::class, 'create'])->name('create');
+        Route::post('/', [App\Http\Controllers\Costing\CostingController::class, 'store'])->name('store');
+        Route::get('/{costing}', [App\Http\Controllers\Costing\CostingController::class, 'show'])->name('show');
+        Route::get('/{costing}/edit', [App\Http\Controllers\Costing\CostingController::class, 'edit'])->name('edit');
+        Route::put('/{costing}', [App\Http\Controllers\Costing\CostingController::class, 'update'])->name('update');
+        Route::delete('/{costing}', [App\Http\Controllers\Costing\CostingController::class, 'destroy'])->name('destroy');
+        Route::get('/{costing}/export', [App\Http\Controllers\Costing\CostingController::class, 'export'])->name('export');
+
+        // APIs for auto-suggest / dynamic lookups
+        Route::get('/api/products', [App\Http\Controllers\Costing\CostingController::class, 'apiProducts'])->name('api.products');
+        Route::get('/api/customers', [App\Http\Controllers\Costing\CostingController::class, 'apiSearchCustomers'])->name('api.customers');
+        Route::post('/api/refresh-catalog', [App\Http\Controllers\Costing\CostingController::class, 'apiRefreshCatalog'])->name('api.refresh');
+    });
 });

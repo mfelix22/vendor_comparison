@@ -31,17 +31,19 @@ class AdminController extends Controller implements HasMiddleware
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['required', 'email', 'unique:users,email'],
-            'role'     => ['required', 'in:creator,supervisor,procurement,manager,viewer,admin,controller'],
-            'password' => ['required', 'string', 'min:8'],
+            'name'               => ['required', 'string', 'max:255'],
+            'email'              => ['required', 'email', 'unique:users,email'],
+            'role'               => ['required', 'in:creator,supervisor,procurement,manager,viewer,admin,controller'],
+            'password'           => ['required', 'string', 'min:8'],
+            'has_costing_access' => ['nullable', 'boolean'],
         ]);
 
         User::create([
-            'name'     => $data['name'],
-            'email'    => $data['email'],
-            'role'     => $data['role'],
-            'password' => Hash::make($data['password']),
+            'name'               => $data['name'],
+            'email'              => $data['email'],
+            'role'               => $data['role'],
+            'password'           => Hash::make($data['password']),
+            'has_costing_access' => $request->boolean('has_costing_access'),
         ]);
 
         return back()->with('success', "User {$data['name']} created.");
@@ -50,13 +52,15 @@ class AdminController extends Controller implements HasMiddleware
     public function update(Request $request, User $user)
     {
         $data = $request->validate([
-            'name'     => ['required', 'string', 'max:255'],
-            'role'     => ['required', 'in:creator,supervisor,procurement,manager,viewer,admin,controller'],
-            'password' => ['nullable', 'string', 'min:8'],
+            'name'               => ['required', 'string', 'max:255'],
+            'role'               => ['required', 'in:creator,supervisor,procurement,manager,viewer,admin,controller'],
+            'password'           => ['nullable', 'string', 'min:8'],
+            'has_costing_access' => ['nullable', 'boolean'],
         ]);
 
         $user->name = $data['name'];
         $user->role = $data['role'];
+        $user->has_costing_access = $request->boolean('has_costing_access');
         if (!empty($data['password'])) {
             $user->password = Hash::make($data['password']);
         }
