@@ -65,6 +65,36 @@ class CostingOdooService
     }
 
     /**
+     * Fetch and sync BBN from Odoo (vehicle.bbn) into local CostingBbnMaster table.
+     */
+    public function syncBbnMaster(): array
+    {
+        try {
+            $records = $this->odoo->call('vehicle.bbn', 'search_read', [[]], [
+                'fields' => ['id', 'kode', 'alamat', 'display_name'],
+                'order'  => 'kode asc',
+            ]);
+
+            if (!empty($records)) {
+                foreach ($records as $rec) {
+                    \App\Models\CostingBbnMaster::updateOrCreate(
+                        ['kode' => $rec['kode'] ?: $rec['display_name']],
+                        [
+                            'odoo_bbn_id'  => $rec['id'],
+                            'alamat'       => $rec['alamat'] ?: null,
+                            'display_name' => $rec['display_name'] ?: $rec['kode'],
+                        ]
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('CostingOdooService: Could not sync BBN: ' . $e->getMessage());
+        }
+
+        return \App\Models\CostingBbnMaster::orderBy('kode')->get()->toArray();
+    }
+
+    /**
      * Search Odoo partners for customer auto-suggest.
      */
     public function searchCustomers(string $query): array

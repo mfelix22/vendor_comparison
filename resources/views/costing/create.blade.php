@@ -193,8 +193,8 @@
             <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
                 <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-grid-3x3-gap me-2 text-primary"></i>Vehicle Comparison Grid</h6>
                 <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshCatalogBtn" onclick="refreshCostingCatalog(this)" title="Sync latest vehicle catalog & brands from Odoo without losing entered data">
-                        <i class="bi bi-arrow-clockwise me-1"></i><span>Sync Odoo Vehicles</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshCatalogBtn" onclick="refreshCostingCatalog(this)" title="Sync latest vehicle catalog, BBN & suppliers from Odoo without losing entered data">
+                        <i class="bi bi-arrow-clockwise me-1"></i><span>Sync from Odoo</span>
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-primary" id="addVehicleBtn">
                         <i class="bi bi-plus-circle me-1"></i>Add Vehicle Column (+)
@@ -305,11 +305,11 @@
         // State
         let vehicleCount = 0;
         let accessoryCount = 0;
-        const bbnOptions = @json($bbnList);
+        let bbnOptions = @json($bbnList);
         let odooBrands = @json($brands);
         let odooProducts = @json($products);
 
-        // Seamless live refresh of Odoo vehicle catalog without reloading or losing typed form data
+        // Seamless live refresh of Odoo vehicle catalog, BBN & suppliers without reloading or losing typed form data
         async function refreshCostingCatalog(btn) {
             if (!btn) return;
             const originalHtml = btn.innerHTML;
@@ -332,10 +332,10 @@
 
                 const data = await response.json();
                 if (data.success) {
+                    // 1. Update vehicle brands & products
                     odooBrands = data.brands || [];
                     odooProducts = data.products || [];
 
-                    // Update brand datalist
                     const dl = document.getElementById('globalBrandList');
                     if (dl) {
                         dl.innerHTML = '';
@@ -346,15 +346,45 @@
                         });
                     }
 
+                    // 2. Update BBN Options & existing vehicle BBN dropdowns (preserve current selections)
+                    if (data.bbn && data.bbn.length) {
+                        bbnOptions = data.bbn;
+                        document.querySelectorAll('tr#rowBbn select').forEach(sel => {
+                            const curVal = sel.value;
+                            let html = '<option value="">-- BBN --</option>';
+                            bbnOptions.forEach(b => {
+                                const isSel = (b.kode === curVal || b.display_name === curVal) ? 'selected' : '';
+                                html += `<option value="${b.kode}" ${isSel}>${b.display_name}</option>`;
+                            });
+                            sel.innerHTML = html;
+                        });
+                    }
+
+                    // 3. Update Supplier Dropdown (preserve current selection)
+                    if (data.vendors && data.vendors.length) {
+                        const supSel = document.getElementById('supplierSelect');
+                        if (supSel) {
+                            const curSup = supSel.value;
+                            let supHtml = '<option value="">— Pilih supplier —</option>';
+                            data.vendors.forEach(v => {
+                                const optVal = v.name || '';
+                                const optLabel = optVal + (v.city ? ' - ' + v.city : '');
+                                const isSel = (optVal === curSup) ? 'selected' : '';
+                                supHtml += `<option value="${optVal}" ${isSel}>${optLabel}</option>`;
+                            });
+                            supSel.innerHTML = supHtml;
+                        }
+                    }
+
                     // Success feedback
                     btn.className = 'btn btn-sm btn-success text-white';
-                    btn.innerHTML = `<i class="bi bi-check-lg me-1"></i>Synced (${data.counts.brands} brands, ${data.counts.products} types)`;
+                    btn.innerHTML = `<i class="bi bi-check-lg me-1"></i>Synced (${data.counts.brands} brands, ${data.counts.products} types, ${data.counts.bbn} BBN, ${data.counts.suppliers} suppliers)`;
 
                     setTimeout(() => {
                         btn.className = 'btn btn-sm btn-outline-secondary';
                         btn.innerHTML = originalHtml;
                         btn.disabled = false;
-                    }, 3000);
+                    }, 3500);
                 } else {
                     throw new Error(data.message || 'Sync failed');
                 }

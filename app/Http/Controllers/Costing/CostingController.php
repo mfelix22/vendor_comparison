@@ -376,23 +376,31 @@ class CostingController extends Controller
     }
 
     /**
-     * Refresh Costing vehicle catalog from Odoo (AJAX).
-     * Isolated strictly to the Costing module without affecting RFQs or vendors.
+     * Refresh Costing vehicle catalog, BBN, and suppliers from Odoo (AJAX).
+     * Isolated strictly to the Costing module without affecting RFQs.
      */
     public function apiRefreshCatalog()
     {
         $this->odooService->flushCostingCache();
+        \Illuminate\Support\Facades\Cache::forget('odoo_vendors');
+
         $products = $this->odooService->getCarProducts();
         $brands   = $this->odooService->getCarBrands();
+        $bbnList  = $this->odooService->syncBbnMaster();
+        $vendors  = $this->odoo->getVendors();
 
         return response()->json([
             'success'  => true,
-            'message'  => 'Costing vehicle catalog refreshed from Odoo.',
+            'message'  => 'Costing vehicle catalog, BBN, and suppliers refreshed from Odoo.',
             'brands'   => $brands,
             'products' => $products,
+            'bbn'      => $bbnList,
+            'vendors'  => $vendors,
             'counts'   => [
-                'brands'   => count($brands),
-                'products' => count($products),
+                'brands'    => count($brands),
+                'products'  => count($products),
+                'bbn'       => count($bbnList),
+                'suppliers' => count($vendors),
             ],
         ]);
     }
