@@ -317,7 +317,7 @@
             btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Syncing Odoo...`;
 
             try {
-                const response = await fetch('{{ route('costing.api.refresh') }}', {
+                const response = await fetch('{{ route('costing.api.refresh', [], false) }}', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
