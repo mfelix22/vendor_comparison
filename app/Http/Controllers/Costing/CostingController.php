@@ -176,6 +176,7 @@ class CostingController extends Controller
         $costing->load(['creator', 'vehicles.accessories']);
 
         // Group accessories by name across vehicles
+        $accNames = [];
         $accRows = [];
         foreach ($costing->vehicles as $vIndex => $vehicle) {
             foreach ($vehicle->accessories as $acc) {
@@ -185,12 +186,13 @@ class CostingController extends Controller
                         'name' => $name,
                         'amounts' => [],
                     ];
+                    $accNames[] = $name;
                 }
                 $accRows[$name]['amounts'][$vehicle->id] = (float) $acc->amount;
             }
         }
 
-        return view('costing.show', compact('costing', 'accRows'));
+        return view('costing.show', compact('costing', 'accRows', 'accNames'));
     }
 
     /**
