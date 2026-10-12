@@ -208,9 +208,11 @@
         {{-- Comparison Sheet Card --}}
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
-                <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-grid-3x3-gap me-2 text-primary"></i>Vehicle Comparison
-                    Grid</h6>
-                <div>
+                <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-grid-3x3-gap me-2 text-primary"></i>Vehicle Comparison Grid</h6>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshCatalogBtn" onclick="refreshCostingCatalog(this)" title="Sync latest vehicle catalog & brands from Odoo without losing entered data">
+                        <i class="bi bi-arrow-clockwise me-1"></i><span>Sync Odoo Vehicles</span>
+                    </button>
                     <button type="button" class="btn btn-sm btn-outline-primary" id="addVehicleBtn">
                         <i class="bi bi-plus-circle me-1"></i>Add Vehicle Column (+)
                     </button>
@@ -311,10 +313,71 @@
         let vehicleCount = 0;
         let accessoryCount = 0;
         const bbnOptions = @json($bbnList);
-        const odooBrands = @json($brands);
-        const odooProducts = @json($products);
+        let odooBrands = @json($brands);
+        let odooProducts = @json($products);
         const existingVehicles = @json($costing->vehicles);
         const existingAccRows = @json($accRows);
+
+        // Seamless live refresh of Odoo vehicle catalog without reloading or losing typed form data
+        async function refreshCostingCatalog(btn) {
+            if (!btn) return;
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Syncing Odoo...`;
+
+            try {
+                const response = await fetch('{{ route('costing.api.refresh') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network error syncing catalog from Odoo');
+                }
+
+                const data = await response.json();
+                if (data.success) {
+                    odooBrands = data.brands || [];
+                    odooProducts = data.products || [];
+
+                    // Update brand datalist
+                    const dl = document.getElementById('globalBrandList');
+                    if (dl) {
+                        dl.innerHTML = '';
+                        odooBrands.forEach(b => {
+                            const opt = document.createElement('option');
+                            opt.value = b;
+                            dl.appendChild(opt);
+                        });
+                    }
+
+                    // Success feedback
+                    btn.className = 'btn btn-sm btn-success text-white';
+                    btn.innerHTML = `<i class="bi bi-check-lg me-1"></i>Synced (${data.counts.brands} brands, ${data.counts.products} types)`;
+
+                    setTimeout(() => {
+                        btn.className = 'btn btn-sm btn-outline-secondary';
+                        btn.innerHTML = originalHtml;
+                        btn.disabled = false;
+                    }, 3000);
+                } else {
+                    throw new Error(data.message || 'Sync failed');
+                }
+            } catch (err) {
+                console.error('Error syncing Odoo catalog:', err);
+                btn.className = 'btn btn-sm btn-outline-danger';
+                btn.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i>Sync Failed`;
+                setTimeout(() => {
+                    btn.className = 'btn btn-sm btn-outline-secondary';
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                }, 3000);
+            }
+        }
 
         function formatRupiah(num) {
             if (isNaN(num) || num === null || num === '') num = 0;

@@ -374,4 +374,27 @@ class CostingController extends Controller
 
         return response()->json($filtered);
     }
+
+    /**
+     * Refresh Costing vehicle catalog from Odoo (AJAX).
+     * Isolated strictly to the Costing module without affecting RFQs or vendors.
+     */
+    public function apiRefreshCatalog()
+    {
+        $this->odooService->flushCostingCache();
+        $products = $this->odooService->getCarProducts();
+        $brands   = $this->odooService->getCarBrands();
+
+        return response()->json([
+            'success'  => true,
+            'message'  => 'Costing vehicle catalog refreshed from Odoo.',
+            'brands'   => $brands,
+            'products' => $products,
+            'counts'   => [
+                'brands'   => count($brands),
+                'products' => count($products),
+            ],
+        ]);
+    }
 }
+

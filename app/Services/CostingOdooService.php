@@ -34,6 +34,15 @@ class CostingOdooService
     }
 
     /**
+     * Flush only the costing car products cache.
+     * Isolated strictly to the Costing module without affecting RFQs or vendors.
+     */
+    public function flushCostingCache(): void
+    {
+        Cache::forget('costing_car_products');
+    }
+
+    /**
      * Get distinct list of vehicle brands from car products.
      */
     public function getCarBrands(): array
