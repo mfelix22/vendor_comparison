@@ -321,19 +321,100 @@
     }
 
     @media print {
-        .no-print {
+        @page {
+            size: auto;
+            margin: 8mm 10mm;
+        }
+
+        body {
+            background: #ffffff !important;
+            color: #000000 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        /* Hide all UI elements outside the excel content */
+        nav,
+        footer,
+        .navbar,
+        .no-print,
+        .excel-topbar,
+        .excel-tabs-bar,
+        .excel-statusbar,
+        .btn,
+        .alert {
             display: none !important;
         }
+
+        /* Hide Excel coordinates (column letters A, B, C & row numbers 1, 2, 3) */
+        .excel-table thead,
+        .excel-corner,
+        .excel-col-hdr,
+        .excel-row-hdr,
+        .excel-table colgroup {
+            display: none !important;
+        }
+
+        main {
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+
         .excel-window {
             box-shadow: none !important;
             border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
-        .excel-topbar, .excel-tabs-bar, .excel-statusbar {
-            display: none !important;
-        }
+
         .excel-grid-container {
             max-height: none !important;
             overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .excel-table {
+            width: 100% !important;
+            table-layout: auto !important;
+            border-collapse: collapse !important;
+            font-size: 0.82rem !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+
+        .excel-table tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            height: auto !important;
+        }
+
+        .excel-cell {
+            padding: 3px 8px !important;
+            height: auto !important;
+            border: 1px solid #d4d4d4 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        .excel-cell.cell-no-border {
+            border: none !important;
+        }
+
+        /* Column A width for item labels */
+        .excel-cell[data-coord^="A"] {
+            width: 34% !important;
+        }
+
+        /* Remove active cell focus outline and green indicator */
+        .excel-cell.excel-cell-active {
+            outline: none !important;
+        }
+
+        .excel-cell.excel-cell-active::after {
+            display: none !important;
         }
     }
 </style>
