@@ -26,5 +26,10 @@ backup.sql
 *.sql
 *.sqlite
 *.sqlite-journal
+*.xlsx
+*.xls
+*.csv
+*.md
+!README.md
 session_log_*.md
 /.gemini

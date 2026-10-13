@@ -88,8 +88,15 @@ class CostingExportService
         $sheet->getStyle("A4:{$lastColLetter}4")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FFFF00');
         $sheet->getStyle("A4:{$lastColLetter}4")->getFont()->setName('Times New Roman')->setBold(true);
         $sheet->getStyle("A4")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getStyle("A4:{$lastColLetter}4")->getAlignment()->setWrapText(true);
         $sheet->getStyle("A4:{$lastColLetter}4")->applyFromArray($thinBorder);
-        $sheet->getRowDimension(4)->setRowHeight(28);
+
+        // Adjust row 4 height dynamically based on longest vehicle name
+        $maxVehicleTypeLen = 0;
+        foreach ($vehicles as $v) {
+            $maxVehicleTypeLen = max($maxVehicleTypeLen, mb_strlen($v->vehicle_type ?? ''));
+        }
+        $sheet->getRowDimension(4)->setRowHeight($maxVehicleTypeLen > 24 ? 36 : 28);
 
         // Row 5: BBN
         $sheet->setCellValue('A5', 'BBN :');
@@ -114,6 +121,7 @@ class CostingExportService
             $sheet->setCellValue("{$cLet}5", $v->bbn);
             $sheet->setCellValue("{$cLet}6", $v->pemakaian);
             $sheet->getStyle("{$cLet}3:{$cLet}6")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+            $sheet->getStyle("{$cLet}4")->getAlignment()->setWrapText(true);
             $cIdx++;
         }
 
@@ -323,10 +331,26 @@ class CostingExportService
         $sheet->setCellValue("A{$currRow}", $notesText);
         $sheet->getStyle("A{$currRow}")->getFont()->setName('Calibri')->setBold(true);
 
-        // Column widths
-        $sheet->getColumnDimension('A')->setWidth(30);
-        for ($col = 2; $col <= max(2, $colCount + 1); $col++) {
-            $sheet->getColumnDimensionByColumn($col)->setWidth(24);
+        // Column widths - dynamically fit the longest vehicle names and descriptions
+        $sheet->getColumnDimension('A')->setWidth(32);
+        $cIdx = 2;
+        foreach ($vehicles as $v) {
+            $vTypeLen = mb_strlen($v->vehicle_type ?? '');
+            $brandLen = mb_strlen($v->brand ?? '');
+            $longest = max($vTypeLen, $brandLen, 24);
+            // Allow column to expand comfortably (minimum 32, up to 44)
+            $colWidth = max(32, min(44, $longest + 3));
+            $sheet->getColumnDimensionByColumn($cIdx)->setWidth($colWidth);
+            $cIdx++;
         }
+        for ($col = $cIdx; $col <= max(2, $colCount + 1); $col++) {
+            $sheet->getColumnDimensionByColumn($col)->setWidth(30);
+        }
+
+        // Page setup for printing in Excel (Landscape, fit to page width)
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
+        $sheet->getPageSetup()->setFitToWidth(1);
+        $sheet->getPageSetup()->setFitToHeight(0);
     }
 }

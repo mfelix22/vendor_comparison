@@ -369,17 +369,29 @@
             padding: 0 !important;
         }
 
-        .excel-grid-container {
+        /* Always include both sheets in print: Page 1 = BU AB, Page 2 = SMD */
+        .excel-grid-container,
+        #gridBuAb,
+        #gridSmd {
+            display: block !important;
             max-height: none !important;
             overflow: visible !important;
             margin: 0 !important;
             padding: 0 !important;
         }
 
+        #gridSmd {
+            page-break-before: always !important;
+            break-before: page !important;
+        }
+
         .excel-table {
             width: 100% !important;
             table-layout: auto !important;
-            border-collapse: collapse !important;
+            border-collapse: separate !important;
+            border-spacing: 0 !important;
+            empty-cells: show !important;
+            border: none !important;
             font-size: 0.82rem !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
@@ -388,24 +400,107 @@
         .excel-table tr {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
+            background-color: transparent !important;
             height: auto !important;
         }
 
-        .excel-cell {
+        /* Row 3 (Brand): Top edge of the costing table - gets complete top border */
+        .excel-table tbody tr:nth-child(3) td.excel-cell {
+            border-top: 1px solid #000000 !important;
+            border-right: none !important;
+            border-left: 1px solid #000000 !important;
+            border-bottom: 1px solid #000000 !important;
             padding: 3px 8px !important;
-            height: auto !important;
-            border: 1px solid #d4d4d4 !important;
+            background-clip: padding-box !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+            line-height: 1.25 !important;
+            box-sizing: border-box !important;
+        }
+
+        /* Rows 4 through row before Notes (Harga Unit + Aksesoris) */
+        .excel-table tbody tr:nth-child(n+4):not(:last-child) td.excel-cell {
+            border-top: none !important;
+            border-right: none !important;
+            border-left: 1px solid #000000 !important;
+            border-bottom: 1px solid #000000 !important;
+            padding: 3px 8px !important;
+            background-clip: padding-box !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+            line-height: 1.25 !important;
+            box-sizing: border-box !important;
+        }
+
+        /* Rightmost column in every costing row: closes the outer right edge */
+        .excel-table tbody tr:nth-child(n+3):not(:last-child) td.excel-cell:last-child {
+            border-right: 1px solid #000000 !important;
+        }
+
+        /* Column A width */
+        .excel-table tbody tr:nth-child(n+3):not(:last-child) td.excel-cell[data-coord^="A"] {
+            width: 30% !important;
+        }
+
+        /* White cells remain transparent */
+        .excel-table tbody tr:nth-child(n+3):not(:last-child) td.excel-cell:not(.cell-yellow):not(.cell-cyan) {
+            background-color: transparent !important;
+        }
+
+        /* Header yellow backgrounds (Brand and Type Kendaraan) */
+        .excel-table td.cell-yellow,
+        .excel-table .cell-yellow {
+            background-color: #ffff00 !important;
+            background-clip: padding-box !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
         }
 
-        .excel-cell.cell-no-border {
-            border: none !important;
+        /* Header cyan backgrounds (BBN and Pemakaian) */
+        .excel-table td.cell-cyan,
+        .excel-table .cell-cyan {
+            background-color: #66ffff !important;
+            background-clip: padding-box !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
         }
 
-        /* Column A width for item labels */
-        .excel-cell[data-coord^="A"] {
-            width: 34% !important;
+        /* Row 1: Customer Name - clean text with no borders */
+        .excel-table tbody tr:nth-child(1) {
+            height: auto !important;
+        }
+        .excel-table tbody tr:nth-child(1) td {
+            border: none !important;
+            padding: 0 0 4px 0 !important;
+            font-size: 0.95rem !important;
+            font-weight: bold !important;
+            background-color: transparent !important;
+        }
+
+        /* Row 2: Spacing gap above the table - clean space with no borders */
+        .excel-table tbody tr:nth-child(2) {
+            height: 16px !important;
+        }
+        .excel-table tbody tr:nth-child(2) td {
+            border: none !important;
+            height: 16px !important;
+            padding: 0 !important;
+            background-color: transparent !important;
+        }
+
+        /* Notes row at the bottom - clean text with no borders */
+        .excel-table tbody tr:last-child td,
+        .excel-cell.cell-no-border {
+            border: none !important;
+            padding-top: 14px !important;
+            font-weight: bold !important;
+            background-color: transparent !important;
         }
 
         /* Remove active cell focus outline and green indicator */
