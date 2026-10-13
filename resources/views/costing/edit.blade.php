@@ -414,6 +414,13 @@
             return 'Rp ' + Math.round(num).toLocaleString('id-ID');
         }
 
+        function cleanNumber(val) {
+            if (val === undefined || val === null || val === '') return '';
+            const num = parseFloat(val);
+            if (isNaN(num)) return '';
+            return (num % 1 === 0) ? Math.round(num).toString() : num.toString();
+        }
+
         function addVehicleColumn(data = {}) {
             const vIndex = vehicleCount;
             vehicleCount++;
@@ -422,9 +429,9 @@
             const vType = data.vehicle_type || '';
             const bbn = data.bbn || '';
             const pemakaian = data.pemakaian || '';
-            const otr = (data.harga_otr !== undefined && data.harga_otr !== null && data.harga_otr !== '') ? data.harga_otr : '';
-            const diskon = (data.diskon !== undefined && data.diskon !== null && data.diskon !== '') ? data.diskon : '';
-            const estimasi = (data.estimasi_kenaikan !== undefined && data.estimasi_kenaikan !== null && data.estimasi_kenaikan !== '') ? data.estimasi_kenaikan : '';
+            const otr = cleanNumber(data.harga_otr);
+            const diskon = cleanNumber(data.diskon);
+            const estimasi = cleanNumber(data.estimasi_kenaikan);
 
             const th = document.createElement('th');
             th.className = 'costing-header-col text-center py-2';
@@ -524,9 +531,10 @@
                 const tdAcc = document.createElement('td');
                 tdAcc.id = `cellAcc_${aIdx}_${vIndex}`;
                 const defAmt = accRow.getAttribute('data-default-amount') || 0;
+                const cleanDef = cleanNumber(defAmt);
                 tdAcc.innerHTML = `
                     <input type="number" step="any" name="accessories[${aIdx}][amounts][${vIndex}]" class="form-control form-control-sm text-end num-input"
-                        id="inputAcc_${aIdx}_${vIndex}" value="${defAmt}" placeholder="0" oninput="calculateColumn(${vIndex})" title="${defAmt ? formatRupiah(defAmt) : ''}">
+                        id="inputAcc_${aIdx}_${vIndex}" value="${cleanDef}" placeholder="0" oninput="calculateColumn(${vIndex})" title="${defAmt ? formatRupiah(defAmt) : ''}">
                 `;
                 accRow.appendChild(tdAcc);
             });
@@ -542,9 +550,6 @@
             tdGrand.className = 'fw-bold text-primary';
             tdGrand.innerHTML = `<div class="text-end small" id="valGrand_${vIndex}">Rp 0</div>`;
             document.getElementById('rowGrandTotal').appendChild(tdGrand);
-
-            // Populate product list for this column
-            updateProductDatalist(vIndex, brand);
 
             updateRemoveColButtonsState();
             renumberVehicleColumns();
@@ -812,7 +817,8 @@
                 const vIndex = col.id.replace('colHeader_', '');
                 const tdAcc = document.createElement('td');
                 tdAcc.id = `cellAcc_${aIndex}_${vIndex}`;
-                const val = (amountsPerVeh[colIdx] !== undefined) ? amountsPerVeh[colIdx] : defaultAmount;
+                const rawVal = (amountsPerVeh[colIdx] !== undefined) ? amountsPerVeh[colIdx] : defaultAmount;
+                const val = cleanNumber(rawVal);
                 tdAcc.innerHTML = `
                     <input type="number" step="any" name="accessories[${aIndex}][amounts][${vIndex}]" class="form-control form-control-sm text-end num-input"
                         id="inputAcc_${aIndex}_${vIndex}" value="${val}" placeholder="0" oninput="calculateColumn(${vIndex})" title="${val ? formatRupiah(val) : ''}">

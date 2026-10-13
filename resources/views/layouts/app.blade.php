@@ -124,7 +124,7 @@
 
 <body>
 
-    <nav class="navbar navbar-expand-lg mb-4">
+    <nav class="navbar navbar-expand-lg mb-4 d-print-none">
         <div class="container-xl">
             @php
                 $isCostingModule = request()->is('costing*');
@@ -276,7 +276,7 @@
         @yield('content')
     </main>
 
-    <footer>
+    <footer class="d-print-none">
         &copy; {{ date('Y') }} Harent &middot; Vendor Comparison Portal
     </footer>
 
