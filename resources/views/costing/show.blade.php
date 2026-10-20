@@ -524,16 +524,39 @@
                 <i class="bi bi-arrow-left me-1"></i>Back
             </a>
             <div>
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
                     <h4 class="fw-bold mb-0">Costing Details</h4>
                     <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
                         <i class="bi bi-file-earmark-excel me-1"></i>Excel Grid View
                     </span>
+                    @if ($costing->isTender())
+                        <span class="badge bg-warning text-dark border border-warning-subtle px-2 py-1">
+                            <i class="bi bi-award me-1"></i>Tender FPH
+                        </span>
+                        @if ($costing->isPendingApproval())
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
+                                <i class="bi bi-clock me-1"></i>Pending Manager Approval
+                            </span>
+                        @elseif ($costing->isApproved())
+                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                <i class="bi bi-check-circle me-1"></i>Approved
+                            </span>
+                        @elseif ($costing->isRejected())
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
+                                <i class="bi bi-x-circle me-1"></i>Rejected
+                            </span>
+                        @endif
+                    @else
+                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
+                            <i class="bi bi-shop me-1"></i>Retail FPH
+                        </span>
+                    @endif
                 </div>
-                <div class="text-muted small">
+                <div class="text-muted small mt-1">
                     <span class="fw-semibold text-primary">{{ $costing->costing_number }}</span>
                     &middot; Customer: <span class="fw-semibold text-dark">{{ $costing->customer_name }}</span>
                     &middot; {{ $costing->created_at->format('d/m/Y') }}
+                    &middot; Created by <span class="fw-semibold text-dark">{{ $costing->creator->name ?? '—' }}</span>
                 </div>
             </div>
         </div>
@@ -549,6 +572,89 @@
             </a>
         </div>
     </div>
+
+    {{-- Tender Approval Status Card --}}
+    @if ($costing->isTender())
+        @php
+            $isMgrOrAdmin = Auth::check() && (Auth::user()->isManager() || Auth::user()->isAdmin());
+        @endphp
+        @if ($costing->isPendingApproval())
+            <div class="card border-warning-subtle bg-warning-subtle mb-3 no-print">
+                <div class="card-body p-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-exclamation-triangle-fill text-warning-emphasis fs-4"></i>
+                        <div>
+                            <div class="fw-bold text-dark">Tender Costing Review Required</div>
+                            <div class="small text-muted">
+                                @if ($isMgrOrAdmin)
+                                    This sheet is marked as Tender FPH and requires your authorization as Manager/Admin.
+                                @else
+                                    This sheet is marked as Tender FPH and is currently awaiting approval by the Purchasing Manager.
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                    @if ($isMgrOrAdmin)
+                        <div class="d-flex gap-2">
+                            <form method="POST" action="{{ route('costing.approve', $costing) }}" class="d-inline"
+                                onsubmit="return confirm('Approve tender costing {{ $costing->costing_number }}?')">
+                                @csrf
+                                <button type="submit" class="btn btn-success btn-sm px-3 fw-semibold shadow-sm">
+                                    <i class="bi bi-check-lg me-1"></i>Approve Tender
+                                </button>
+                            </form>
+                            <button type="button" class="btn btn-outline-danger btn-sm px-3 fw-semibold shadow-sm"
+                                onclick="openRejectModal()">
+                                <i class="bi bi-x-lg me-1"></i>Reject...
+                            </button>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        @elseif ($costing->isApproved())
+            <div class="alert alert-success d-flex align-items-center justify-content-between py-2 px-3 mb-3 no-print">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                    <div>
+                        <span class="fw-bold">Tender FPH Approved</span>
+                        <span class="text-muted small ms-2">
+                            by <strong>{{ $costing->approver->name ?? 'Manager' }}</strong>
+                            @if ($costing->approved_at)
+                                on {{ $costing->approved_at->format('d M Y, H:i') }}
+                            @endif
+                        </span>
+                    </div>
+                </div>
+            </div>
+        @elseif ($costing->isRejected())
+            <div class="card border-danger-subtle bg-danger-subtle mb-3 no-print">
+                <div class="card-body p-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-x-circle-fill text-danger fs-4"></i>
+                        <div>
+                            <div class="fw-bold text-danger">Tender FPH Rejected</div>
+                            <div class="small text-dark">
+                                By <strong>{{ $costing->approver->name ?? 'Manager' }}</strong>
+                                @if ($costing->approved_at)
+                                    on {{ $costing->approved_at->format('d M Y, H:i') }}
+                                @endif
+                                &middot; Reason: <em>"{{ $costing->rejection_reason }}"</em>
+                            </div>
+                        </div>
+                    </div>
+                    @if ($isMgrOrAdmin)
+                        <form method="POST" action="{{ route('costing.approve', $costing) }}" class="d-inline"
+                            onsubmit="return confirm('Re-approve tender costing {{ $costing->costing_number }}?')">
+                            @csrf
+                            <button type="submit" class="btn btn-outline-success btn-sm px-3 fw-semibold">
+                                <i class="bi bi-arrow-repeat me-1"></i>Re-approve
+                            </button>
+                        </form>
+                    @endif
+                </div>
+            </div>
+        @endif
+    @endif
 
     @php
         $vehicles = $costing->vehicles;
@@ -1237,10 +1343,50 @@
 
     </div>
 
+    {{-- Reject Modal --}}
+    @if ($costing->isTender() && (Auth::user()?->isManager() || Auth::user()?->isAdmin()))
+        <div class="modal fade no-print" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow">
+                    <form method="POST" action="{{ route('costing.reject', $costing) }}">
+                        @csrf
+                        <div class="modal-header bg-danger text-white">
+                            <h6 class="modal-title fw-bold" id="rejectModalLabel">
+                                <i class="bi bi-x-circle me-2"></i>Reject Tender Costing
+                            </h6>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <p class="small text-muted mb-3">
+                                Rejecting Costing <strong class="text-dark">{{ $costing->costing_number }}</strong>. Please provide a clear reason for the procurement staff.
+                            </p>
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold">Rejection Reason <span class="text-danger">*</span></label>
+                                <textarea name="rejection_reason" class="form-control form-control-sm" rows="3"
+                                    placeholder="Explain why this tender costing was rejected (e.g. margin too low, inaccurate BBN region, etc.)..." required></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light py-2">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-danger btn-sm px-3">
+                                <i class="bi bi-x-lg me-1"></i>Confirm Rejection
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
+
 @endsection
 
 @push('scripts')
 <script>
+    function openRejectModal() {
+        const modal = new bootstrap.Modal(document.getElementById('rejectModal'));
+        modal.show();
+    }
+
     function switchSheet(sheet) {
         const gridBuAb = document.getElementById('gridBuAb');
         const gridSmd = document.getElementById('gridSmd');

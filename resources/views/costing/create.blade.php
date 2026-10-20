@@ -4,7 +4,7 @@
 @section('main_container_class', 'container-fluid px-3 px-xl-4')
 
 @push('styles')
-    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+
     <style>
         .costing-table {
             width: 100% !important;
@@ -154,27 +154,15 @@
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-md-7">
-                        <div class="mb-3">
-                            <label class="form-label small fw-semibold mb-1">
-                                Cari Supplier <span class="text-muted fw-normal">(opsional, untuk auto-isi)</span>
-                            </label>
-                            <select class="form-select form-select-sm" id="supplierSelect" onchange="onSupplierSelected(this)">
-                                <option value="">— Pilih supplier —</option>
-                                @foreach ($vendors as $v)
-                                    <option value="{{ $v['name'] }}">{{ $v['name'] }}{{ !empty($v['city']) ? ' - ' . $v['city'] : '' }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <label class="form-label small fw-semibold">Nama Calon Vendor / Customer / Project <span class="text-danger">*</span></label>
+                        <label class="form-label small fw-semibold">Nama Customer / Project <span class="text-danger">*</span></label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="bi bi-building"></i></span>
                             <input type="text" name="customer_name" id="customerNameInput"
                                 class="form-control form-control-sm @error('customer_name') is-invalid @enderror"
-                                placeholder="Pilih supplier dari dropdown di atas atau ketik nama langsung..."
+                                placeholder="Masukkan nama customer atau nama project..."
                                 value="{{ old('customer_name') }}" required autocomplete="off">
                         </div>
-                        <div class="text-muted small mt-1">Pilih supplier dari Odoo di atas untuk auto-isi atau ketik nama secara bebas.</div>
+                        <div class="text-muted small mt-1">Ketik nama customer atau instansi project secara langsung.</div>
                         @error('customer_name')
                             <div class="text-danger small mt-1">{{ $message }}</div>
                         @enderror
@@ -190,8 +178,17 @@
 
         {{-- Comparison Sheet Card --}}
         <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
-                <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-grid-3x3-gap me-2 text-primary"></i>Vehicle Comparison Grid</h6>
+            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-3">
+                    <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-grid-3x3-gap me-2 text-primary"></i>Vehicle Comparison Grid</h6>
+                    <div class="form-check form-switch mb-0 d-flex align-items-center gap-2 ps-0 border-start ps-3">
+                        <input class="form-check-input ms-0 mt-0" type="checkbox" role="switch" name="is_tender" id="isTenderSwitch" value="1" {{ old('is_tender') ? 'checked' : '' }} style="cursor: pointer; width: 2.2em; height: 1.2em;">
+                        <label class="form-check-label fw-bold small text-dark d-flex align-items-center gap-1" for="isTenderSwitch" style="cursor: pointer;">
+                            <span class="badge bg-warning text-dark border border-warning-subtle px-2 py-1"><i class="bi bi-award me-1"></i>Tender FPH</span>
+                            <span class="text-muted fw-normal small d-none d-md-inline">(Memerlukan Approval Manager)</span>
+                        </label>
+                    </div>
+                </div>
                 <div class="d-flex align-items-center gap-2">
                     <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshCatalogBtn" onclick="refreshCostingCatalog(this)" title="Sync latest vehicle catalog, BBN & suppliers from Odoo without losing entered data">
                         <i class="bi bi-arrow-clockwise me-1"></i><span>Sync from Odoo</span>
@@ -902,23 +899,7 @@
 
         // Initialize default state: 2 clean empty columns, NO pre-filled mock data
         document.addEventListener('DOMContentLoaded', function() {
-            // Init TomSelect on supplier dropdown matching Comparison
-            const supplierSelectEl = document.getElementById('supplierSelect');
-            if (supplierSelectEl && typeof TomSelect !== 'undefined') {
-                new TomSelect(supplierSelectEl, {
-                    maxOptions: 250,
-                    searchField: ['text'],
-                    placeholder: '— Pilih supplier —',
-                    onChange(val) {
-                        if (val) {
-                            const custInp = document.getElementById('customerNameInput');
-                            if (custInp) {
-                                custInp.value = val;
-                            }
-                        }
-                    }
-                });
-            }
+
 
             // Start with 2 clean empty columns ready for user input
             addVehicleColumn();

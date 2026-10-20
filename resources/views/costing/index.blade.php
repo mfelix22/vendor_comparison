@@ -58,6 +58,7 @@
                             <tr>
                                 <th class="ps-3 py-3">Costing No</th>
                                 <th>Customer / Instansi</th>
+                                <th class="text-center">FPH Type</th>
                                 <th class="text-center">Vehicles Compared</th>
                                 <th class="text-end">Price Range (Unit + Acc)</th>
                                 <th>Created By</th>
@@ -83,6 +84,34 @@
                                             <div class="text-muted small text-truncate" style="max-width: 320px;">
                                                 {{ $costing->notes }}
                                             </div>
+                                        @endif
+                                    </td>
+                                    <td class="text-center">
+                                        @if ($costing->isTender())
+                                            <div>
+                                                <span class="badge bg-warning text-dark border border-warning-subtle px-2 py-1">
+                                                    <i class="bi bi-award me-1"></i>Tender
+                                                </span>
+                                            </div>
+                                            <div class="mt-1">
+                                                @if ($costing->isPendingApproval())
+                                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.72rem;">
+                                                        <i class="bi bi-clock me-1"></i>Pending
+                                                    </span>
+                                                @elseif ($costing->isApproved())
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.72rem;">
+                                                        <i class="bi bi-check-circle me-1"></i>Approved
+                                                    </span>
+                                                @elseif ($costing->isRejected())
+                                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.72rem;" title="{{ $costing->rejection_reason }}">
+                                                        <i class="bi bi-x-circle me-1"></i>Rejected
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        @else
+                                            <span class="badge bg-light text-secondary border px-2 py-1">
+                                                <i class="bi bi-shop me-1"></i>Retail
+                                            </span>
                                         @endif
                                     </td>
                                     <td class="text-center">

@@ -18,8 +18,7 @@ use Illuminate\Support\Facades\DB;
 class CostingController extends Controller
 {
     public function __construct(
-        private CostingOdooService $odooService,
-        private \App\Services\OdooService $odoo
+        private CostingOdooService $odooService
     ) {}
 
     /**
@@ -59,9 +58,7 @@ class CostingController extends Controller
                 'vehicle_brand_id' => [0, $vt->brand_name],
             ];
         })->toArray();
-        $vendors   = $this->odoo->getVendors();
-
-        return view('costing.create', compact('bbnList', 'templates', 'brands', 'products', 'vendors'));
+        return view('costing.create', compact('bbnList', 'templates', 'brands', 'products'));
     }
 
 
@@ -245,9 +242,7 @@ class CostingController extends Controller
             }
         }
 
-        $vendors   = $this->odoo->getVendors();
-
-        return view('costing.edit', compact('costing', 'bbnList', 'templates', 'brands', 'products', 'accRows', 'vendors'));
+        return view('costing.edit', compact('costing', 'bbnList', 'templates', 'brands', 'products', 'accRows'));
     }
 
     /**
@@ -273,12 +268,29 @@ class CostingController extends Controller
             'accessories.*.amounts'     => ['nullable', 'array'],
         ]);
 
-        return DB::transaction(function () use ($validated, $costing) {
-            $costing->update([
+        $isTender = $request->boolean('is_tender');
+        $newFphType = $isTender ? 'tender' : 'retail';
+
+        return DB::transaction(function () use ($validated, $costing, $newFphType) {
+            $updateData = [
                 'customer_name'   => $validated['customer_name'],
                 'odoo_partner_id' => $validated['odoo_partner_id'] ?? null,
                 'notes'           => $validated['notes'] ?? null,
-            ]);
+            ];
+
+            if ($costing->fph_type !== $newFphType) {
+                $updateData['fph_type'] = $newFphType;
+                if ($newFphType === 'tender') {
+                    $updateData['approval_status']  = 'pending';
+                    $updateData['approved_by']      = null;
+                    $updateData['approved_at']      = null;
+                    $updateData['rejection_reason'] = null;
+                } else {
+                    $updateData['approval_status']  = 'approved';
+                }
+            }
+
+            $costing->update($updateData);
 
             // Clear old vehicles and accessories (cascade deletes accessories)
             $costing->vehicles()->delete();
@@ -371,6 +383,84 @@ class CostingController extends Controller
     }
 
     /**
+     * Display the listing of Tender Costings requiring/having Manager approval.
+     */
+    public function approvals(Request $request)
+    {
+        $status = $request->input('status', 'pending');
+
+        $query = Costing::with(['creator', 'approver', 'vehicles'])
+            ->where('fph_type', 'tender')
+            ->orderByDesc('created_at');
+
+        if ($status && in_array($status, ['pending', 'approved', 'rejected'])) {
+            $query->where('approval_status', $status);
+        }
+
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('costing_number', 'like', "%{$search}%")
+                  ->orWhere('customer_name', 'like', "%{$search}%");
+            });
+        }
+
+        $costings = $query->paginate(15)->withQueryString();
+
+        $counts = [
+            'all'      => Costing::where('fph_type', 'tender')->count(),
+            'pending'  => Costing::where('fph_type', 'tender')->where('approval_status', 'pending')->count(),
+            'approved' => Costing::where('fph_type', 'tender')->where('approval_status', 'approved')->count(),
+            'rejected' => Costing::where('fph_type', 'tender')->where('approval_status', 'rejected')->count(),
+        ];
+
+        return view('costing.approvals', compact('costings', 'status', 'counts'));
+    }
+
+    /**
+     * Approve a Tender Costing (Manager / Admin only).
+     */
+    public function approve(Request $request, Costing $costing)
+    {
+        $user = Auth::user();
+        if (!$user->isManager() && !$user->isAdmin()) {
+            return back()->with('error', 'Only Managers or Administrators can approve tender costings.');
+        }
+
+        $costing->update([
+            'approval_status'  => 'approved',
+            'approved_by'      => $user->id,
+            'approved_at'      => now(),
+            'rejection_reason' => null,
+        ]);
+
+        return back()->with('success', "Costing {$costing->costing_number} has been approved.");
+    }
+
+    /**
+     * Reject a Tender Costing (Manager / Admin only).
+     */
+    public function reject(Request $request, Costing $costing)
+    {
+        $user = Auth::user();
+        if (!$user->isManager() && !$user->isAdmin()) {
+            return back()->with('error', 'Only Managers or Administrators can reject tender costings.');
+        }
+
+        $validated = $request->validate([
+            'rejection_reason' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $costing->update([
+            'approval_status'  => 'rejected',
+            'approved_by'      => $user->id,
+            'approved_at'      => now(),
+            'rejection_reason' => $validated['rejection_reason'],
+        ]);
+
+        return back()->with('success', "Costing {$costing->costing_number} has been rejected.");
+    }
+
+    /**
      * API for searching customers from Odoo.
      */
     public function apiSearchCustomers(Request $request)
@@ -410,24 +500,20 @@ class CostingController extends Controller
     public function apiRefreshCatalog()
     {
         $this->odooService->flushCostingCache();
-        \Illuminate\Support\Facades\Cache::forget('odoo_vendors');
 
         // Safe master refresh directly via service (no seeders)
         $result = $this->odooService->syncCostingMasters();
-        $vendors = $this->odoo->getVendors();
 
         return response()->json([
             'success'  => true,
-            'message'  => 'Costing vehicle catalog, BBN, and suppliers refreshed from Odoo.',
+            'message'  => 'Costing vehicle catalog and BBN refreshed from Odoo.',
             'brands'   => $result['brands'],
             'products' => $result['products'],
             'bbn'      => $result['bbn'],
-            'vendors'  => $vendors,
             'counts'   => [
                 'brands'    => $result['counts']['brands'],
                 'products'  => $result['counts']['products'],
                 'bbn'       => $result['counts']['bbn'],
-                'suppliers' => count($vendors),
             ],
         ]);
     }
