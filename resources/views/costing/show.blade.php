@@ -705,25 +705,61 @@
 
         $provGroups = [];
         $currProv = null;
+        $currProvPulau = null;
         $startColPr = null;
         $spanPr = 0;
         foreach ($vehicles as $idx => $v) {
             $cNum = $idx + 2;
             $val = strtoupper(trim($v->provinsi ?: ''));
+            $pVal = strtoupper(trim($v->pulau ?: ''));
             if ($val === $currProv) {
                 $spanPr++;
             } else {
                 if ($currProv !== null) {
-                    $provGroups[] = ['val' => $currProv, 'start' => $startColPr, 'span' => $spanPr];
+                    $provGroups[] = ['val' => $currProv, 'pulau' => $currProvPulau, 'start' => $startColPr, 'span' => $spanPr];
                 }
                 $currProv = $val;
+                $currProvPulau = $pVal;
                 $startColPr = $cNum;
                 $spanPr = 1;
             }
         }
         if ($currProv !== null) {
-            $provGroups[] = ['val' => $currProv, 'start' => $startColPr, 'span' => $spanPr];
+            $provGroups[] = ['val' => $currProv, 'pulau' => $currProvPulau, 'start' => $startColPr, 'span' => $spanPr];
         }
+
+        // Harmonious regional color family mapping (Option 1)
+        $regionColors = [
+            'JAWA' => [
+                'pulau' => '#d9ead3', // Soft Sage/Mint Green
+                'prov'  => '#eaf4e6', // Coordinating lighter pastel
+            ],
+            'SUMATERA' => [
+                'pulau' => '#fce5cd', // Soft Peach/Warm Orange
+                'prov'  => '#fff2e5', // Coordinating lighter pastel
+            ],
+            'KALIMANTAN' => [
+                'pulau' => '#cfe2f3', // Soft Ice/Sky Blue
+                'prov'  => '#e8f2fa', // Coordinating lighter pastel
+            ],
+            'SULAWESI' => [
+                'pulau' => '#d9d2e9', // Soft Lavender/Violet
+                'prov'  => '#ece8f4', // Coordinating lighter pastel
+            ],
+            'BALI & NUSA TENGGARA' => [
+                'pulau' => '#f4cccc', // Soft Rose/Coral
+                'prov'  => '#fce8e8', // Coordinating lighter pastel
+            ],
+            'PAPUA & MALUKU' => [
+                'pulau' => '#d0e0e3', // Soft Seafoam/Aqua
+                'prov'  => '#e6f0f2', // Coordinating lighter pastel
+            ],
+        ];
+
+        $getRegionColor = function ($pulau, $type = 'pulau') use ($regionColors) {
+            $p = strtoupper(trim($pulau ?? ''));
+            return $regionColors[$p][$type] ?? ($type === 'pulau' ? '#efefef' : '#f8f8f8');
+        };
     @endphp
 
     {{-- Excel Workbook Container --}}
@@ -779,22 +815,18 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {{-- Row 1: Customer Name --}}
+                    {{-- Row 1: Customer Name (Merged Across Full Table Width) --}}
                     <tr>
                         <td class="excel-row-hdr" data-row="1">1</td>
-                        <td class="excel-cell cell-calibri-bold" data-coord="A1" data-val="{{ $costing->customer_name }}">
+                        <td class="excel-cell cell-calibri-bold cell-left" colspan="{{ count($vehicles) + 1 }}" data-coord="A1" data-val="{{ $costing->customer_name }}">
                             {{ $costing->customer_name }}
                         </td>
-                        @foreach ($vehicles as $idx => $v)
-                            @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell" data-coord="{{ $colLet }}1" data-val=""></td>
-                        @endforeach
                     </tr>
 
-                    {{-- Row 2: SMD / Masa Sewa / Delivery Date --}}
+                    {{-- Row 2: SMD / Masa Sewa / Delivery Date (Merged Across Full Table Width) --}}
                     <tr>
                         <td class="excel-row-hdr" data-row="2">2</td>
-                        <td class="excel-cell text-muted small" data-coord="A2" data-val="@if($costing->smd)SMD: {{ $costing->smd }} @endif @if($costing->masa_sewa)| Masa Sewa: {{ $costing->masa_sewa }} @endif @if($costing->request_delivery_date)| Delivery: {{ $costing->request_delivery_date->format('d/m/Y') }}@endif">
+                        <td class="excel-cell text-muted small cell-left" colspan="{{ count($vehicles) + 1 }}" data-coord="A2" data-val="@if($costing->smd)SMD: {{ $costing->smd }} @endif @if($costing->masa_sewa)| Masa Sewa: {{ $costing->masa_sewa }} @endif @if($costing->request_delivery_date)| Delivery: {{ $costing->request_delivery_date->format('d/m/Y') }}@endif">
                             @if($costing->smd)
                                 <span class="fw-semibold text-dark">SMD:</span> {{ $costing->smd }}
                             @endif
@@ -807,35 +839,37 @@
                                 <span class="fw-semibold text-dark">Delivery:</span> {{ $costing->request_delivery_date->format('d/m/Y') }}
                             @endif
                         </td>
-                        @foreach ($vehicles as $idx => $v)
-                            @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell" data-coord="{{ $colLet }}2" data-val=""></td>
-                        @endforeach
                     </tr>
 
-                    {{-- Row 3: PULAU --}}
+                    {{-- Row 3: PULAU (Color-Coded by Regional Island Family) --}}
                     <tr>
                         <td class="excel-row-hdr" data-row="3">3</td>
-                        <td class="excel-cell cell-calibri-bold cell-left" data-coord="A3" data-val="PULAU">
+                        <td class="excel-cell cell-calibri-bold cell-left bg-light" data-coord="A3" data-val="PULAU">
                             PULAU
                         </td>
                         @foreach ($pulauGroups as $grp)
-                            @php $sLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($grp['start']); @endphp
-                            <td class="excel-cell cell-calibri-bold cell-center" colspan="{{ $grp['span'] }}" data-coord="{{ $sLet }}3" data-val="{{ $grp['val'] }}">
+                            @php
+                                $sLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($grp['start']);
+                                $pBg = $getRegionColor($grp['val'], 'pulau');
+                            @endphp
+                            <td class="excel-cell cell-calibri-bold cell-center" colspan="{{ $grp['span'] }}" data-coord="{{ $sLet }}3" data-val="{{ $grp['val'] }}" style="background-color: {{ $pBg }} !important;">
                                 {{ $grp['val'] ?: '—' }}
                             </td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 4: PROVINSI --}}
+                    {{-- Row 4: PROVINSI (Coordinating Lighter Pastel of Island) --}}
                     <tr>
                         <td class="excel-row-hdr" data-row="4">4</td>
-                        <td class="excel-cell cell-calibri-bold cell-left" data-coord="A4" data-val="PROVINSI">
+                        <td class="excel-cell cell-calibri-bold cell-left bg-light" data-coord="A4" data-val="PROVINSI">
                             PROVINSI
                         </td>
                         @foreach ($provGroups as $grp)
-                            @php $sLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($grp['start']); @endphp
-                            <td class="excel-cell cell-calibri-bold cell-center" colspan="{{ $grp['span'] }}" data-coord="{{ $sLet }}4" data-val="{{ $grp['val'] }}">
+                            @php
+                                $sLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($grp['start']);
+                                $prBg = $getRegionColor($grp['pulau'] ?? '', 'prov');
+                            @endphp
+                            <td class="excel-cell cell-calibri-bold cell-center" colspan="{{ $grp['span'] }}" data-coord="{{ $sLet }}4" data-val="{{ $grp['val'] }}" style="background-color: {{ $prBg }} !important;">
                                 {{ $grp['val'] ?: '—' }}
                             </td>
                         @endforeach
@@ -1150,22 +1184,18 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {{-- Row 1: Customer Name --}}
+                    {{-- Row 1: Customer Name (Merged Across Full Table Width) --}}
                     <tr>
                         <td class="excel-row-hdr" data-row="1">1</td>
-                        <td class="excel-cell cell-calibri-bold" data-coord="A1" data-val="{{ $costing->customer_name }}">
+                        <td class="excel-cell cell-calibri-bold cell-left" colspan="{{ count($vehicles) + 1 }}" data-coord="A1" data-val="{{ $costing->customer_name }}">
                             {{ $costing->customer_name }}
                         </td>
-                        @foreach ($vehicles as $idx => $v)
-                            @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell" data-coord="{{ $colLet }}1" data-val=""></td>
-                        @endforeach
                     </tr>
 
-                    {{-- Row 2: SMD / Masa Sewa / Delivery Date --}}
+                    {{-- Row 2: SMD / Masa Sewa / Delivery Date (Merged Across Full Table Width) --}}
                     <tr>
                         <td class="excel-row-hdr" data-row="2">2</td>
-                        <td class="excel-cell text-muted small" data-coord="A2" data-val="@if($costing->smd)SMD: {{ $costing->smd }} @endif @if($costing->masa_sewa)| Masa Sewa: {{ $costing->masa_sewa }} @endif @if($costing->request_delivery_date)| Delivery: {{ $costing->request_delivery_date->format('d/m/Y') }}@endif">
+                        <td class="excel-cell text-muted small cell-left" colspan="{{ count($vehicles) + 1 }}" data-coord="A2" data-val="@if($costing->smd)SMD: {{ $costing->smd }} @endif @if($costing->masa_sewa)| Masa Sewa: {{ $costing->masa_sewa }} @endif @if($costing->request_delivery_date)| Delivery: {{ $costing->request_delivery_date->format('d/m/Y') }}@endif">
                             @if($costing->smd)
                                 <span class="fw-semibold text-dark">SMD:</span> {{ $costing->smd }}
                             @endif
@@ -1178,35 +1208,37 @@
                                 <span class="fw-semibold text-dark">Delivery:</span> {{ $costing->request_delivery_date->format('d/m/Y') }}
                             @endif
                         </td>
-                        @foreach ($vehicles as $idx => $v)
-                            @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell" data-coord="{{ $colLet }}2" data-val=""></td>
-                        @endforeach
                     </tr>
 
-                    {{-- Row 3: PULAU --}}
+                    {{-- Row 3: PULAU (Color-Coded by Regional Island Family) --}}
                     <tr>
                         <td class="excel-row-hdr" data-row="3">3</td>
-                        <td class="excel-cell cell-calibri-bold cell-left" data-coord="A3" data-val="PULAU">
+                        <td class="excel-cell cell-calibri-bold cell-left bg-light" data-coord="A3" data-val="PULAU">
                             PULAU
                         </td>
                         @foreach ($pulauGroups as $grp)
-                            @php $sLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($grp['start']); @endphp
-                            <td class="excel-cell cell-calibri-bold cell-center" colspan="{{ $grp['span'] }}" data-coord="{{ $sLet }}3" data-val="{{ $grp['val'] }}">
+                            @php
+                                $sLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($grp['start']);
+                                $pBg = $getRegionColor($grp['val'], 'pulau');
+                            @endphp
+                            <td class="excel-cell cell-calibri-bold cell-center" colspan="{{ $grp['span'] }}" data-coord="{{ $sLet }}3" data-val="{{ $grp['val'] }}" style="background-color: {{ $pBg }} !important;">
                                 {{ $grp['val'] ?: '—' }}
                             </td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 4: PROVINSI --}}
+                    {{-- Row 4: PROVINSI (Coordinating Lighter Pastel of Island) --}}
                     <tr>
                         <td class="excel-row-hdr" data-row="4">4</td>
-                        <td class="excel-cell cell-calibri-bold cell-left" data-coord="A4" data-val="PROVINSI">
+                        <td class="excel-cell cell-calibri-bold cell-left bg-light" data-coord="A4" data-val="PROVINSI">
                             PROVINSI
                         </td>
                         @foreach ($provGroups as $grp)
-                            @php $sLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($grp['start']); @endphp
-                            <td class="excel-cell cell-calibri-bold cell-center" colspan="{{ $grp['span'] }}" data-coord="{{ $sLet }}4" data-val="{{ $grp['val'] }}">
+                            @php
+                                $sLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($grp['start']);
+                                $prBg = $getRegionColor($grp['pulau'] ?? '', 'prov');
+                            @endphp
+                            <td class="excel-cell cell-calibri-bold cell-center" colspan="{{ $grp['span'] }}" data-coord="{{ $sLet }}4" data-val="{{ $grp['val'] }}" style="background-color: {{ $prBg }} !important;">
                                 {{ $grp['val'] ?: '—' }}
                             </td>
                         @endforeach

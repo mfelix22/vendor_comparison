@@ -78,11 +78,42 @@ class CostingExportService
         $colCount = count($vehicles);
         $lastColLetter = Coordinate::stringFromColumnIndex(max(2, 1 + $colCount));
 
-        // Row 1: Customer Name
+        // Harmonious regional color family mapping (Option 1)
+        $regionColors = [
+            'JAWA' => [
+                'pulau' => 'D9EAD3', // Soft Sage/Mint Green
+                'prov'  => 'EAF4E6', // Coordinating lighter pastel
+            ],
+            'SUMATERA' => [
+                'pulau' => 'FCE5CD', // Soft Peach/Warm Orange
+                'prov'  => 'FFF2E5', // Coordinating lighter pastel
+            ],
+            'KALIMANTAN' => [
+                'pulau' => 'CFE2F3', // Soft Ice/Sky Blue
+                'prov'  => 'E8F2FA', // Coordinating lighter pastel
+            ],
+            'SULAWESI' => [
+                'pulau' => 'D9D2E9', // Soft Lavender/Violet
+                'prov'  => 'ECE8F4', // Coordinating lighter pastel
+            ],
+            'BALI & NUSA TENGGARA' => [
+                'pulau' => 'F4CCCC', // Soft Rose/Coral
+                'prov'  => 'FCE8E8', // Coordinating lighter pastel
+            ],
+            'PAPUA & MALUKU' => [
+                'pulau' => 'D0E0E3', // Soft Seafoam/Aqua
+                'prov'  => 'E6F0F2', // Coordinating lighter pastel
+            ],
+        ];
+
+        // Row 1: Customer Name (Merged Across Full Table Width)
         $sheet->setCellValue('A1', $costing->customer_name);
+        if ($colCount > 0) {
+            $sheet->mergeCells("A1:{$lastColLetter}1");
+        }
         $sheet->getStyle('A1')->getFont()->setName('Calibri')->setBold(true)->setSize(11);
 
-        // Row 2: SMD, Masa Sewa, Delivery Date
+        // Row 2: SMD, Masa Sewa, Delivery Date (Merged Across Full Table Width)
         $metaParts = [];
         if (!empty($costing->smd)) {
             $metaParts[] = 'SMD: ' . $costing->smd;
@@ -95,12 +126,16 @@ class CostingExportService
         }
         if (!empty($metaParts)) {
             $sheet->setCellValue('A2', implode(' | ', $metaParts));
+            if ($colCount > 0) {
+                $sheet->mergeCells("A2:{$lastColLetter}2");
+            }
             $sheet->getStyle('A2')->getFont()->setName('Calibri')->setItalic(true)->setSize(10)->getColor()->setRGB('555555');
         }
 
-        // Row 3: PULAU
+        // Row 3: PULAU (Color-Coded by Regional Island Family)
         $sheet->setCellValue('A3', 'PULAU');
         $sheet->getStyle('A3')->getFont()->setName('Calibri')->setBold(true)->setSize(11);
+        $sheet->getStyle('A3')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F2F2F2');
         $sheet->getStyle('A3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setVertical(Alignment::VERTICAL_CENTER);
         $sheet->getStyle("A3:{$lastColLetter}3")->applyFromArray($thinBorder);
 
@@ -130,35 +165,43 @@ class CostingExportService
             if ($grp['start'] < $grp['end']) {
                 $sheet->mergeCells("{$sLet}3:{$eLet}3");
             }
+            $pKey = strtoupper(trim($grp['val'] ?? ''));
+            $pRgb = $regionColors[$pKey]['pulau'] ?? 'EFEFEF';
+
             $sheet->setCellValue("{$sLet}3", $grp['val']);
             $sheet->getStyle("{$sLet}3:{$eLet}3")->getFont()->setName('Calibri')->setBold(true)->setSize(11);
+            $sheet->getStyle("{$sLet}3:{$eLet}3")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB($pRgb);
             $sheet->getStyle("{$sLet}3:{$eLet}3")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
         }
 
-        // Row 4: PROVINSI
+        // Row 4: PROVINSI (Coordinating Lighter Pastel of Island)
         $sheet->setCellValue('A4', 'PROVINSI');
         $sheet->getStyle('A4')->getFont()->setName('Calibri')->setBold(true)->setSize(11);
+        $sheet->getStyle('A4')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F2F2F2');
         $sheet->getStyle('A4')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setVertical(Alignment::VERTICAL_CENTER);
         $sheet->getStyle("A4:{$lastColLetter}4")->applyFromArray($thinBorder);
 
         $provGroups = [];
         $currProv = null;
+        $currProvPulau = null;
         $startColPr = null;
         foreach ($vehicles as $idx => $v) {
             $cNum = $idx + 2;
             $val = strtoupper(trim($v->provinsi ?: ''));
+            $pVal = strtoupper(trim($v->pulau ?: ''));
             if ($val === $currProv) {
                 // extend group
             } else {
                 if ($currProv !== null) {
-                    $provGroups[] = ['val' => $currProv, 'start' => $startColPr, 'end' => $cNum - 1];
+                    $provGroups[] = ['val' => $currProv, 'pulau' => $currProvPulau, 'start' => $startColPr, 'end' => $cNum - 1];
                 }
                 $currProv = $val;
+                $currProvPulau = $pVal;
                 $startColPr = $cNum;
             }
         }
         if ($currProv !== null) {
-            $provGroups[] = ['val' => $currProv, 'start' => $startColPr, 'end' => count($vehicles) + 1];
+            $provGroups[] = ['val' => $currProv, 'pulau' => $currProvPulau, 'start' => $startColPr, 'end' => count($vehicles) + 1];
         }
 
         foreach ($provGroups as $grp) {
@@ -167,8 +210,12 @@ class CostingExportService
             if ($grp['start'] < $grp['end']) {
                 $sheet->mergeCells("{$sLet}4:{$eLet}4");
             }
+            $prKey = strtoupper(trim($grp['pulau'] ?? ''));
+            $prRgb = $regionColors[$prKey]['prov'] ?? 'F8F8F8';
+
             $sheet->setCellValue("{$sLet}4", $grp['val']);
             $sheet->getStyle("{$sLet}4:{$eLet}4")->getFont()->setName('Calibri')->setBold(true)->setSize(11);
+            $sheet->getStyle("{$sLet}4:{$eLet}4")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB($prRgb);
             $sheet->getStyle("{$sLet}4:{$eLet}4")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
         }
 

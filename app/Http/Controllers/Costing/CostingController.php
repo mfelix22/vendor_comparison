@@ -237,6 +237,17 @@ class CostingController extends Controller
      */
     public function edit(Costing $costing)
     {
+        $user = Auth::user();
+        if ($costing->isPendingApproval() && !$user->isManager() && !$user->isAdmin()) {
+            return redirect()->route('costing.show', $costing)
+                ->with('error', 'Costing ' . $costing->costing_number . ' is currently pending approval by the Purchasing Manager and cannot be edited.');
+        }
+
+        if ($costing->isApproved() && !$user->isManager() && !$user->isAdmin()) {
+            return redirect()->route('costing.show', $costing)
+                ->with('error', 'Costing ' . $costing->costing_number . ' has been approved and is locked from further editing.');
+        }
+
         $costing->load(['vehicles.accessories']);
         $bbnList   = CostingBbnMaster::where('is_active', true)->orderBy('name')->get();
         $templates = CostingAccessoryTemplate::orderBy('sort_order')->get();
@@ -279,6 +290,17 @@ class CostingController extends Controller
      */
     public function update(Request $request, Costing $costing)
     {
+        $user = Auth::user();
+        if ($costing->isPendingApproval() && !$user->isManager() && !$user->isAdmin()) {
+            return redirect()->route('costing.show', $costing)
+                ->with('error', 'Costing ' . $costing->costing_number . ' is currently pending approval by the Purchasing Manager and cannot be edited.');
+        }
+
+        if ($costing->isApproved() && !$user->isManager() && !$user->isAdmin()) {
+            return redirect()->route('costing.show', $costing)
+                ->with('error', 'Costing ' . $costing->costing_number . ' has been approved and is locked from further editing.');
+        }
+
         $validated = $request->validate([
             'customer_name'             => ['required', 'string', 'max:255'],
             'smd'                       => ['nullable', 'string', 'max:255'],
@@ -313,18 +335,19 @@ class CostingController extends Controller
                 'request_delivery_date' => $validated['request_delivery_date'] ?? null,
                 'odoo_partner_id'       => $validated['odoo_partner_id'] ?? null,
                 'notes'                 => $validated['notes'] ?? null,
+                'fph_type'              => $newFphType,
             ];
 
-            if ($costing->fph_type !== $newFphType) {
-                $updateData['fph_type'] = $newFphType;
-                if ($newFphType === 'tender') {
-                    $updateData['approval_status']  = 'pending';
-                    $updateData['approved_by']      = null;
-                    $updateData['approved_at']      = null;
-                    $updateData['rejection_reason'] = null;
-                } else {
-                    $updateData['approval_status']  = 'approved';
-                }
+            if ($newFphType === 'tender') {
+                $updateData['approval_status']  = 'pending';
+                $updateData['approved_by']      = null;
+                $updateData['approved_at']      = null;
+                $updateData['rejection_reason'] = null;
+            } else {
+                $updateData['approval_status']  = 'approved';
+                $updateData['approved_by']      = null;
+                $updateData['approved_at']      = null;
+                $updateData['rejection_reason'] = null;
             }
 
             $costing->update($updateData);

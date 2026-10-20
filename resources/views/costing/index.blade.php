@@ -141,9 +141,28 @@
                                             <a href="{{ route('costing.export', $costing) }}" class="btn btn-outline-success" title="Download Excel (.xlsx)">
                                                 <i class="bi bi-file-earmark-excel"></i>
                                             </a>
-                                            <a href="{{ route('costing.edit', $costing) }}" class="btn btn-outline-primary" title="Edit">
-                                                <i class="bi bi-pencil"></i>
-                                            </a>
+                                            @php
+                                                $currentUser = Auth::user();
+                                                $isMgrOrAdmin = $currentUser && ($currentUser->isManager() || $currentUser->isAdmin());
+                                                $canEdit = true;
+                                                $lockReason = 'Edit';
+                                                if ($costing->isPendingApproval() && !$isMgrOrAdmin) {
+                                                    $canEdit = false;
+                                                    $lockReason = 'Awaiting Manager Approval — Editing is locked';
+                                                } elseif ($costing->isApproved() && !$isMgrOrAdmin) {
+                                                    $canEdit = false;
+                                                    $lockReason = 'Tender FPH Approved — Editing is locked';
+                                                }
+                                            @endphp
+                                            @if ($canEdit)
+                                                <a href="{{ route('costing.edit', $costing) }}" class="btn btn-outline-primary" title="{{ $lockReason }}">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
+                                            @else
+                                                <button type="button" class="btn btn-outline-secondary text-muted" disabled title="{{ $lockReason }}" style="cursor: not-allowed; opacity: 0.55;">
+                                                    <i class="bi bi-lock-fill"></i>
+                                                </button>
+                                            @endif
                                             <form method="POST" action="{{ route('costing.destroy', $costing) }}" class="d-inline"
                                                 onsubmit="return confirm('Delete Costing {{ $costing->costing_number }}?')">
                                                 @csrf @method('DELETE')
