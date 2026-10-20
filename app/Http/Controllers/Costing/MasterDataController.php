@@ -49,11 +49,13 @@ class MasterDataController extends Controller
         $vehicleTypes = $typesQuery->paginate(20, ['*'], 'types_page')->withQueryString();
 
         // BBN Masters
-        $bbnQuery = CostingBbnMaster::orderBy('name');
+        $bbnQuery = CostingBbnMaster::orderBy('pulau')->orderBy('provinsi')->orderBy('name');
         if ($searchBbn = $request->input('search_bbn')) {
             $bbnQuery->where(function ($q) use ($searchBbn) {
                 $q->where('kode', 'like', "%{$searchBbn}%")
-                  ->orWhere('name', 'like', "%{$searchBbn}%");
+                  ->orWhere('name', 'like', "%{$searchBbn}%")
+                  ->orWhere('pulau', 'like', "%{$searchBbn}%")
+                  ->orWhere('provinsi', 'like', "%{$searchBbn}%");
             });
         }
         $bbnList = $bbnQuery->paginate(20, ['*'], 'bbn_page')->withQueryString();
