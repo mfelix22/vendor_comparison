@@ -591,19 +591,21 @@
             const bbnVal = bbnSelect ? bbnSelect.value : '';
             const selectedOpt = bbnSelect ? bbnSelect.selectedOptions[0] : null;
 
+            const pInp = document.getElementById(`inputPulau_${vIndex}`);
+            const prInp = document.getElementById(`inputProvinsi_${vIndex}`);
+
             if (selectedOpt && (selectedOpt.dataset.pulau || selectedOpt.dataset.provinsi)) {
-                const pInp = document.getElementById(`inputPulau_${vIndex}`);
-                const prInp = document.getElementById(`inputProvinsi_${vIndex}`);
-                if (pInp && selectedOpt.dataset.pulau) pInp.value = selectedOpt.dataset.pulau;
-                if (prInp && selectedOpt.dataset.provinsi) prInp.value = selectedOpt.dataset.provinsi;
+                if (pInp) pInp.value = selectedOpt.dataset.pulau || '';
+                if (prInp) prInp.value = selectedOpt.dataset.provinsi || '';
             } else if (bbnVal) {
                 const match = lookupRegion(bbnVal);
                 if (match) {
-                    const pInp = document.getElementById(`inputPulau_${vIndex}`);
-                    const prInp = document.getElementById(`inputProvinsi_${vIndex}`);
-                    if (pInp && !pInp.value) pInp.value = match.pulau;
-                    if (prInp && !prInp.value) prInp.value = match.provinsi;
+                    if (pInp) pInp.value = match.pulau || '';
+                    if (prInp) prInp.value = match.provinsi || '';
                 }
+            } else {
+                if (pInp) pInp.value = '';
+                if (prInp) prInp.value = '';
             }
 
             if (vIndex === firstIdx && document.getElementById('syncSameBbn')?.checked) {
@@ -612,17 +614,7 @@
         }
 
         function onPemakaianChanged(vIndex) {
-            const pemInp = document.getElementById(`inputPemakaian_${vIndex}`);
-            const pemVal = pemInp ? pemInp.value : '';
-            if (pemVal) {
-                const match = lookupRegion(pemVal);
-                if (match) {
-                    const pInp = document.getElementById(`inputPulau_${vIndex}`);
-                    const prInp = document.getElementById(`inputProvinsi_${vIndex}`);
-                    if (pInp && !pInp.value) pInp.value = match.pulau;
-                    if (prInp && !prInp.value) prInp.value = match.provinsi;
-                }
-            }
+            // Pemakaian is free-text (e.g. "JABODETABEK", "SEMARANG & DEMAK") - does not affect Pulau / Provinsi
         }
 
         function addVehicleColumn(data = {}) {
