@@ -220,6 +220,17 @@
                                 <i class="bi bi-plus-circle me-1"></i>New Costing
                             </a>
                         </li>
+                        @php
+                            $costingPendingCount = \App\Models\Costing::where('fph_type', 'tender')->where('approval_status', 'pending')->count();
+                        @endphp
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-1 {{ request()->routeIs('costing.approvals') ? 'active fw-bold' : '' }}" href="{{ route('costing.approvals') }}">
+                                <i class="bi bi-check2-square me-1"></i>Approvals
+                                @if ($costingPendingCount > 0)
+                                    <span class="badge bg-danger rounded-pill px-2 py-1" style="font-size: 0.7rem;">{{ $costingPendingCount }}</span>
+                                @endif
+                            </a>
+                        </li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle {{ request()->is('costing/master*') ? 'active fw-bold' : '' }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-database me-1"></i>Master Data

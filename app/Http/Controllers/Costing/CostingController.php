@@ -88,7 +88,11 @@ class CostingController extends Controller
             'accessories.*.amounts'     => ['nullable', 'array'],
         ]);
 
-        return DB::transaction(function () use ($validated, $request) {
+        $isTender = $request->boolean('is_tender');
+        $fphType = $isTender ? 'tender' : 'retail';
+        $approvalStatus = $isTender ? 'pending' : 'approved';
+
+        return DB::transaction(function () use ($validated, $request, $fphType, $approvalStatus) {
             // Generate unique Costing Number
             $prefix = 'CST/' . date('Y/m') . '/';
             $last = Costing::where('costing_number', 'like', $prefix . '%')
@@ -107,6 +111,8 @@ class CostingController extends Controller
                 'customer_name'   => $validated['customer_name'],
                 'odoo_partner_id' => $validated['odoo_partner_id'] ?? null,
                 'notes'           => $validated['notes'] ?? null,
+                'fph_type'        => $fphType,
+                'approval_status' => $approvalStatus,
                 'status'          => 'saved',
                 'created_by'      => Auth::id(),
             ]);
@@ -406,33 +412,21 @@ class CostingController extends Controller
         $this->odooService->flushCostingCache();
         \Illuminate\Support\Facades\Cache::forget('odoo_vendors');
 
-        // Safe refresh: run seeder logic to pull any newly added Odoo items into local master
-        require_once database_path('seeders/CostingMasterSeeder.php');
-        (new \Database\Seeders\CostingMasterSeeder())->run();
-
-        $brands = CostingBrand::where('is_active', true)->orderBy('name')->pluck('name')->toArray();
-        $products = CostingVehicleType::where('is_active', true)->orderBy('name')->get()->map(function ($vt) {
-            return [
-                'id'               => $vt->odoo_product_id ?: $vt->id,
-                'name'             => $vt->name,
-                'display_name'     => $vt->name,
-                'vehicle_brand_id' => [0, $vt->brand_name],
-            ];
-        })->toArray();
-        $bbnList = CostingBbnMaster::where('is_active', true)->orderBy('name')->get()->toArray();
+        // Safe master refresh directly via service (no seeders)
+        $result = $this->odooService->syncCostingMasters();
         $vendors = $this->odoo->getVendors();
 
         return response()->json([
             'success'  => true,
             'message'  => 'Costing vehicle catalog, BBN, and suppliers refreshed from Odoo.',
-            'brands'   => $brands,
-            'products' => $products,
-            'bbn'      => $bbnList,
+            'brands'   => $result['brands'],
+            'products' => $result['products'],
+            'bbn'      => $result['bbn'],
             'vendors'  => $vendors,
             'counts'   => [
-                'brands'    => count($brands),
-                'products'  => count($products),
-                'bbn'       => count($bbnList),
+                'brands'    => $result['counts']['brands'],
+                'products'  => $result['counts']['products'],
+                'bbn'       => $result['counts']['bbn'],
                 'suppliers' => count($vendors),
             ],
         ]);

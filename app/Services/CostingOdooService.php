@@ -65,7 +65,42 @@ class CostingOdooService
     }
 
     /**
-     * Fetch and sync BBN from Odoo (vehicle.bbn) into local CostingBbnMaster table.
+     * BBN Code to Full Region Name Dictionary (Tanpa Singkatan).
+     */
+    public const BBN_DICTIONARY = [
+        'ACH' => 'Aceh',
+        'AMB' => 'Ambon',
+        'BDG' => 'Bandung',
+        'BGK' => 'Bangka Belitung',
+        'BKU' => 'Bengkulu',
+        'BPN' => 'Balikpapan',
+        'BTM' => 'Batam',
+        'CLG' => 'Cilegon',
+        'CRB' => 'Cirebon',
+        'DPS' => 'Denpasar / Bali',
+        'JKT' => 'Jakarta',
+        'JYA' => 'Jayapura',
+        'KRW' => 'Karawang',
+        'LMP' => 'Lampung',
+        'MES' => 'Medan',
+        'MKS' => 'Makassar',
+        'MLL' => 'Malili',
+        'MND' => 'Manado',
+        'MTM' => 'Mataram / Lombok',
+        'PDG' => 'Padang',
+        'PKU' => 'Pekanbaru',
+        'PLB' => 'Palembang',
+        'PTA' => 'Pontianak',
+        'RMB' => 'Rembang',
+        'SMG' => 'Semarang',
+        'SRG' => 'Sorong',
+        'SUB' => 'Surabaya',
+        'TRK' => 'Tarakan',
+        'YOG' => 'Yogyakarta',
+    ];
+
+    /**
+     * Fetch and sync BBN from Odoo (vehicle.bbn) into local CostingBbnMaster table with full readable names.
      */
     public function syncBbnMaster(): array
     {
@@ -77,12 +112,16 @@ class CostingOdooService
 
             if (!empty($records)) {
                 foreach ($records as $rec) {
+                    $code = strtoupper(trim($rec['kode'] ?: $rec['display_name']));
+                    $fullName = self::BBN_DICTIONARY[$code] ?? $rec['display_name'] ?: $code;
+
                     \App\Models\CostingBbnMaster::updateOrCreate(
-                        ['kode' => $rec['kode'] ?: $rec['display_name']],
+                        ['kode' => $code],
                         [
                             'odoo_bbn_id'  => $rec['id'],
-                            'alamat'       => $rec['alamat'] ?: null,
-                            'display_name' => $rec['display_name'] ?: $rec['kode'],
+                            'name'         => $fullName,
+                            'display_name' => $fullName,
+                            'is_active'    => true,
                         ]
                     );
                 }
@@ -91,7 +130,77 @@ class CostingOdooService
             \Illuminate\Support\Facades\Log::warning('CostingOdooService: Could not sync BBN: ' . $e->getMessage());
         }
 
-        return \App\Models\CostingBbnMaster::orderBy('kode')->get()->toArray();
+        return \App\Models\CostingBbnMaster::where('is_active', true)->orderBy('name')->get()->toArray();
+    }
+
+    /**
+     * Complete, safe sync of all Costing Masters (BBN, Brands, Vehicle Types) from Odoo.
+     * Pure service method: ZERO seeders required, safe for fresh Portainer deployments.
+     * Preserves all local custom records.
+     */
+    public function syncCostingMasters(): array
+    {
+        $this->flushCostingCache();
+
+        // 1. Sync BBN with full names
+        $bbnList = $this->syncBbnMaster();
+
+        // 2. Sync Brands & Vehicle Types from Odoo Products
+        $products = $this->getCarProducts();
+        $syncedBrands = 0;
+        $syncedTypes = 0;
+
+        foreach ($products as $p) {
+            $brandName = '';
+            $odooBrandId = null;
+            if (!empty($p['vehicle_brand_id']) && is_array($p['vehicle_brand_id'])) {
+                $odooBrandId = (int) $p['vehicle_brand_id'][0];
+                $rawBrand = explode(' - ', $p['vehicle_brand_id'][1])[0] ?? $p['vehicle_brand_id'][1];
+                $brandName = strtoupper(trim($rawBrand));
+            }
+
+            if (!$brandName) {
+                continue;
+            }
+
+            $brand = \App\Models\CostingBrand::firstOrCreate(
+                ['name' => $brandName],
+                [
+                    'odoo_brand_id' => $odooBrandId,
+                    'is_active'     => true,
+                ]
+            );
+            $syncedBrands++;
+
+            $typeName = trim($p['name'] ?? $p['display_name'] ?? '');
+            if (!$typeName) {
+                continue;
+            }
+
+            \App\Models\CostingVehicleType::firstOrCreate(
+                [
+                    'costing_brand_id' => $brand->id,
+                    'name'             => $typeName,
+                ],
+                [
+                    'brand_name'      => $brand->name,
+                    'odoo_product_id' => !empty($p['id']) ? (int) $p['id'] : null,
+                    'is_active'       => true,
+                ]
+            );
+            $syncedTypes++;
+        }
+
+        return [
+            'brands'   => \App\Models\CostingBrand::where('is_active', true)->orderBy('name')->pluck('name')->toArray(),
+            'products' => \App\Models\CostingVehicleType::where('is_active', true)->orderBy('name')->get()->toArray(),
+            'bbn'      => $bbnList,
+            'counts'   => [
+                'brands'   => \App\Models\CostingBrand::count(),
+                'products' => \App\Models\CostingVehicleType::count(),
+                'bbn'      => \App\Models\CostingBbnMaster::count(),
+            ],
+        ];
     }
 
     /**

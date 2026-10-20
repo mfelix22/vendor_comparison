@@ -226,11 +226,10 @@ class MasterDataController extends Controller
         $tab = $request->input('tab', 'brands');
 
         try {
-            // Run Seeder logic to safely pull any new items from Odoo
-            (new \Database\Seeders\CostingMasterSeeder())->run();
+            $result = $this->odooService->syncCostingMasters();
 
             return redirect()->route('costing.master.index', ['tab' => $tab])
-                ->with('success', 'Master data refreshed from Odoo. Local custom entries were safely preserved.');
+                ->with('success', "Master data refreshed from Odoo ({$result['counts']['brands']} brands, {$result['counts']['products']} types, {$result['counts']['bbn']} BBN regions). Local custom entries safely preserved.");
         } catch (\Throwable $e) {
             return redirect()->route('costing.master.index', ['tab' => $tab])
                 ->with('error', 'Sync encountered an error: ' . $e->getMessage());

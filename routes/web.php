@@ -85,12 +85,17 @@ Route::middleware('auth')->group(function () {
         Route::get('/api/customers', [App\Http\Controllers\Costing\CostingController::class, 'apiSearchCustomers'])->name('api.customers');
         Route::post('/api/refresh-catalog', [App\Http\Controllers\Costing\CostingController::class, 'apiRefreshCatalog'])->name('api.refresh');
 
+        // Approvals Queue (Defined before /{costing})
+        Route::get('/approvals', [App\Http\Controllers\Costing\CostingController::class, 'approvals'])->name('approvals');
+
         // Parameterized Costing routes (Constrained to numbers so they never conflict with static prefixes)
         Route::get('/{costing}', [App\Http\Controllers\Costing\CostingController::class, 'show'])->name('show')->where('costing', '[0-9]+');
         Route::get('/{costing}/edit', [App\Http\Controllers\Costing\CostingController::class, 'edit'])->name('edit')->where('costing', '[0-9]+');
         Route::put('/{costing}', [App\Http\Controllers\Costing\CostingController::class, 'update'])->name('update')->where('costing', '[0-9]+');
         Route::delete('/{costing}', [App\Http\Controllers\Costing\CostingController::class, 'destroy'])->name('destroy')->where('costing', '[0-9]+');
         Route::get('/{costing}/export', [App\Http\Controllers\Costing\CostingController::class, 'export'])->name('export')->where('costing', '[0-9]+');
+        Route::post('/{costing}/approve', [App\Http\Controllers\Costing\CostingController::class, 'approve'])->name('approve')->where('costing', '[0-9]+');
+        Route::post('/{costing}/reject', [App\Http\Controllers\Costing\CostingController::class, 'reject'])->name('reject')->where('costing', '[0-9]+');
     });
 });
 
