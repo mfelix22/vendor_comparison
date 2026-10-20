@@ -64,40 +64,7 @@ class CostingOdooService
         return $brands;
     }
 
-    /**
-     * BBN Code to Full Region Name Dictionary (Tanpa Singkatan).
-     */
-    public const BBN_DICTIONARY = [
-        'ACH' => 'Aceh',
-        'AMB' => 'Ambon',
-        'BDG' => 'Bandung',
-        'BGK' => 'Bangka Belitung',
-        'BKU' => 'Bengkulu',
-        'BPN' => 'Balikpapan',
-        'BTM' => 'Batam',
-        'CLG' => 'Cilegon',
-        'CRB' => 'Cirebon',
-        'DPS' => 'Denpasar / Bali',
-        'JKT' => 'Jakarta',
-        'JYA' => 'Jayapura',
-        'KRW' => 'Karawang',
-        'LMP' => 'Lampung',
-        'MES' => 'Medan',
-        'MKS' => 'Makassar',
-        'MLL' => 'Malili',
-        'MND' => 'Manado',
-        'MTM' => 'Mataram / Lombok',
-        'PDG' => 'Padang',
-        'PKU' => 'Pekanbaru',
-        'PLB' => 'Palembang',
-        'PTA' => 'Pontianak',
-        'RMB' => 'Rembang',
-        'SMG' => 'Semarang',
-        'SRG' => 'Sorong',
-        'SUB' => 'Surabaya',
-        'TRK' => 'Tarakan',
-        'YOG' => 'Yogyakarta',
-    ];
+
 
     /**
      * BBN master is 100% locally unified with all Indonesian cities, Pulau, and Provinsi.
