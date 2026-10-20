@@ -8,7 +8,6 @@ use App\Models\CostingAccessory;
 use App\Models\CostingAccessoryTemplate;
 use App\Models\CostingBbnMaster;
 use App\Models\CostingBrand;
-use App\Models\CostingRegion;
 use App\Models\CostingVehicle;
 use App\Models\CostingVehicleType;
 use App\Services\CostingOdooService;
@@ -60,9 +59,9 @@ class CostingController extends Controller
             ];
         })->toArray();
         $smdList   = $this->odooService->getSmdList();
-        $pulauList   = CostingRegion::active()->distinct()->orderBy('pulau')->pluck('pulau')->toArray();
-        $provinsiList = CostingRegion::active()->distinct()->orderBy('provinsi')->pluck('provinsi')->toArray();
-        $regionsJson = CostingRegion::active()->get(['pulau', 'provinsi', 'area'])->toJson();
+        $pulauList   = CostingBbnMaster::where('is_active', true)->whereNotNull('pulau')->distinct()->orderBy('pulau')->pluck('pulau')->toArray();
+        $provinsiList = CostingBbnMaster::where('is_active', true)->whereNotNull('provinsi')->distinct()->orderBy('provinsi')->pluck('provinsi')->toArray();
+        $regionsJson = CostingBbnMaster::where('is_active', true)->get(['pulau', 'provinsi', 'name as area'])->toJson();
 
         return view('costing.create', compact('bbnList', 'templates', 'brands', 'products', 'smdList', 'pulauList', 'provinsiList', 'regionsJson'));
     }
@@ -259,9 +258,9 @@ class CostingController extends Controller
         }
 
         $smdList   = $this->odooService->getSmdList();
-        $pulauList   = CostingRegion::active()->distinct()->orderBy('pulau')->pluck('pulau')->toArray();
-        $provinsiList = CostingRegion::active()->distinct()->orderBy('provinsi')->pluck('provinsi')->toArray();
-        $regionsJson = CostingRegion::active()->get(['pulau', 'provinsi', 'area'])->toJson();
+        $pulauList   = CostingBbnMaster::where('is_active', true)->whereNotNull('pulau')->distinct()->orderBy('pulau')->pluck('pulau')->toArray();
+        $provinsiList = CostingBbnMaster::where('is_active', true)->whereNotNull('provinsi')->distinct()->orderBy('provinsi')->pluck('provinsi')->toArray();
+        $regionsJson = CostingBbnMaster::where('is_active', true)->get(['pulau', 'provinsi', 'name as area'])->toJson();
 
         return view('costing.edit', compact('costing', 'bbnList', 'templates', 'brands', 'products', 'accRows', 'smdList', 'pulauList', 'provinsiList', 'regionsJson'));
     }

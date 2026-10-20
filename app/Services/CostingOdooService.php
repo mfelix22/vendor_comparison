@@ -100,49 +100,24 @@ class CostingOdooService
     ];
 
     /**
-     * Fetch and sync BBN from Odoo (vehicle.bbn) into local CostingBbnMaster table with full readable names.
+     * BBN master is 100% locally unified with all Indonesian cities, Pulau, and Provinsi.
+     * Preserves local master without overwriting from Odoo.
      */
     public function syncBbnMaster(): array
     {
-        try {
-            $records = $this->odoo->call('vehicle.bbn', 'search_read', [[]], [
-                'fields' => ['id', 'kode', 'alamat', 'display_name'],
-                'order'  => 'kode asc',
-            ]);
-
-            if (!empty($records)) {
-                foreach ($records as $rec) {
-                    $code = strtoupper(trim($rec['kode'] ?: $rec['display_name']));
-                    $fullName = self::BBN_DICTIONARY[$code] ?? $rec['display_name'] ?: $code;
-
-                    \App\Models\CostingBbnMaster::updateOrCreate(
-                        ['kode' => $code],
-                        [
-                            'odoo_bbn_id'  => $rec['id'],
-                            'name'         => $fullName,
-                            'display_name' => $fullName,
-                            'is_active'    => true,
-                        ]
-                    );
-                }
-            }
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('CostingOdooService: Could not sync BBN: ' . $e->getMessage());
-        }
-
         return \App\Models\CostingBbnMaster::where('is_active', true)->orderBy('name')->get()->toArray();
     }
 
     /**
-     * Complete, safe sync of all Costing Masters (BBN, Brands, Vehicle Types) from Odoo.
+     * Complete, safe sync of Costing Masters (Brands, Vehicle Types) from Odoo.
      * Pure service method: ZERO seeders required, safe for fresh Portainer deployments.
-     * Preserves all local custom records.
+     * Preserves all local custom records and unified BBN master.
      */
     public function syncCostingMasters(): array
     {
         $this->flushCostingCache();
 
-        // 1. Sync BBN with full names
+        // 1. Unified BBN list is preserved from local database
         $bbnList = $this->syncBbnMaster();
 
         // 2. Sync Brands & Vehicle Types from Odoo Products

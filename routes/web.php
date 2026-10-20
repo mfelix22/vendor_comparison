@@ -74,16 +74,10 @@ Route::middleware('auth')->group(function () {
             Route::put('/bbn/{bbn}', [App\Http\Controllers\Costing\MasterDataController::class, 'updateBbn'])->name('bbn.update');
             Route::delete('/bbn/{bbn}', [App\Http\Controllers\Costing\MasterDataController::class, 'destroyBbn'])->name('bbn.destroy');
 
-            // Regions (Data Wilayah: Pulau & Provinsi)
-            Route::post('/regions', [App\Http\Controllers\Costing\MasterDataController::class, 'storeRegion'])->name('regions.store');
-            Route::put('/regions/{region}', [App\Http\Controllers\Costing\MasterDataController::class, 'updateRegion'])->name('regions.update');
-            Route::delete('/regions/{region}', [App\Http\Controllers\Costing\MasterDataController::class, 'destroyRegion'])->name('regions.destroy');
-
             // Dynamic APIs for costing form
             Route::get('/api/brands', [App\Http\Controllers\Costing\MasterDataController::class, 'apiBrands'])->name('api.brands');
             Route::get('/api/vehicle-types', [App\Http\Controllers\Costing\MasterDataController::class, 'apiVehicleTypes'])->name('api.vehicle-types');
             Route::get('/api/bbn', [App\Http\Controllers\Costing\MasterDataController::class, 'apiBbn'])->name('api.bbn');
-            Route::get('/api/regions', [App\Http\Controllers\Costing\MasterDataController::class, 'apiRegions'])->name('api.regions');
         });
 
         // APIs for auto-suggest / dynamic lookups
