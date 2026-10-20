@@ -191,7 +191,7 @@
                     </table>
                 </div>
                 @if ($brands->hasPages())
-                    <div class="card-footer bg-white border-0 py-3 d-flex justify-content-end">
+                    <div class="card-footer bg-white border-top py-2 px-3">
                         {{ $brands->links('pagination::bootstrap-5') }}
                     </div>
                 @endif
@@ -301,7 +301,7 @@
                     </table>
                 </div>
                 @if ($vehicleTypes->hasPages())
-                    <div class="card-footer bg-white border-0 py-3 d-flex justify-content-end">
+                    <div class="card-footer bg-white border-top py-2 px-3">
                         {{ $vehicleTypes->links('pagination::bootstrap-5') }}
                     </div>
                 @endif
@@ -401,7 +401,7 @@
                     </table>
                 </div>
                 @if ($bbnList->hasPages())
-                    <div class="card-footer bg-white border-0 py-3 d-flex justify-content-end">
+                    <div class="card-footer bg-white border-top py-2 px-3">
                         {{ $bbnList->links('pagination::bootstrap-5') }}
                     </div>
                 @endif

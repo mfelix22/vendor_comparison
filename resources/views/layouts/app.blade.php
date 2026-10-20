@@ -120,10 +120,24 @@
             text-align: center;
         }
 
-        /* Pagination Safeguards */
+        /* Pagination Alignment & Styling */
+        nav:has(.pagination),
+        .card-footer nav {
+            width: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+        }
+        nav:has(.pagination) p,
+        .card-footer nav p {
+            margin-bottom: 0 !important;
+            line-height: 1.5;
+        }
         .pagination {
-            margin-bottom: 0;
+            margin-bottom: 0 !important;
             gap: 2px;
+            display: flex !important;
+            align-items: center !important;
         }
         .pagination svg {
             width: 1em !important;
@@ -134,8 +148,11 @@
         }
         .page-item .page-link {
             border-radius: 4px;
-            font-size: 0.85rem;
-            padding: 0.25rem 0.6rem;
+            font-size: 0.82rem;
+            padding: 0.25rem 0.55rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
     </style>
 </head>
