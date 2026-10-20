@@ -54,13 +54,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [App\Http\Controllers\Costing\CostingController::class, 'index'])->name('index');
         Route::get('/create', [App\Http\Controllers\Costing\CostingController::class, 'create'])->name('create');
         Route::post('/', [App\Http\Controllers\Costing\CostingController::class, 'store'])->name('store');
-        Route::get('/{costing}', [App\Http\Controllers\Costing\CostingController::class, 'show'])->name('show');
-        Route::get('/{costing}/edit', [App\Http\Controllers\Costing\CostingController::class, 'edit'])->name('edit');
-        Route::put('/{costing}', [App\Http\Controllers\Costing\CostingController::class, 'update'])->name('update');
-        Route::delete('/{costing}', [App\Http\Controllers\Costing\CostingController::class, 'destroy'])->name('destroy');
-        Route::get('/{costing}/export', [App\Http\Controllers\Costing\CostingController::class, 'export'])->name('export');
-
-        // Master Data Management (Isolated strictly to Costing)
+        // Master Data Management (Isolated strictly to Costing - Defined before /{costing})
         Route::prefix('master')->name('master.')->group(function () {
             Route::get('/', [App\Http\Controllers\Costing\MasterDataController::class, 'index'])->name('index');
             Route::post('/sync-odoo', [App\Http\Controllers\Costing\MasterDataController::class, 'syncFromOdoo'])->name('sync-odoo');
@@ -90,6 +84,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/api/products', [App\Http\Controllers\Costing\CostingController::class, 'apiProducts'])->name('api.products');
         Route::get('/api/customers', [App\Http\Controllers\Costing\CostingController::class, 'apiSearchCustomers'])->name('api.customers');
         Route::post('/api/refresh-catalog', [App\Http\Controllers\Costing\CostingController::class, 'apiRefreshCatalog'])->name('api.refresh');
+
+        // Parameterized Costing routes (Constrained to numbers so they never conflict with static prefixes)
+        Route::get('/{costing}', [App\Http\Controllers\Costing\CostingController::class, 'show'])->name('show')->where('costing', '[0-9]+');
+        Route::get('/{costing}/edit', [App\Http\Controllers\Costing\CostingController::class, 'edit'])->name('edit')->where('costing', '[0-9]+');
+        Route::put('/{costing}', [App\Http\Controllers\Costing\CostingController::class, 'update'])->name('update')->where('costing', '[0-9]+');
+        Route::delete('/{costing}', [App\Http\Controllers\Costing\CostingController::class, 'destroy'])->name('destroy')->where('costing', '[0-9]+');
+        Route::get('/{costing}/export', [App\Http\Controllers\Costing\CostingController::class, 'export'])->name('export')->where('costing', '[0-9]+');
     });
 });
 
