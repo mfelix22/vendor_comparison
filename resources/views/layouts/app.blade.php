@@ -119,6 +119,24 @@
             padding-bottom: 1.5rem;
             text-align: center;
         }
+
+        /* Pagination Safeguards */
+        .pagination {
+            margin-bottom: 0;
+            gap: 2px;
+        }
+        .pagination svg {
+            width: 1em !important;
+            height: 1em !important;
+            vertical-align: middle;
+            max-width: 16px;
+            max-height: 16px;
+        }
+        .page-item .page-link {
+            border-radius: 4px;
+            font-size: 0.85rem;
+            padding: 0.25rem 0.6rem;
+        }
     </style>
 </head>
 
