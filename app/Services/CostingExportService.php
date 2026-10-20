@@ -78,33 +78,88 @@ class CostingExportService
         $colCount = count($vehicles);
         $lastColLetter = Coordinate::stringFromColumnIndex(max(2, 1 + $colCount));
 
-        // Harmonious regional color family mapping (Option 1)
-        $regionColors = [
+        // Regional theme with per-province color inheritance
+        $regionalTheme = [
             'JAWA' => [
-                'pulau' => 'D9EAD3', // Soft Sage/Mint Green
-                'prov'  => 'EAF4E6', // Coordinating lighter pastel
+                'main' => 'C5E0B4', // Soft Forest Mint Green
+                'provinces' => [
+                    'DKI JAKARTA'                => 'E2EFDA', // Light Mint
+                    'JAWA BARAT'                 => 'D5E8D4', // Pale Celadon
+                    'JAWA TENGAH'                => 'E2F0CB', // Lime Pasture
+                    'JAWA TIMUR'                 => 'D0EAD4', // Pale Mint Sage
+                    'BANTEN'                     => 'CDECCD', // Light Meadow
+                    'DAERAH ISTIMEWA YOGYAKARTA' => 'E5EED0', // Light Tea Green
+                ],
             ],
             'SUMATERA' => [
-                'pulau' => 'FCE5CD', // Soft Peach/Warm Orange
-                'prov'  => 'FFF2E5', // Coordinating lighter pastel
+                'main' => 'F8CBAD', // Soft Amber Peach
+                'provinces' => [
+                    'ACEH'             => 'FCE4D6', // Pale Peach
+                    'SUMATERA UTARA'   => 'FCE8D5', // Soft Apricot
+                    'SUMATERA BARAT'   => 'FBE5C8', // Warm Bisque
+                    'RIAU'             => 'FDEBD0', // Creamy Sand
+                    'KEPULAUAN RIAU'   => 'FCE1C9', // Light Coral Peach
+                    'JAMBI'            => 'F8E0C8', // Muted Apricot
+                    'SUMATERA SELATAN' => 'FADBD8', // Soft Blush Peach
+                    'BANGKA BELITUNG'  => 'FDEBD2', // Warm Gold Cream
+                    'BENGKULU'         => 'FBE8DA', // Light Bisque
+                    'LAMPUNG'          => 'F5D8C3', // Light Terracotta
+                ],
             ],
             'KALIMANTAN' => [
-                'pulau' => 'CFE2F3', // Soft Ice/Sky Blue
-                'prov'  => 'E8F2FA', // Coordinating lighter pastel
+                'main' => 'BDD7EE', // Soft Sky Blue
+                'provinces' => [
+                    'KALIMANTAN BARAT'   => 'DDEBF7', // Light Ice Blue
+                    'KALIMANTAN TENGAH'  => 'D2E5F5', // Soft Sky
+                    'KALIMANTAN SELATAN' => 'E1EDF8', // Pale Azure
+                    'KALIMANTAN TIMUR'   => 'C9E0F2', // Powder Blue
+                    'KALIMANTAN UTARA'   => 'D6E8F7', // Breeze Blue
+                ],
             ],
             'SULAWESI' => [
-                'pulau' => 'D9D2E9', // Soft Lavender/Violet
-                'prov'  => 'ECE8F4', // Coordinating lighter pastel
+                'main' => 'CCC0DA', // Soft Lavender Violet
+                'provinces' => [
+                    'SULAWESI UTARA'    => 'E6DFEC', // Pale Lavender
+                    'GORONTALO'         => 'E1D5EA', // Lilac Mist
+                    'SULAWESI TENGAH'   => 'EDE5F3', // Soft Violet
+                    'SULAWESI BARAT'    => 'DFD3EB', // Heather
+                    'SULAWESI SELATAN'  => 'E4DAEE', // Light Orchid
+                    'SULAWESI TENGGARA' => 'EBE2F5', // Pastel Lilac
+                ],
             ],
             'BALI & NUSA TENGGARA' => [
-                'pulau' => 'F4CCCC', // Soft Rose/Coral
-                'prov'  => 'FCE8E8', // Coordinating lighter pastel
+                'main' => 'F4B084', // Soft Coral Rose
+                'provinces' => [
+                    'BALI'                => 'FCE4D6', // Soft Coral
+                    'NUSA TENGGARA BARAT' => 'FADBD8', // Pale Rose
+                    'NUSA TENGGARA TIMUR' => 'F8D7DA', // Pastel Salmon
+                ],
             ],
             'PAPUA & MALUKU' => [
-                'pulau' => 'D0E0E3', // Soft Seafoam/Aqua
-                'prov'  => 'E6F0F2', // Coordinating lighter pastel
+                'main' => 'A2D9CE', // Soft Seafoam Teal
+                'provinces' => [
+                    'MALUKU'            => 'D1F2EB', // Light Mint Aqua
+                    'MALUKU UTARA'      => 'E8F8F5', // Pale Aqua
+                    'PAPUA'             => 'D4EFDF', // Soft Seafoam
+                    'PAPUA BARAT'       => 'E5F9E0', // Pale Sage Aqua
+                    'PAPUA BARAT DAYA'  => 'D0ECE7', // Light Aqua Breeze
+                    'PAPUA PEGUNUNGAN'  => 'E1F5FE', // Crisp Aqua
+                    'PAPUA SELATAN'     => 'E0F2F1', // Pale Teal
+                    'PAPUA TENGAH'      => 'DCECC9', // Pastel Aqua Grass
+                ],
             ],
         ];
+
+        $getPulauRgb = function ($pulau) use ($regionalTheme) {
+            $p = strtoupper(trim($pulau ?? ''));
+            return $regionalTheme[$p]['main'] ?? 'EFEFEF';
+        };
+
+        $getProvRgb = function ($pulau, $provinsi) use ($regionalTheme) {
+            $p = strtoupper(trim($pulau ?? ''));
+            $pr = strtoupper(trim($provinsi ?? ''));
+            return $regionalTheme[$p]['provinces'][$pr] ?? ($regionalTheme[$p]['main'] ?? 'F8F8F8');
+        };
 
         // Row 1: Customer Name (Merged Across Full Table Width)
         $sheet->setCellValue('A1', $costing->customer_name);
@@ -165,8 +220,7 @@ class CostingExportService
             if ($grp['start'] < $grp['end']) {
                 $sheet->mergeCells("{$sLet}3:{$eLet}3");
             }
-            $pKey = strtoupper(trim($grp['val'] ?? ''));
-            $pRgb = $regionColors[$pKey]['pulau'] ?? 'EFEFEF';
+            $pRgb = $getPulauRgb($grp['val']);
 
             $sheet->setCellValue("{$sLet}3", $grp['val']);
             $sheet->getStyle("{$sLet}3:{$eLet}3")->getFont()->setName('Calibri')->setBold(true)->setSize(11);
@@ -210,8 +264,7 @@ class CostingExportService
             if ($grp['start'] < $grp['end']) {
                 $sheet->mergeCells("{$sLet}4:{$eLet}4");
             }
-            $prKey = strtoupper(trim($grp['pulau'] ?? ''));
-            $prRgb = $regionColors[$prKey]['prov'] ?? 'F8F8F8';
+            $prRgb = $getProvRgb($grp['pulau'] ?? '', $grp['val'] ?? '');
 
             $sheet->setCellValue("{$sLet}4", $grp['val']);
             $sheet->getStyle("{$sLet}4:{$eLet}4")->getFont()->setName('Calibri')->setBold(true)->setSize(11);

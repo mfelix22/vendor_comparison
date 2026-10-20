@@ -237,13 +237,12 @@ class CostingController extends Controller
      */
     public function edit(Costing $costing)
     {
-        $user = Auth::user();
-        if ($costing->isPendingApproval() && !$user->isManager() && !$user->isAdmin()) {
+        if ($costing->isPendingApproval()) {
             return redirect()->route('costing.show', $costing)
                 ->with('error', 'Costing ' . $costing->costing_number . ' is currently pending approval by the Purchasing Manager and cannot be edited.');
         }
 
-        if ($costing->isApproved() && !$user->isManager() && !$user->isAdmin()) {
+        if ($costing->isApproved()) {
             return redirect()->route('costing.show', $costing)
                 ->with('error', 'Costing ' . $costing->costing_number . ' has been approved and is locked from further editing.');
         }
@@ -290,13 +289,12 @@ class CostingController extends Controller
      */
     public function update(Request $request, Costing $costing)
     {
-        $user = Auth::user();
-        if ($costing->isPendingApproval() && !$user->isManager() && !$user->isAdmin()) {
+        if ($costing->isPendingApproval()) {
             return redirect()->route('costing.show', $costing)
                 ->with('error', 'Costing ' . $costing->costing_number . ' is currently pending approval by the Purchasing Manager and cannot be edited.');
         }
 
-        if ($costing->isApproved() && !$user->isManager() && !$user->isAdmin()) {
+        if ($costing->isApproved()) {
             return redirect()->route('costing.show', $costing)
                 ->with('error', 'Costing ' . $costing->costing_number . ' has been approved and is locked from further editing.');
         }
@@ -436,11 +434,18 @@ class CostingController extends Controller
             ->with('success', "Costing {$num} has been deleted.");
     }
 
-    /**
-     * Export the specified costing to Excel (.xlsx).
-     */
     public function export(Costing $costing, \App\Services\CostingExportService $exportService)
     {
+        if ($costing->isPendingApproval()) {
+            return redirect()->route('costing.show', $costing)
+                ->with('error', 'Costing ' . $costing->costing_number . ' is currently pending approval and cannot be exported to Excel.');
+        }
+
+        if ($costing->isRejected()) {
+            return redirect()->route('costing.show', $costing)
+                ->with('error', 'Costing ' . $costing->costing_number . ' was rejected and cannot be exported to Excel.');
+        }
+
         return $exportService->export($costing);
     }
 

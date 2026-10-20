@@ -569,16 +569,45 @@
                 </div>
             </div>
         </div>
+        @php
+            $isPending = $costing->isPendingApproval();
+            $isRejected = $costing->isRejected();
+            $isApproved = $costing->isApproved();
+            $canPrintDownload = !$isPending && !$isRejected;
+            $canEdit = $isRejected || (!$costing->isTender() && !$isApproved);
+        @endphp
         <div class="d-flex gap-2">
-            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">
-                <i class="bi bi-printer me-1"></i>Print
-            </button>
-            <a href="{{ route('costing.export', $costing) }}" class="btn btn-success btn-sm fw-semibold">
-                <i class="bi bi-download me-1"></i>Download Excel (.xlsx)
-            </a>
-            <a href="{{ route('costing.edit', $costing) }}" class="btn btn-primary btn-sm">
-                <i class="bi bi-pencil me-1"></i>Edit Sheet
-            </a>
+            @if ($canPrintDownload)
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+                    <i class="bi bi-printer me-1"></i>Print
+                </button>
+                <a href="{{ route('costing.export', $costing) }}" class="btn btn-success btn-sm fw-semibold">
+                    <i class="bi bi-download me-1"></i>Download Excel (.xlsx)
+                </a>
+            @else
+                <button type="button" class="btn btn-outline-secondary btn-sm text-muted" disabled 
+                    title="{{ $isPending ? 'Cannot print while awaiting Manager approval' : 'Cannot print rejected costing' }}" 
+                    style="cursor: not-allowed; opacity: 0.55;">
+                    <i class="bi bi-printer me-1"></i>Print
+                </button>
+                <button type="button" class="btn btn-outline-success btn-sm text-muted" disabled 
+                    title="{{ $isPending ? 'Cannot download Excel while awaiting Manager approval' : 'Cannot download rejected costing' }}" 
+                    style="cursor: not-allowed; opacity: 0.55;">
+                    <i class="bi bi-download me-1"></i>Download Excel (.xlsx)
+                </button>
+            @endif
+
+            @if ($canEdit)
+                <a href="{{ route('costing.edit', $costing) }}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-pencil me-1"></i>Edit Sheet
+                </a>
+            @else
+                <button type="button" class="btn btn-outline-secondary btn-sm text-muted" disabled 
+                    title="{{ $isPending ? 'Editing locked while awaiting Manager approval' : 'Approved tender costing is locked' }}" 
+                    style="cursor: not-allowed; opacity: 0.55;">
+                    <i class="bi bi-lock-fill me-1"></i>Edit Sheet
+                </button>
+            @endif
         </div>
     </div>
 
@@ -728,37 +757,89 @@
             $provGroups[] = ['val' => $currProv, 'pulau' => $currProvPulau, 'start' => $startColPr, 'span' => $spanPr];
         }
 
-        // Harmonious regional color family mapping (Option 1)
-        $regionColors = [
+        // Regional theme with per-province color inheritance
+        $regionalTheme = [
             'JAWA' => [
-                'pulau' => '#d9ead3', // Soft Sage/Mint Green
-                'prov'  => '#eaf4e6', // Coordinating lighter pastel
+                'main' => 'c5e0b4', // Soft Forest Mint Green
+                'provinces' => [
+                    'DKI JAKARTA'                => 'e2efda', // Light Mint
+                    'JAWA BARAT'                 => 'd5e8d4', // Pale Celadon
+                    'JAWA TENGAH'                => 'e2f0cb', // Lime Pasture
+                    'JAWA TIMUR'                 => 'd0ead4', // Pale Mint Sage
+                    'BANTEN'                     => 'cdeccd', // Light Meadow
+                    'DAERAH ISTIMEWA YOGYAKARTA' => 'e5eed0', // Light Tea Green
+                ],
             ],
             'SUMATERA' => [
-                'pulau' => '#fce5cd', // Soft Peach/Warm Orange
-                'prov'  => '#fff2e5', // Coordinating lighter pastel
+                'main' => 'f8cbad', // Soft Amber Peach
+                'provinces' => [
+                    'ACEH'             => 'fce4d6', // Pale Peach
+                    'SUMATERA UTARA'   => 'fce8d5', // Soft Apricot
+                    'SUMATERA BARAT'   => 'fbe5c8', // Warm Bisque
+                    'RIAU'             => 'fdebd0', // Creamy Sand
+                    'KEPULAUAN RIAU'   => 'fce1c9', // Light Coral Peach
+                    'JAMBI'            => 'f8e0c8', // Muted Apricot
+                    'SUMATERA SELATAN' => 'fadbd8', // Soft Blush Peach
+                    'BANGKA BELITUNG'  => 'fdebd2', // Warm Gold Cream
+                    'BENGKULU'         => 'fbe8da', // Light Bisque
+                    'LAMPUNG'          => 'f5d8c3', // Light Terracotta
+                ],
             ],
             'KALIMANTAN' => [
-                'pulau' => '#cfe2f3', // Soft Ice/Sky Blue
-                'prov'  => '#e8f2fa', // Coordinating lighter pastel
+                'main' => 'bdd7ee', // Soft Sky Blue
+                'provinces' => [
+                    'KALIMANTAN BARAT'   => 'ddebf7', // Light Ice Blue
+                    'KALIMANTAN TENGAH'  => 'd2e5f5', // Soft Sky
+                    'KALIMANTAN SELATAN' => 'e1edf8', // Pale Azure
+                    'KALIMANTAN TIMUR'   => 'c9e0f2', // Powder Blue
+                    'KALIMANTAN UTARA'   => 'd6e8f7', // Breeze Blue
+                ],
             ],
             'SULAWESI' => [
-                'pulau' => '#d9d2e9', // Soft Lavender/Violet
-                'prov'  => '#ece8f4', // Coordinating lighter pastel
+                'main' => 'ccc0da', // Soft Lavender Violet
+                'provinces' => [
+                    'SULAWESI UTARA'    => 'e6dfec', // Pale Lavender
+                    'GORONTALO'         => 'e1d5ea', // Lilac Mist
+                    'SULAWESI TENGAH'   => 'ede5f3', // Soft Violet
+                    'SULAWESI BARAT'    => 'dfd3eb', // Heather
+                    'SULAWESI SELATAN'  => 'e4daee', // Light Orchid
+                    'SULAWESI TENGGARA' => 'ebe2f5', // Pastel Lilac
+                ],
             ],
             'BALI & NUSA TENGGARA' => [
-                'pulau' => '#f4cccc', // Soft Rose/Coral
-                'prov'  => '#fce8e8', // Coordinating lighter pastel
+                'main' => 'f4b084', // Soft Coral Rose
+                'provinces' => [
+                    'BALI'                => 'fce4d6', // Soft Coral
+                    'NUSA TENGGARA BARAT' => 'fadbd8', // Pale Rose
+                    'NUSA TENGGARA TIMUR' => 'f8d7da', // Pastel Salmon
+                ],
             ],
             'PAPUA & MALUKU' => [
-                'pulau' => '#d0e0e3', // Soft Seafoam/Aqua
-                'prov'  => '#e6f0f2', // Coordinating lighter pastel
+                'main' => 'a2d9ce', // Soft Seafoam Teal
+                'provinces' => [
+                    'MALUKU'            => 'd1f2eb', // Light Mint Aqua
+                    'MALUKU UTARA'      => 'e8f8f5', // Pale Aqua
+                    'PAPUA'             => 'd4efdf', // Soft Seafoam
+                    'PAPUA BARAT'       => 'e5f9e0', // Pale Sage Aqua
+                    'PAPUA BARAT DAYA'  => 'd0ece7', // Light Aqua Breeze
+                    'PAPUA PEGUNUNGAN'  => 'e1f5fe', // Crisp Aqua
+                    'PAPUA SELATAN'     => 'e0f2f1', // Pale Teal
+                    'PAPUA TENGAH'      => 'dcecc9', // Pastel Aqua Grass
+                ],
             ],
         ];
 
-        $getRegionColor = function ($pulau, $type = 'pulau') use ($regionColors) {
+        $getPulauColor = function ($pulau) use ($regionalTheme) {
             $p = strtoupper(trim($pulau ?? ''));
-            return $regionColors[$p][$type] ?? ($type === 'pulau' ? '#efefef' : '#f8f8f8');
+            $hex = $regionalTheme[$p]['main'] ?? 'efefef';
+            return '#' . $hex;
+        };
+
+        $getProvColor = function ($pulau, $provinsi) use ($regionalTheme) {
+            $p = strtoupper(trim($pulau ?? ''));
+            $pr = strtoupper(trim($provinsi ?? ''));
+            $hex = $regionalTheme[$p]['provinces'][$pr] ?? ($regionalTheme[$p]['main'] ?? 'f8f8f8');
+            return '#' . $hex;
         };
     @endphp
 
@@ -850,7 +931,7 @@
                         @foreach ($pulauGroups as $grp)
                             @php
                                 $sLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($grp['start']);
-                                $pBg = $getRegionColor($grp['val'], 'pulau');
+                                $pBg = $getPulauColor($grp['val']);
                             @endphp
                             <td class="excel-cell cell-calibri-bold cell-center" colspan="{{ $grp['span'] }}" data-coord="{{ $sLet }}3" data-val="{{ $grp['val'] }}" style="background-color: {{ $pBg }} !important;">
                                 {{ $grp['val'] ?: '—' }}
@@ -867,7 +948,7 @@
                         @foreach ($provGroups as $grp)
                             @php
                                 $sLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($grp['start']);
-                                $prBg = $getRegionColor($grp['pulau'] ?? '', 'prov');
+                                $prBg = $getProvColor($grp['pulau'] ?? '', $grp['val'] ?? '');
                             @endphp
                             <td class="excel-cell cell-calibri-bold cell-center" colspan="{{ $grp['span'] }}" data-coord="{{ $sLet }}4" data-val="{{ $grp['val'] }}" style="background-color: {{ $prBg }} !important;">
                                 {{ $grp['val'] ?: '—' }}
@@ -1219,7 +1300,7 @@
                         @foreach ($pulauGroups as $grp)
                             @php
                                 $sLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($grp['start']);
-                                $pBg = $getRegionColor($grp['val'], 'pulau');
+                                $pBg = $getPulauColor($grp['val']);
                             @endphp
                             <td class="excel-cell cell-calibri-bold cell-center" colspan="{{ $grp['span'] }}" data-coord="{{ $sLet }}3" data-val="{{ $grp['val'] }}" style="background-color: {{ $pBg }} !important;">
                                 {{ $grp['val'] ?: '—' }}
@@ -1236,7 +1317,7 @@
                         @foreach ($provGroups as $grp)
                             @php
                                 $sLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($grp['start']);
-                                $prBg = $getRegionColor($grp['pulau'] ?? '', 'prov');
+                                $prBg = $getProvColor($grp['pulau'] ?? '', $grp['val'] ?? '');
                             @endphp
                             <td class="excel-cell cell-calibri-bold cell-center" colspan="{{ $grp['span'] }}" data-coord="{{ $sLet }}4" data-val="{{ $grp['val'] }}" style="background-color: {{ $prBg }} !important;">
                                 {{ $grp['val'] ?: '—' }}

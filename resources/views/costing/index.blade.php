@@ -138,24 +138,31 @@
                                             <a href="{{ route('costing.show', $costing) }}" class="btn btn-outline-secondary" title="View Sheet">
                                                 <i class="bi bi-eye"></i>
                                             </a>
-                                            <a href="{{ route('costing.export', $costing) }}" class="btn btn-outline-success" title="Download Excel (.xlsx)">
-                                                <i class="bi bi-file-earmark-excel"></i>
-                                            </a>
+                                            {{-- Excel Export Button (Locked if Pending or Rejected) --}}
+                                            @if (!$costing->isPendingApproval() && !$costing->isRejected())
+                                                <a href="{{ route('costing.export', $costing) }}" class="btn btn-outline-success" title="Download Excel (.xlsx)">
+                                                    <i class="bi bi-file-earmark-excel"></i>
+                                                </a>
+                                            @else
+                                                <button type="button" class="btn btn-outline-secondary text-muted" disabled 
+                                                    title="{{ $costing->isPendingApproval() ? 'Cannot download Excel while awaiting Manager approval' : 'Cannot download rejected costing' }}" 
+                                                    style="cursor: not-allowed; opacity: 0.55;">
+                                                    <i class="bi bi-file-earmark-excel"></i>
+                                                </button>
+                                            @endif
+
+                                            {{-- Edit Button (Locked if Pending or Approved; Unlocked if Rejected or Draft) --}}
                                             @php
-                                                $currentUser = Auth::user();
-                                                $isMgrOrAdmin = $currentUser && ($currentUser->isManager() || $currentUser->isAdmin());
-                                                $canEdit = true;
+                                                $canEdit = $costing->isRejected() || (!$costing->isTender() && !$costing->isApproved());
                                                 $lockReason = 'Edit';
-                                                if ($costing->isPendingApproval() && !$isMgrOrAdmin) {
-                                                    $canEdit = false;
+                                                if ($costing->isPendingApproval()) {
                                                     $lockReason = 'Awaiting Manager Approval — Editing is locked';
-                                                } elseif ($costing->isApproved() && !$isMgrOrAdmin) {
-                                                    $canEdit = false;
+                                                } elseif ($costing->isApproved()) {
                                                     $lockReason = 'Tender FPH Approved — Editing is locked';
                                                 }
                                             @endphp
                                             @if ($canEdit)
-                                                <a href="{{ route('costing.edit', $costing) }}" class="btn btn-outline-primary" title="{{ $lockReason }}">
+                                                <a href="{{ route('costing.edit', $costing) }}" class="btn btn-outline-primary" title="Edit">
                                                     <i class="bi bi-pencil"></i>
                                                 </a>
                                             @else
