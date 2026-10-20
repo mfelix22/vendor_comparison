@@ -46,7 +46,13 @@ class CostingExportService
      */
     private function buildSheet(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet, Costing $costing, bool $isSmd): void
     {
-        $vehicles = $costing->vehicles;
+        // Auto-sort vehicles by Pulau -> Provinsi -> BBN -> sort_order so grouping & horizontal cell merging are cohesive
+        $vehicles = $costing->vehicles->sortBy([
+            ['pulau', 'asc'],
+            ['provinsi', 'asc'],
+            ['bbn', 'asc'],
+            ['sort_order', 'asc'],
+        ])->values();
         $sheet->setTitle($isSmd ? 'SMD' : 'BU AB');
 
         $thinBorder = [

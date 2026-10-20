@@ -286,10 +286,14 @@
                         </thead>
                         <tbody>
                             <tr id="rowPulau">
-                                <td class="costing-label-col">PULAU :</td>
+                                <td class="costing-label-col">
+                                    PULAU : <span class="badge bg-light text-muted border py-0 px-1 ms-1 fw-normal" style="font-size: 0.65rem;" title="Auto-filled from BBN"><i class="bi bi-lock me-1"></i>Auto</span>
+                                </td>
                             </tr>
                             <tr id="rowProvinsi">
-                                <td class="costing-label-col">PROVINSI :</td>
+                                <td class="costing-label-col">
+                                    PROVINSI : <span class="badge bg-light text-muted border py-0 px-1 ms-1 fw-normal" style="font-size: 0.65rem;" title="Auto-filled from BBN"><i class="bi bi-lock me-1"></i>Auto</span>
+                                </td>
                             </tr>
                             <tr id="rowBrand">
                                 <td class="costing-label-col">Brand :</td>
@@ -663,14 +667,16 @@
             `;
             document.getElementById('vehicleHeaderRow').appendChild(th);
 
+            // 1a. Pulau Cell (Locked & driven automatically by BBN)
             const tdPulau = document.createElement('td');
             tdPulau.id = `cellPulau_${vIndex}`;
-            tdPulau.innerHTML = `<input type="text" name="vehicles[${vIndex}][pulau]" id="inputPulau_${vIndex}" list="pulauListDatalist" class="form-control form-control-sm text-uppercase fw-semibold" placeholder="PULAU..." value="${pulau}">`;
+            tdPulau.innerHTML = `<input type="text" name="vehicles[${vIndex}][pulau]" id="inputPulau_${vIndex}" class="form-control form-control-sm text-uppercase fw-semibold bg-light" placeholder="PULAU (Auto)..." value="${pulau}" readonly tabindex="-1" style="cursor: not-allowed;" title="Auto-filled from BBN selection">`;
             document.getElementById('rowPulau').appendChild(tdPulau);
 
+            // 1b. Provinsi Cell (Locked & driven automatically by BBN)
             const tdProvinsi = document.createElement('td');
             tdProvinsi.id = `cellProvinsi_${vIndex}`;
-            tdProvinsi.innerHTML = `<input type="text" name="vehicles[${vIndex}][provinsi]" id="inputProvinsi_${vIndex}" list="provinsiListDatalist" class="form-control form-control-sm text-uppercase fw-semibold" placeholder="PROVINSI..." value="${provinsi}">`;
+            tdProvinsi.innerHTML = `<input type="text" name="vehicles[${vIndex}][provinsi]" id="inputProvinsi_${vIndex}" class="form-control form-control-sm text-uppercase fw-semibold bg-light" placeholder="PROVINSI (Auto)..." value="${provinsi}" readonly tabindex="-1" style="cursor: not-allowed;" title="Auto-filled from BBN selection">`;
             document.getElementById('rowProvinsi').appendChild(tdProvinsi);
 
             const tdBrand = document.createElement('td');

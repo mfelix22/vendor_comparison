@@ -666,7 +666,13 @@
     @endif
 
     @php
-        $vehicles = $costing->vehicles;
+        // Auto-sort vehicles by Pulau -> Provinsi -> BBN -> sort_order so grouping & horizontal cell merging are cohesive
+        $vehicles = $costing->vehicles->sortBy([
+            ['pulau', 'asc'],
+            ['provinsi', 'asc'],
+            ['bbn', 'asc'],
+            ['sort_order', 'asc'],
+        ])->values();
         $colCount = count($vehicles);
         $colLetters = [];
         for ($i = 0; $i <= $colCount; $i++) {

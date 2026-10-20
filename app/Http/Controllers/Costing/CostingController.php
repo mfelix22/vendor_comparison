@@ -203,10 +203,19 @@ class CostingController extends Controller
     {
         $costing->load(['creator', 'vehicles.accessories']);
 
+        // Auto-sort vehicles by Pulau -> Provinsi -> BBN -> sort_order so grouping & horizontal cell merging are cohesive
+        $sortedVehicles = $costing->vehicles->sortBy([
+            ['pulau', 'asc'],
+            ['provinsi', 'asc'],
+            ['bbn', 'asc'],
+            ['sort_order', 'asc'],
+        ])->values();
+        $costing->setRelation('vehicles', $sortedVehicles);
+
         // Group accessories by name across vehicles
         $accNames = [];
         $accRows = [];
-        foreach ($costing->vehicles as $vIndex => $vehicle) {
+        foreach ($sortedVehicles as $vIndex => $vehicle) {
             foreach ($vehicle->accessories as $acc) {
                 $name = $acc->accessory_name;
                 if (!isset($accRows[$name])) {
