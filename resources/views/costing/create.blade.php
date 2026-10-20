@@ -179,7 +179,7 @@
         {{-- Comparison Sheet Card --}}
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <div class="d-flex align-items-center gap-3">
+                <div class="d-flex align-items-center gap-3 flex-wrap">
                     <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-grid-3x3-gap me-2 text-primary"></i>Vehicle Comparison Grid</h6>
                     <div class="form-check form-switch mb-0 d-flex align-items-center gap-2 ps-0 border-start ps-3">
                         <input class="form-check-input ms-0 mt-0" type="checkbox" role="switch" name="is_tender" id="isTenderSwitch" value="1" {{ old('is_tender') ? 'checked' : '' }} style="cursor: pointer; width: 2.2em; height: 1.2em;">
@@ -187,6 +187,28 @@
                             <span class="badge bg-warning text-dark border border-warning-subtle px-2 py-1"><i class="bi bi-award me-1"></i>Tender FPH</span>
                             <span class="text-muted fw-normal small d-none d-md-inline">(Memerlukan Approval Manager)</span>
                         </label>
+                    </div>
+
+                    {{-- 3 Checkmarks for Same Brand, Same Type, Same BBN --}}
+                    <div class="d-flex align-items-center gap-3 border-start ps-3 flex-wrap">
+                        <div class="form-check mb-0 d-flex align-items-center gap-1">
+                            <input class="form-check-input mt-0" type="checkbox" id="syncSameBrand" style="cursor: pointer;">
+                            <label class="form-check-label small fw-semibold text-dark" for="syncSameBrand" style="cursor: pointer; user-select: none;">
+                                Same Brand
+                            </label>
+                        </div>
+                        <div class="form-check mb-0 d-flex align-items-center gap-1">
+                            <input class="form-check-input mt-0" type="checkbox" id="syncSameType" style="cursor: pointer;">
+                            <label class="form-check-label small fw-semibold text-dark" for="syncSameType" style="cursor: pointer; user-select: none;">
+                                Same Type
+                            </label>
+                        </div>
+                        <div class="form-check mb-0 d-flex align-items-center gap-1">
+                            <input class="form-check-input mt-0" type="checkbox" id="syncSameBbn" style="cursor: pointer;">
+                            <label class="form-check-label small fw-semibold text-dark" for="syncSameBbn" style="cursor: pointer; user-select: none;">
+                                Same BBN
+                            </label>
+                        </div>
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
@@ -403,14 +425,118 @@
             return 'Rp ' + Math.round(num).toLocaleString('id-ID');
         }
 
+        function getFirstVehicleIndex() {
+            const firstTh = document.querySelector('#vehicleHeaderRow th.costing-header-col');
+            if (!firstTh) return null;
+            const match = firstTh.id.match(/^colHeader_(\d+)$/);
+            return match ? parseInt(match[1]) : null;
+        }
+
+        function getAllVehicleIndices() {
+            const indices = [];
+            document.querySelectorAll('#vehicleHeaderRow th.costing-header-col').forEach(th => {
+                const m = th.id.match(/^colHeader_(\d+)$/);
+                if (m) indices.push(parseInt(m[1]));
+            });
+            return indices;
+        }
+
+        function syncBrandToAll() {
+            const isChecked = document.getElementById('syncSameBrand')?.checked;
+            if (!isChecked) return;
+            const firstIdx = getFirstVehicleIndex();
+            if (firstIdx === null) return;
+            const firstVal = document.getElementById(`inputBrand_${firstIdx}`)?.value || '';
+
+            getAllVehicleIndices().forEach(idx => {
+                if (idx !== firstIdx) {
+                    const input = document.getElementById(`inputBrand_${idx}`);
+                    if (input) {
+                        input.value = firstVal;
+                    }
+                }
+            });
+        }
+
+        function syncTypeToAll() {
+            const isChecked = document.getElementById('syncSameType')?.checked;
+            if (!isChecked) return;
+            const firstIdx = getFirstVehicleIndex();
+            if (firstIdx === null) return;
+            const firstTypeInp = document.getElementById(`inputType_${firstIdx}`);
+            const firstProdIdInp = document.getElementById(`inputOdooProductId_${firstIdx}`);
+            if (!firstTypeInp) return;
+
+            const firstVal = firstTypeInp.value || '';
+            const firstProdId = firstProdIdInp ? firstProdIdInp.value : '';
+
+            getAllVehicleIndices().forEach(idx => {
+                if (idx !== firstIdx) {
+                    const inp = document.getElementById(`inputType_${idx}`);
+                    const prodInp = document.getElementById(`inputOdooProductId_${idx}`);
+                    if (inp) {
+                        inp.value = firstVal;
+                        autoResize(inp);
+                    }
+                    if (prodInp) {
+                        prodInp.value = firstProdId;
+                    }
+                }
+            });
+        }
+
+        function syncBbnToAll() {
+            const isChecked = document.getElementById('syncSameBbn')?.checked;
+            if (!isChecked) return;
+            const firstIdx = getFirstVehicleIndex();
+            if (firstIdx === null) return;
+            const firstSelect = document.querySelector(`#cellBbn_${firstIdx} select`);
+            if (!firstSelect) return;
+            const firstVal = firstSelect.value || '';
+
+            getAllVehicleIndices().forEach(idx => {
+                if (idx !== firstIdx) {
+                    const sel = document.querySelector(`#cellBbn_${idx} select`);
+                    if (sel) {
+                        sel.value = firstVal;
+                    }
+                }
+            });
+        }
+
+        function onBbnChanged(vIndex) {
+            const firstIdx = getFirstVehicleIndex();
+            if (vIndex === firstIdx && document.getElementById('syncSameBbn')?.checked) {
+                syncBbnToAll();
+            }
+        }
+
         // Add Vehicle Column
         function addVehicleColumn(data = {}) {
             const vIndex = vehicleCount;
             vehicleCount++;
 
-            const brand = data.brand || '';
-            const vType = data.vehicle_type || '';
-            const bbn = data.bbn || '';
+            // If sync checkmarks are active and this is not the first column, auto-populate from Vehicle #1
+            const firstIdx = getFirstVehicleIndex();
+            let brand = data.brand || '';
+            let vType = data.vehicle_type || '';
+            let odooProdId = data.odoo_product_id || '';
+            let bbn = data.bbn || '';
+
+            if (firstIdx !== null && vIndex !== firstIdx) {
+                if (!brand && document.getElementById('syncSameBrand')?.checked) {
+                    brand = document.getElementById(`inputBrand_${firstIdx}`)?.value || '';
+                }
+                if (!vType && document.getElementById('syncSameType')?.checked) {
+                    vType = document.getElementById(`inputType_${firstIdx}`)?.value || '';
+                    odooProdId = document.getElementById(`inputOdooProductId_${firstIdx}`)?.value || '';
+                }
+                if (!bbn && document.getElementById('syncSameBbn')?.checked) {
+                    const firstBbnSel = document.querySelector(`#cellBbn_${firstIdx} select`);
+                    if (firstBbnSel) bbn = firstBbnSel.value || '';
+                }
+            }
+
             const pemakaian = data.pemakaian || '';
             const otr = (data.harga_otr !== undefined && data.harga_otr !== null && data.harga_otr !== '') ? data.harga_otr : '';
             const diskon = (data.diskon !== undefined && data.diskon !== null && data.diskon !== '') ? data.diskon : '';
@@ -450,7 +576,7 @@
                         oninput="handleTypeInput(${vIndex})"
                         onfocus="showTypeSuggestions(${vIndex})"
                         onkeydown="handleTypeKeyDown(event, ${vIndex})">${vType}</textarea>
-                    <input type="hidden" name="vehicles[${vIndex}][odoo_product_id]" id="inputOdooProductId_${vIndex}" value="${data.odoo_product_id || ''}">
+                    <input type="hidden" name="vehicles[${vIndex}][odoo_product_id]" id="inputOdooProductId_${vIndex}" value="${odooProdId}">
                     <div id="typeSuggestions_${vIndex}" class="type-suggestions-dropdown shadow rounded border bg-white" style="display: none;"></div>
                 </div>
             `;
@@ -466,7 +592,7 @@
                 bbnOptsHtml += `<option value="${label}" ${isSel}>${label}</option>`;
             });
             tdBbn.innerHTML = `
-                <select name="vehicles[${vIndex}][bbn]" class="form-select form-select-sm">
+                <select name="vehicles[${vIndex}][bbn]" class="form-select form-select-sm" onchange="onBbnChanged(${vIndex})">
                     ${bbnOptsHtml}
                 </select>
             `;
@@ -641,6 +767,10 @@
                 autoResize(textarea);
             }
             showTypeSuggestions(vIndex);
+            const firstIdx = getFirstVehicleIndex();
+            if (vIndex === firstIdx && document.getElementById('syncSameType')?.checked) {
+                syncTypeToAll();
+            }
         }
 
         function selectTypeSuggestion(vIndex, product) {
@@ -664,6 +794,16 @@
             }
             if (dropdown) {
                 dropdown.style.display = 'none';
+            }
+
+            const firstIdx = getFirstVehicleIndex();
+            if (vIndex === firstIdx) {
+                if (document.getElementById('syncSameBrand')?.checked && brandInput && brandInput.value) {
+                    syncBrandToAll();
+                }
+                if (document.getElementById('syncSameType')?.checked) {
+                    syncTypeToAll();
+                }
             }
         }
 
@@ -720,6 +860,10 @@
             const dropdown = document.getElementById(`typeSuggestions_${vIndex}`);
             if (dropdown && dropdown.style.display !== 'none') {
                 showTypeSuggestions(vIndex);
+            }
+            const firstIdx = getFirstVehicleIndex();
+            if (vIndex === firstIdx && document.getElementById('syncSameBrand')?.checked) {
+                syncBrandToAll();
             }
         }
 
@@ -913,6 +1057,17 @@
             // Add Vehicle Button Event
             document.getElementById('addVehicleBtn').addEventListener('click', function() {
                 addVehicleColumn();
+            });
+
+            // Listeners for Same Brand, Same Type, Same BBN checkmarks
+            document.getElementById('syncSameBrand')?.addEventListener('change', function() {
+                if (this.checked) syncBrandToAll();
+            });
+            document.getElementById('syncSameType')?.addEventListener('change', function() {
+                if (this.checked) syncTypeToAll();
+            });
+            document.getElementById('syncSameBbn')?.addEventListener('change', function() {
+                if (this.checked) syncBbnToAll();
             });
 
             // Close suggestion dropdowns on click outside
