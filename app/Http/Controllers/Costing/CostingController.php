@@ -7,7 +7,9 @@ use App\Models\Costing;
 use App\Models\CostingAccessory;
 use App\Models\CostingAccessoryTemplate;
 use App\Models\CostingBbnMaster;
+use App\Models\CostingBrand;
 use App\Models\CostingVehicle;
+use App\Models\CostingVehicleType;
 use App\Services\CostingOdooService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -46,14 +48,22 @@ class CostingController extends Controller
      */
     public function create()
     {
-        $bbnList   = CostingBbnMaster::orderBy('kode')->get();
+        $bbnList   = CostingBbnMaster::where('is_active', true)->orderBy('name')->get();
         $templates = CostingAccessoryTemplate::orderBy('sort_order')->get();
-        $brands    = $this->odooService->getCarBrands();
-        $products  = $this->odooService->getCarProducts();
+        $brands    = CostingBrand::where('is_active', true)->orderBy('name')->pluck('name')->toArray();
+        $products  = CostingVehicleType::where('is_active', true)->orderBy('name')->get()->map(function ($vt) {
+            return [
+                'id'               => $vt->odoo_product_id ?: $vt->id,
+                'name'             => $vt->name,
+                'display_name'     => $vt->name,
+                'vehicle_brand_id' => [0, $vt->brand_name],
+            ];
+        })->toArray();
         $vendors   = $this->odoo->getVendors();
 
         return view('costing.create', compact('bbnList', 'templates', 'brands', 'products', 'vendors'));
     }
+
 
     /**
      * Store a newly created costing in storage.
@@ -201,10 +211,18 @@ class CostingController extends Controller
     public function edit(Costing $costing)
     {
         $costing->load(['vehicles.accessories']);
-        $bbnList   = CostingBbnMaster::orderBy('kode')->get();
+        $bbnList   = CostingBbnMaster::where('is_active', true)->orderBy('name')->get();
         $templates = CostingAccessoryTemplate::orderBy('sort_order')->get();
-        $brands    = $this->odooService->getCarBrands();
-        $products  = $this->odooService->getCarProducts();
+        $brands    = CostingBrand::where('is_active', true)->orderBy('name')->pluck('name')->toArray();
+        $products  = CostingVehicleType::where('is_active', true)->orderBy('name')->get()->map(function ($vt) {
+            return [
+                'id'               => $vt->odoo_product_id ?: $vt->id,
+                'name'             => $vt->name,
+                'display_name'     => $vt->name,
+                'vehicle_brand_id' => [0, $vt->brand_name],
+            ];
+        })->toArray();
+
 
         // Organize accessories rows across vehicles
         $accRows = [];
@@ -361,16 +379,20 @@ class CostingController extends Controller
     public function apiProducts(Request $request)
     {
         $brand = (string) $request->input('brand', '');
-        $all = $this->odooService->getCarProducts();
+        $query = CostingVehicleType::where('is_active', true)->orderBy('name');
 
-        if (!$brand) {
-            return response()->json($all);
+        if ($brand) {
+            $query->where('brand_name', $brand);
         }
 
-        $filtered = array_values(array_filter($all, function ($p) use ($brand) {
-            if (empty($p['vehicle_brand_id']) || !is_array($p['vehicle_brand_id'])) return false;
-            return stripos($p['vehicle_brand_id'][1], $brand) !== false;
-        }));
+        $filtered = $query->get()->map(function ($vt) {
+            return [
+                'id'               => $vt->odoo_product_id ?: $vt->id,
+                'name'             => $vt->name,
+                'display_name'     => $vt->name,
+                'vehicle_brand_id' => [0, $vt->brand_name],
+            ];
+        });
 
         return response()->json($filtered);
     }
@@ -384,10 +406,21 @@ class CostingController extends Controller
         $this->odooService->flushCostingCache();
         \Illuminate\Support\Facades\Cache::forget('odoo_vendors');
 
-        $products = $this->odooService->getCarProducts();
-        $brands   = $this->odooService->getCarBrands();
-        $bbnList  = $this->odooService->syncBbnMaster();
-        $vendors  = $this->odoo->getVendors();
+        // Safe refresh: run seeder logic to pull any newly added Odoo items into local master
+        require_once database_path('seeders/CostingMasterSeeder.php');
+        (new \Database\Seeders\CostingMasterSeeder())->run();
+
+        $brands = CostingBrand::where('is_active', true)->orderBy('name')->pluck('name')->toArray();
+        $products = CostingVehicleType::where('is_active', true)->orderBy('name')->get()->map(function ($vt) {
+            return [
+                'id'               => $vt->odoo_product_id ?: $vt->id,
+                'name'             => $vt->name,
+                'display_name'     => $vt->name,
+                'vehicle_brand_id' => [0, $vt->brand_name],
+            ];
+        })->toArray();
+        $bbnList = CostingBbnMaster::where('is_active', true)->orderBy('name')->get()->toArray();
+        $vendors = $this->odoo->getVendors();
 
         return response()->json([
             'success'  => true,

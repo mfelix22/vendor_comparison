@@ -353,8 +353,9 @@
                             const curVal = sel.value;
                             let html = '<option value="">-- BBN --</option>';
                             bbnOptions.forEach(b => {
-                                const isSel = (b.kode === curVal || b.display_name === curVal) ? 'selected' : '';
-                                html += `<option value="${b.kode}" ${isSel}>${b.display_name}</option>`;
+                                const label = b.name || b.display_name || b.kode;
+                                const isSel = (b.name === curVal || b.kode === curVal || b.display_name === curVal) ? 'selected' : '';
+                                html += `<option value="${label}" ${isSel}>${label}</option>`;
                             });
                             sel.innerHTML = html;
                         });
@@ -463,8 +464,9 @@
             tdBbn.id = `cellBbn_${vIndex}`;
             let bbnOptsHtml = `<option value="">-- BBN --</option>`;
             bbnOptions.forEach(b => {
-                const isSel = (b.kode === bbn || b.display_name === bbn) ? 'selected' : '';
-                bbnOptsHtml += `<option value="${b.kode}" ${isSel}>${b.display_name}</option>`;
+                const label = b.name || b.display_name || b.kode;
+                const isSel = (b.name === bbn || b.kode === bbn || b.display_name === bbn) ? 'selected' : '';
+                bbnOptsHtml += `<option value="${label}" ${isSel}>${label}</option>`;
             });
             tdBbn.innerHTML = `
                 <select name="vehicles[${vIndex}][bbn]" class="form-select form-select-sm">

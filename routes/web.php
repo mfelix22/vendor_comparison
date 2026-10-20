@@ -60,9 +60,36 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{costing}', [App\Http\Controllers\Costing\CostingController::class, 'destroy'])->name('destroy');
         Route::get('/{costing}/export', [App\Http\Controllers\Costing\CostingController::class, 'export'])->name('export');
 
+        // Master Data Management (Isolated strictly to Costing)
+        Route::prefix('master')->name('master.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Costing\MasterDataController::class, 'index'])->name('index');
+            Route::post('/sync-odoo', [App\Http\Controllers\Costing\MasterDataController::class, 'syncFromOdoo'])->name('sync-odoo');
+
+            // Brands
+            Route::post('/brands', [App\Http\Controllers\Costing\MasterDataController::class, 'storeBrand'])->name('brands.store');
+            Route::put('/brands/{brand}', [App\Http\Controllers\Costing\MasterDataController::class, 'updateBrand'])->name('brands.update');
+            Route::delete('/brands/{brand}', [App\Http\Controllers\Costing\MasterDataController::class, 'destroyBrand'])->name('brands.destroy');
+
+            // Vehicle Types
+            Route::post('/vehicle-types', [App\Http\Controllers\Costing\MasterDataController::class, 'storeVehicleType'])->name('vehicle-types.store');
+            Route::put('/vehicle-types/{vehicleType}', [App\Http\Controllers\Costing\MasterDataController::class, 'updateVehicleType'])->name('vehicle-types.update');
+            Route::delete('/vehicle-types/{vehicleType}', [App\Http\Controllers\Costing\MasterDataController::class, 'destroyVehicleType'])->name('vehicle-types.destroy');
+
+            // BBN
+            Route::post('/bbn', [App\Http\Controllers\Costing\MasterDataController::class, 'storeBbn'])->name('bbn.store');
+            Route::put('/bbn/{bbn}', [App\Http\Controllers\Costing\MasterDataController::class, 'updateBbn'])->name('bbn.update');
+            Route::delete('/bbn/{bbn}', [App\Http\Controllers\Costing\MasterDataController::class, 'destroyBbn'])->name('bbn.destroy');
+
+            // Dynamic APIs for costing form
+            Route::get('/api/brands', [App\Http\Controllers\Costing\MasterDataController::class, 'apiBrands'])->name('api.brands');
+            Route::get('/api/vehicle-types', [App\Http\Controllers\Costing\MasterDataController::class, 'apiVehicleTypes'])->name('api.vehicle-types');
+            Route::get('/api/bbn', [App\Http\Controllers\Costing\MasterDataController::class, 'apiBbn'])->name('api.bbn');
+        });
+
         // APIs for auto-suggest / dynamic lookups
         Route::get('/api/products', [App\Http\Controllers\Costing\CostingController::class, 'apiProducts'])->name('api.products');
         Route::get('/api/customers', [App\Http\Controllers\Costing\CostingController::class, 'apiSearchCustomers'])->name('api.customers');
         Route::post('/api/refresh-catalog', [App\Http\Controllers\Costing\CostingController::class, 'apiRefreshCatalog'])->name('api.refresh');
     });
 });
+

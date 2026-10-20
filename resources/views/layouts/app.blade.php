@@ -185,6 +185,28 @@
                                 <i class="bi bi-plus-circle me-1"></i>New Costing
                             </a>
                         </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle {{ request()->is('costing/master*') ? 'active fw-bold' : '' }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-database me-1"></i>Master Data
+                            </a>
+                            <ul class="dropdown-menu shadow">
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2" href="{{ route('costing.master.index', ['tab' => 'brands']) }}">
+                                        <i class="bi bi-tag text-primary"></i>Brand Kendaraan
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2" href="{{ route('costing.master.index', ['tab' => 'types']) }}">
+                                        <i class="bi bi-car-front text-success"></i>Type Kendaraan
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2" href="{{ route('costing.master.index', ['tab' => 'bbn']) }}">
+                                        <i class="bi bi-geo-alt text-danger"></i>BBN (Wilayah)
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
                         @if (Auth::user()->isAdmin())
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->routeIs('admin.users') ? 'active fw-bold' : '' }}" href="{{ route('admin.users') }}">
