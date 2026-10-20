@@ -151,13 +151,13 @@
                                                 </button>
                                             @endif
 
-                                            {{-- Edit Button (Locked if Pending or Approved; Unlocked if Rejected or Draft) --}}
+                                            {{-- Edit Button (Retail is always editable; Tender is locked when Pending or Approved, unlocked when Rejected) --}}
                                             @php
-                                                $canEdit = $costing->isRejected() || (!$costing->isTender() && !$costing->isApproved());
+                                                $canEdit = !$costing->isTender() || $costing->isRejected();
                                                 $lockReason = 'Edit';
                                                 if ($costing->isPendingApproval()) {
                                                     $lockReason = 'Awaiting Manager Approval — Editing is locked';
-                                                } elseif ($costing->isApproved()) {
+                                                } elseif ($costing->isTender() && $costing->isApproved()) {
                                                     $lockReason = 'Tender FPH Approved — Editing is locked';
                                                 }
                                             @endphp

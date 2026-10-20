@@ -253,14 +253,16 @@ class CostingController extends Controller
             abort(403, 'Unauthorized. You can only edit costings that you created.');
         }
 
-        if ($costing->isPendingApproval()) {
-            return redirect()->route('costing.show', $costing)
-                ->with('error', 'Costing ' . $costing->costing_number . ' is currently pending approval by the Purchasing Manager and cannot be edited.');
-        }
+        if ($costing->isTender()) {
+            if ($costing->isPendingApproval()) {
+                return redirect()->route('costing.show', $costing)
+                    ->with('error', 'Costing ' . $costing->costing_number . ' is currently pending approval by the Purchasing Manager and cannot be edited.');
+            }
 
-        if ($costing->isApproved()) {
-            return redirect()->route('costing.show', $costing)
-                ->with('error', 'Costing ' . $costing->costing_number . ' has been approved and is locked from further editing.');
+            if ($costing->isApproved()) {
+                return redirect()->route('costing.show', $costing)
+                    ->with('error', 'Tender Costing ' . $costing->costing_number . ' has been approved and is locked from further editing.');
+            }
         }
 
         $costing->load(['vehicles.accessories']);
@@ -310,14 +312,16 @@ class CostingController extends Controller
             abort(403, 'Unauthorized. You can only edit costings that you created.');
         }
 
-        if ($costing->isPendingApproval()) {
-            return redirect()->route('costing.show', $costing)
-                ->with('error', 'Costing ' . $costing->costing_number . ' is currently pending approval by the Purchasing Manager and cannot be edited.');
-        }
+        if ($costing->isTender()) {
+            if ($costing->isPendingApproval()) {
+                return redirect()->route('costing.show', $costing)
+                    ->with('error', 'Costing ' . $costing->costing_number . ' is currently pending approval by the Purchasing Manager and cannot be edited.');
+            }
 
-        if ($costing->isApproved()) {
-            return redirect()->route('costing.show', $costing)
-                ->with('error', 'Costing ' . $costing->costing_number . ' has been approved and is locked from further editing.');
+            if ($costing->isApproved()) {
+                return redirect()->route('costing.show', $costing)
+                    ->with('error', 'Tender Costing ' . $costing->costing_number . ' has been approved and is locked from further editing.');
+            }
         }
 
         $validated = $request->validate([
@@ -468,14 +472,16 @@ class CostingController extends Controller
             abort(403, 'Unauthorized. You can only export costings that you created.');
         }
 
-        if ($costing->isPendingApproval()) {
-            return redirect()->route('costing.show', $costing)
-                ->with('error', 'Costing ' . $costing->costing_number . ' is currently pending approval and cannot be exported to Excel.');
-        }
+        if ($costing->isTender()) {
+            if ($costing->isPendingApproval()) {
+                return redirect()->route('costing.show', $costing)
+                    ->with('error', 'Costing ' . $costing->costing_number . ' is currently pending approval and cannot be exported to Excel.');
+            }
 
-        if ($costing->isRejected()) {
-            return redirect()->route('costing.show', $costing)
-                ->with('error', 'Costing ' . $costing->costing_number . ' was rejected and cannot be exported to Excel.');
+            if ($costing->isRejected()) {
+                return redirect()->route('costing.show', $costing)
+                    ->with('error', 'Costing ' . $costing->costing_number . ' was rejected and cannot be exported to Excel.');
+            }
         }
 
         return $exportService->export($costing);

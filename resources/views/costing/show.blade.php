@@ -571,10 +571,10 @@
         </div>
         @php
             $isPending = $costing->isPendingApproval();
-            $isRejected = $costing->isRejected();
-            $isApproved = $costing->isApproved();
+            $isRejected = $costing->isTender() && $costing->isRejected();
+            $isApproved = $costing->isTender() && $costing->isApproved();
             $canPrintDownload = !$isPending && !$isRejected;
-            $canEdit = $isRejected || (!$costing->isTender() && !$isApproved);
+            $canEdit = !$costing->isTender() || $costing->isRejected();
         @endphp
         <div class="d-flex gap-2">
             @if ($canPrintDownload)
