@@ -8,6 +8,7 @@ use App\Models\CostingAccessory;
 use App\Models\CostingAccessoryTemplate;
 use App\Models\CostingBbnMaster;
 use App\Models\CostingBrand;
+use App\Models\CostingRegion;
 use App\Models\CostingVehicle;
 use App\Models\CostingVehicleType;
 use App\Services\CostingOdooService;
@@ -59,8 +60,11 @@ class CostingController extends Controller
             ];
         })->toArray();
         $smdList   = $this->odooService->getSmdList();
+        $pulauList   = CostingRegion::active()->distinct()->orderBy('pulau')->pluck('pulau')->toArray();
+        $provinsiList = CostingRegion::active()->distinct()->orderBy('provinsi')->pluck('provinsi')->toArray();
+        $regionsJson = CostingRegion::active()->get(['pulau', 'provinsi', 'area'])->toJson();
 
-        return view('costing.create', compact('bbnList', 'templates', 'brands', 'products', 'smdList'));
+        return view('costing.create', compact('bbnList', 'templates', 'brands', 'products', 'smdList', 'pulauList', 'provinsiList', 'regionsJson'));
     }
 
 
@@ -77,6 +81,8 @@ class CostingController extends Controller
             'odoo_partner_id'           => ['nullable', 'integer'],
             'notes'                     => ['nullable', 'string'],
             'vehicles'                  => ['required', 'array', 'min:1'],
+            'vehicles.*.pulau'          => ['nullable', 'string', 'max:100'],
+            'vehicles.*.provinsi'       => ['nullable', 'string', 'max:100'],
             'vehicles.*.brand'          => ['nullable', 'string', 'max:100'],
             'vehicles.*.vehicle_type'   => ['nullable', 'string', 'max:255'],
             'vehicles.*.odoo_product_id'=> ['nullable', 'integer'],
@@ -135,6 +141,8 @@ class CostingController extends Controller
                 $vehicle = CostingVehicle::create([
                     'costing_id'             => $costing->id,
                     'sort_order'             => $sortOrder++,
+                    'pulau'                  => $vData['pulau'] ?? '',
+                    'provinsi'               => $vData['provinsi'] ?? '',
                     'brand'                  => $vData['brand'] ?? '',
                     'vehicle_type'           => $vData['vehicle_type'] ?? '',
                     'odoo_product_id'        => !empty($vData['odoo_product_id']) ? (int) $vData['odoo_product_id'] : null,
@@ -251,8 +259,11 @@ class CostingController extends Controller
         }
 
         $smdList   = $this->odooService->getSmdList();
+        $pulauList   = CostingRegion::active()->distinct()->orderBy('pulau')->pluck('pulau')->toArray();
+        $provinsiList = CostingRegion::active()->distinct()->orderBy('provinsi')->pluck('provinsi')->toArray();
+        $regionsJson = CostingRegion::active()->get(['pulau', 'provinsi', 'area'])->toJson();
 
-        return view('costing.edit', compact('costing', 'bbnList', 'templates', 'brands', 'products', 'accRows', 'smdList'));
+        return view('costing.edit', compact('costing', 'bbnList', 'templates', 'brands', 'products', 'accRows', 'smdList', 'pulauList', 'provinsiList', 'regionsJson'));
     }
 
     /**
@@ -268,6 +279,8 @@ class CostingController extends Controller
             'odoo_partner_id'           => ['nullable', 'integer'],
             'notes'                     => ['nullable', 'string'],
             'vehicles'                  => ['required', 'array', 'min:1'],
+            'vehicles.*.pulau'          => ['nullable', 'string', 'max:100'],
+            'vehicles.*.provinsi'       => ['nullable', 'string', 'max:100'],
             'vehicles.*.brand'          => ['nullable', 'string', 'max:100'],
             'vehicles.*.vehicle_type'   => ['nullable', 'string', 'max:255'],
             'vehicles.*.odoo_product_id'=> ['nullable', 'integer'],
@@ -324,6 +337,8 @@ class CostingController extends Controller
                 $vehicle = CostingVehicle::create([
                     'costing_id'             => $costing->id,
                     'sort_order'             => $sortOrder++,
+                    'pulau'                  => $vData['pulau'] ?? '',
+                    'provinsi'               => $vData['provinsi'] ?? '',
                     'brand'                  => $vData['brand'] ?? '',
                     'vehicle_type'           => $vData['vehicle_type'] ?? '',
                     'odoo_product_id'        => !empty($vData['odoo_product_id']) ? (int) $vData['odoo_product_id'] : null,

@@ -37,6 +37,10 @@
                 <button type="button" class="btn btn-danger btn-sm px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#addBbnModal">
                     <i class="bi bi-plus-lg me-1"></i>Add BBN Wilayah
                 </button>
+            @elseif ($tab === 'regions')
+                <button type="button" class="btn btn-info text-white btn-sm px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#addRegionModal">
+                    <i class="bi bi-plus-lg me-1"></i>Add Wilayah
+                </button>
             @endif
         </div>
     </div>
@@ -89,6 +93,13 @@
                         href="{{ route('costing.master.index', ['tab' => 'bbn']) }}">
                         <i class="bi bi-geo-alt me-2"></i>BBN (Wilayah)
                         <span class="badge bg-danger-subtle text-danger rounded-pill ms-1">{{ $bbnList->total() }}</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link py-3 px-4 fw-semibold {{ $tab === 'regions' ? 'active text-info border-bottom border-info border-2' : 'text-muted' }}"
+                        href="{{ route('costing.master.index', ['tab' => 'regions']) }}">
+                        <i class="bi bi-map me-2"></i>Data Wilayah (Pulau & Provinsi)
+                        <span class="badge bg-info-subtle text-info rounded-pill ms-1">{{ $regionsList->total() }}</span>
                     </a>
                 </li>
             </ul>
@@ -407,6 +418,116 @@
                 @endif
             @endif
 
+            {{-- ======================================================== --}}
+            {{-- TAB 4: REGIONS (DATA WILAYAH: PULAU & PROVINSI)          --}}
+            {{-- ======================================================== --}}
+            @if ($tab === 'regions')
+                <div class="p-3 bg-light border-bottom">
+                    <form method="GET" action="{{ route('costing.master.index') }}" class="row g-2 align-items-center">
+                        <input type="hidden" name="tab" value="regions">
+                        <div class="col-md-3">
+                            <select name="filter_pulau" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <option value="">All Pulau</option>
+                                @foreach ($pulauList as $p)
+                                    <option value="{{ $p }}" {{ request('filter_pulau') === $p ? 'selected' : '' }}>{{ $p }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <select name="filter_provinsi" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <option value="">All Provinsi</option>
+                                @foreach ($provinsiList as $pr)
+                                    <option value="{{ $pr }}" {{ request('filter_provinsi') === $pr ? 'selected' : '' }}>{{ $pr }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                                <input type="text" name="search_area" class="form-control border-start-0"
+                                    placeholder="Search Area / Kota..." value="{{ request('search_area') }}">
+                            </div>
+                        </div>
+                        <div class="col-md-2 d-flex gap-2">
+                            <button type="submit" class="btn btn-sm btn-dark w-100">Filter</button>
+                            @if (request()->hasAny(['filter_pulau', 'filter_provinsi', 'search_area']))
+                                <a href="{{ route('costing.master.index', ['tab' => 'regions']) }}" class="btn btn-sm btn-outline-secondary" title="Clear Filters">
+                                    <i class="bi bi-x-lg"></i>
+                                </a>
+                            @endif
+                        </div>
+                    </form>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 60px;">#</th>
+                                <th style="width: 220px;">Pulau</th>
+                                <th style="width: 260px;">Provinsi</th>
+                                <th>Area / Kota</th>
+                                <th style="width: 120px;" class="text-center">Status</th>
+                                <th style="width: 130px;" class="text-end pe-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($regionsList as $idx => $r)
+                                <tr>
+                                    <td class="text-muted small">{{ $regionsList->firstItem() + $idx }}</td>
+                                    <td>
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                                            <i class="bi bi-geo-alt me-1"></i>{{ $r->pulau }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-semibold text-dark">{{ $r->provinsi }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold text-dark">{{ $r->area }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        @if ($r->is_active)
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Active</span>
+                                        @else
+                                            <span class="badge bg-secondary-subtle text-secondary px-2 py-1">Inactive</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-secondary"
+                                                onclick="openEditRegionModal({{ $r->id }}, '{{ addslashes($r->pulau) }}', '{{ addslashes($r->provinsi) }}', '{{ addslashes($r->area) }}', {{ $r->is_active ? 'true' : 'false' }})"
+                                                title="Edit Wilayah">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <form method="POST" action="{{ route('costing.master.regions.destroy', $r) }}" class="d-inline"
+                                                onsubmit="return confirm('Delete wilayah {{ $r->area }}?')">
+                                                @csrf @method('DELETE')
+                                                <button type="submit" class="btn btn-outline-danger" title="Delete Wilayah">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="text-center py-5 text-muted">
+                                        <i class="bi bi-map display-6 d-block mb-2 text-muted"></i>
+                                        No Wilayah records found.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                @if ($regionsList->hasPages())
+                    <div class="card-footer bg-white border-top py-2 px-3">
+                        {{ $regionsList->links('pagination::bootstrap-5') }}
+                    </div>
+                @endif
+            @endif
+
         </div>
     </div>
 
@@ -612,6 +733,89 @@
         </div>
     </div>
 
+    {{-- ============================================================ --}}
+    {{-- MODALS: REGIONS (DATA WILAYAH)                               --}}
+    {{-- ============================================================ --}}
+    {{-- Add Region Modal --}}
+    <div class="modal fade" id="addRegionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="POST" action="{{ route('costing.master.regions.store') }}">
+                @csrf
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header border-bottom">
+                        <h6 class="modal-title fw-bold"><i class="bi bi-plus-circle me-1 text-info"></i>Add Wilayah (Pulau & Provinsi)</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Pulau <span class="text-danger">*</span></label>
+                            <input type="text" name="pulau" list="pulauDatalist" class="form-control" placeholder="e.g. JAWA, SUMATERA, KALIMANTAN..." required autocomplete="off" style="text-transform: uppercase;">
+                            <datalist id="pulauDatalist">
+                                @foreach ($pulauList as $p)
+                                    <option value="{{ $p }}">
+                                @endforeach
+                            </datalist>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Provinsi <span class="text-danger">*</span></label>
+                            <input type="text" name="provinsi" list="provinsiDatalist" class="form-control" placeholder="e.g. JAWA BARAT, JAWA TENGAH..." required autocomplete="off" style="text-transform: uppercase;">
+                            <datalist id="provinsiDatalist">
+                                @foreach ($provinsiList as $pr)
+                                    <option value="{{ $pr }}">
+                                @endforeach
+                            </datalist>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Nama Area / Kota <span class="text-danger">*</span></label>
+                            <input type="text" name="area" class="form-control" placeholder="e.g. Bandung, Semarang, Kaligawe..." required autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top bg-light">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-sm btn-info text-white px-3">Save Wilayah</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- Edit Region Modal --}}
+    <div class="modal fade" id="editRegionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="POST" id="editRegionForm" action="">
+                @csrf @method('PUT')
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header border-bottom">
+                        <h6 class="modal-title fw-bold"><i class="bi bi-pencil me-1 text-info"></i>Edit Wilayah</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Pulau <span class="text-danger">*</span></label>
+                            <input type="text" name="pulau" id="editRegionPulau" list="pulauDatalist" class="form-control" required autocomplete="off" style="text-transform: uppercase;">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Provinsi <span class="text-danger">*</span></label>
+                            <input type="text" name="provinsi" id="editRegionProvinsi" list="provinsiDatalist" class="form-control" required autocomplete="off" style="text-transform: uppercase;">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Nama Area / Kota <span class="text-danger">*</span></label>
+                            <input type="text" name="area" id="editRegionArea" class="form-control" required autocomplete="off">
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_active" id="editRegionActive" value="1">
+                            <label class="form-check-label small fw-semibold" for="editRegionActive">Active</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top bg-light">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-sm btn-info text-white px-3">Update Wilayah</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
 @endsection
 
 @push('scripts')
@@ -640,6 +844,16 @@
         document.getElementById('editBbnName').value = name;
         document.getElementById('editBbnActive').checked = isActive;
         new bootstrap.Modal(document.getElementById('editBbnModal')).show();
+    }
+
+    // Region Modal Helper
+    function openEditRegionModal(id, pulau, provinsi, area, isActive) {
+        document.getElementById('editRegionForm').action = "{{ url('costing/master/regions') }}/" + id;
+        document.getElementById('editRegionPulau').value = pulau;
+        document.getElementById('editRegionProvinsi').value = provinsi;
+        document.getElementById('editRegionArea').value = area;
+        document.getElementById('editRegionActive').checked = isActive;
+        new bootstrap.Modal(document.getElementById('editRegionModal')).show();
     }
 </script>
 @endpush

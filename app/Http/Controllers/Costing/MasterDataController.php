@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Costing;
 use App\Http\Controllers\Controller;
 use App\Models\CostingBbnMaster;
 use App\Models\CostingBrand;
+use App\Models\CostingRegion;
 use App\Models\CostingVehicleType;
 use App\Services\CostingOdooService;
 use Illuminate\Http\Request;
@@ -57,7 +58,29 @@ class MasterDataController extends Controller
         }
         $bbnList = $bbnQuery->paginate(20, ['*'], 'bbn_page')->withQueryString();
 
-        return view('costing.master.index', compact('tab', 'brands', 'allBrands', 'vehicleTypes', 'bbnList'));
+        // Regions (Data Wilayah: Pulau & Provinsi)
+        $regionsQuery = CostingRegion::orderBy('pulau')->orderBy('provinsi')->orderBy('area');
+        if ($filterPulau = $request->input('filter_pulau')) {
+            $regionsQuery->where('pulau', $filterPulau);
+        }
+        if ($filterProvinsi = $request->input('filter_provinsi')) {
+            $regionsQuery->where('provinsi', $filterProvinsi);
+        }
+        if ($searchArea = $request->input('search_area')) {
+            $regionsQuery->where(function ($q) use ($searchArea) {
+                $q->where('area', 'like', "%{$searchArea}%")
+                  ->orWhere('provinsi', 'like', "%{$searchArea}%")
+                  ->orWhere('pulau', 'like', "%{$searchArea}%");
+            });
+        }
+        $regionsList = $regionsQuery->paginate(25, ['*'], 'regions_page')->withQueryString();
+        $pulauList = CostingRegion::distinct()->orderBy('pulau')->pluck('pulau')->toArray();
+        $provinsiList = CostingRegion::distinct()->orderBy('provinsi')->pluck('provinsi')->toArray();
+
+        return view('costing.master.index', compact(
+            'tab', 'brands', 'allBrands', 'vehicleTypes', 'bbnList',
+            'regionsList', 'pulauList', 'provinsiList'
+        ));
     }
 
     // ── Brand Actions ────────────────────────────────────────────────────────
@@ -219,6 +242,71 @@ class MasterDataController extends Controller
             ->with('success', "BBN {$name} deleted successfully.");
     }
 
+    // ── Region Actions (Data Wilayah: Pulau & Provinsi) ───────────────────────
+
+    public function storeRegion(Request $request)
+    {
+        $validated = $request->validate([
+            'pulau'    => ['required', 'string', 'max:100'],
+            'provinsi' => ['required', 'string', 'max:100'],
+            'area'     => ['required', 'string', 'max:150'],
+        ]);
+
+        $pulau = strtoupper(trim($validated['pulau']));
+        $provinsi = strtoupper(trim($validated['provinsi']));
+        $area = trim($validated['area']);
+
+        CostingRegion::create([
+            'pulau'      => $pulau,
+            'provinsi'   => $provinsi,
+            'area'       => $area,
+            'is_active'  => true,
+            'created_by' => Auth::id(),
+        ]);
+
+        return redirect()->route('costing.master.index', [
+            'tab'             => 'regions',
+            'filter_pulau'    => $pulau,
+            'filter_provinsi' => $provinsi,
+        ])->with('success', "Wilayah {$area} ({$provinsi}, {$pulau}) added successfully.");
+    }
+
+    public function updateRegion(Request $request, CostingRegion $region)
+    {
+        $validated = $request->validate([
+            'pulau'     => ['required', 'string', 'max:100'],
+            'provinsi'  => ['required', 'string', 'max:100'],
+            'area'      => ['required', 'string', 'max:150'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $pulau = strtoupper(trim($validated['pulau']));
+        $provinsi = strtoupper(trim($validated['provinsi']));
+        $area = trim($validated['area']);
+
+        $region->update([
+            'pulau'     => $pulau,
+            'provinsi'  => $provinsi,
+            'area'      => $area,
+            'is_active' => $request->has('is_active'),
+        ]);
+
+        return redirect()->route('costing.master.index', [
+            'tab'             => 'regions',
+            'filter_pulau'    => $pulau,
+            'filter_provinsi' => $provinsi,
+        ])->with('success', "Wilayah {$area} updated successfully.");
+    }
+
+    public function destroyRegion(CostingRegion $region)
+    {
+        $area = $region->area;
+        $region->delete();
+
+        return redirect()->route('costing.master.index', ['tab' => 'regions'])
+            ->with('success', "Wilayah {$area} deleted successfully.");
+    }
+
     // ── Safe One-Click Odoo Sync ─────────────────────────────────────────────
 
     public function syncFromOdoo(Request $request)
@@ -264,5 +352,20 @@ class MasterDataController extends Controller
             ->get(['id', 'kode', 'name', 'display_name']);
 
         return response()->json($bbnList);
+    }
+
+    public function apiRegions(Request $request)
+    {
+        $query = CostingRegion::where('is_active', true)->orderBy('pulau')->orderBy('provinsi')->orderBy('area');
+
+        if ($pulau = $request->input('pulau')) {
+            $query->where('pulau', $pulau);
+        }
+        if ($provinsi = $request->input('provinsi')) {
+            $query->where('provinsi', $provinsi);
+        }
+
+        $regions = $query->get(['id', 'pulau', 'provinsi', 'area']);
+        return response()->json($regions);
     }
 }

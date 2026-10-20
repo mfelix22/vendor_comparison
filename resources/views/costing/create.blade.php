@@ -274,6 +274,14 @@
                             </tr>
                         </thead>
                         <tbody>
+                            {{-- Row: Pulau --}}
+                            <tr id="rowPulau">
+                                <td class="costing-label-col">PULAU :</td>
+                            </tr>
+                            {{-- Row: Provinsi --}}
+                            <tr id="rowProvinsi">
+                                <td class="costing-label-col">PROVINSI :</td>
+                            </tr>
                             {{-- Row: Brand --}}
                             <tr id="rowBrand">
                                 <td class="costing-label-col">Brand :</td>
@@ -346,10 +354,20 @@
         </div>
     </form>
 
-    {{-- Datalists for brands and products --}}
+    {{-- Datalists for brands, products, pulau and provinsi --}}
     <datalist id="globalBrandList">
         @foreach ($brands as $b)
             <option value="{{ $b }}"></option>
+        @endforeach
+    </datalist>
+    <datalist id="pulauListDatalist">
+        @foreach ($pulauList as $p)
+            <option value="{{ $p }}"></option>
+        @endforeach
+    </datalist>
+    <datalist id="provinsiListDatalist">
+        @foreach ($provinsiList as $pr)
+            <option value="{{ $pr }}"></option>
         @endforeach
     </datalist>
 
@@ -371,6 +389,7 @@
         let bbnOptions = @json($bbnList);
         let odooBrands = @json($brands);
         let odooProducts = @json($products);
+        let allRegions = {!! $regionsJson !!};
 
         // Seamless live refresh of Odoo vehicle catalog, BBN & suppliers without reloading or losing typed form data
         async function refreshCostingCatalog(btn) {
@@ -535,23 +554,60 @@
             const firstIdx = getFirstVehicleIndex();
             if (firstIdx === null) return;
             const firstSelect = document.querySelector(`#cellBbn_${firstIdx} select`);
+            const firstPulau = document.getElementById(`inputPulau_${firstIdx}`)?.value || '';
+            const firstProvinsi = document.getElementById(`inputProvinsi_${firstIdx}`)?.value || '';
             if (!firstSelect) return;
             const firstVal = firstSelect.value || '';
 
             getAllVehicleIndices().forEach(idx => {
                 if (idx !== firstIdx) {
                     const sel = document.querySelector(`#cellBbn_${idx} select`);
-                    if (sel) {
-                        sel.value = firstVal;
-                    }
+                    if (sel) sel.value = firstVal;
+                    const pInp = document.getElementById(`inputPulau_${idx}`);
+                    if (pInp) pInp.value = firstPulau;
+                    const prInp = document.getElementById(`inputProvinsi_${idx}`);
+                    if (prInp) prInp.value = firstProvinsi;
                 }
             });
         }
 
+        function lookupRegion(areaName) {
+            if (!areaName || !allRegions || !allRegions.length) return null;
+            const clean = areaName.trim().toLowerCase();
+            return allRegions.find(r => r.area.toLowerCase() === clean || clean.includes(r.area.toLowerCase()) || r.area.toLowerCase().includes(clean));
+        }
+
         function onBbnChanged(vIndex) {
             const firstIdx = getFirstVehicleIndex();
+            const bbnSelect = document.querySelector(`#cellBbn_${vIndex} select`);
+            const bbnVal = bbnSelect ? bbnSelect.value : '';
+
+            if (bbnVal) {
+                const match = lookupRegion(bbnVal);
+                if (match) {
+                    const pInp = document.getElementById(`inputPulau_${vIndex}`);
+                    const prInp = document.getElementById(`inputProvinsi_${vIndex}`);
+                    if (pInp && !pInp.value) pInp.value = match.pulau;
+                    if (prInp && !prInp.value) prInp.value = match.provinsi;
+                }
+            }
+
             if (vIndex === firstIdx && document.getElementById('syncSameBbn')?.checked) {
                 syncBbnToAll();
+            }
+        }
+
+        function onPemakaianChanged(vIndex) {
+            const pemInp = document.getElementById(`inputPemakaian_${vIndex}`);
+            const pemVal = pemInp ? pemInp.value : '';
+            if (pemVal) {
+                const match = lookupRegion(pemVal);
+                if (match) {
+                    const pInp = document.getElementById(`inputPulau_${vIndex}`);
+                    const prInp = document.getElementById(`inputProvinsi_${vIndex}`);
+                    if (pInp && !pInp.value) pInp.value = match.pulau;
+                    if (prInp && !prInp.value) prInp.value = match.provinsi;
+                }
             }
         }
 
@@ -562,6 +618,8 @@
 
             // If sync checkmarks are active and this is not the first column, auto-populate from Vehicle #1
             const firstIdx = getFirstVehicleIndex();
+            let pulau = data.pulau || '';
+            let provinsi = data.provinsi || '';
             let brand = data.brand || '';
             let vType = data.vehicle_type || '';
             let odooProdId = data.odoo_product_id || '';
@@ -578,6 +636,8 @@
                 if (!bbn && document.getElementById('syncSameBbn')?.checked) {
                     const firstBbnSel = document.querySelector(`#cellBbn_${firstIdx} select`);
                     if (firstBbnSel) bbn = firstBbnSel.value || '';
+                    if (!pulau) pulau = document.getElementById(`inputPulau_${firstIdx}`)?.value || '';
+                    if (!provinsi) provinsi = document.getElementById(`inputProvinsi_${firstIdx}`)?.value || '';
                 }
             }
 
@@ -599,6 +659,24 @@
                 </div>
             `;
             document.getElementById('vehicleHeaderRow').appendChild(th);
+
+            // 1a. Pulau Cell
+            const tdPulau = document.createElement('td');
+            tdPulau.id = `cellPulau_${vIndex}`;
+            tdPulau.innerHTML = `
+                <input type="text" name="vehicles[${vIndex}][pulau]" id="inputPulau_${vIndex}" list="pulauListDatalist"
+                    class="form-control form-control-sm text-uppercase fw-semibold" placeholder="PULAU..." value="${pulau}">
+            `;
+            document.getElementById('rowPulau').appendChild(tdPulau);
+
+            // 1b. Provinsi Cell
+            const tdProvinsi = document.createElement('td');
+            tdProvinsi.id = `cellProvinsi_${vIndex}`;
+            tdProvinsi.innerHTML = `
+                <input type="text" name="vehicles[${vIndex}][provinsi]" id="inputProvinsi_${vIndex}" list="provinsiListDatalist"
+                    class="form-control form-control-sm text-uppercase fw-semibold" placeholder="PROVINSI..." value="${provinsi}">
+            `;
+            document.getElementById('rowProvinsi').appendChild(tdProvinsi);
 
             // 2. Brand Cell
             const tdBrand = document.createElement('td');
@@ -648,7 +726,7 @@
             tdPemakaian.innerHTML = `
                 <textarea name="vehicles[${vIndex}][pemakaian]" id="inputPemakaian_${vIndex}"
                     class="form-control form-control-sm auto-expand" placeholder="e.g. Jabodetabek"
-                    rows="1" oninput="autoResize(this)"
+                    rows="1" oninput="autoResize(this); onPemakaianChanged(${vIndex})"
                     onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); this.blur(); }">${pemakaian}</textarea>
             `;
             document.getElementById('rowPemakaian').appendChild(tdPemakaian);
@@ -925,6 +1003,8 @@
 
             const idsToRemove = [
                 `colHeader_${vIndex}`,
+                `cellPulau_${vIndex}`,
+                `cellProvinsi_${vIndex}`,
                 `cellBrand_${vIndex}`,
                 `cellType_${vIndex}`,
                 `cellBbn_${vIndex}`,
