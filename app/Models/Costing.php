@@ -14,16 +14,58 @@ class Costing extends Model
     protected $fillable = [
         'costing_number',
         'customer_name',
+        'smd',
+        'masa_sewa',
+        'request_delivery_date',
         'odoo_partner_id',
         'notes',
+        'fph_type',
+        'approval_status',
+        'approved_by',
+        'approved_at',
+        'rejection_reason',
         'status',
         'created_by',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'approved_at'           => 'datetime',
+            'request_delivery_date' => 'date',
+        ];
+    }
 
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function isTender(): bool
+    {
+        return $this->fph_type === 'tender';
+    }
+
+    public function isPendingApproval(): bool
+    {
+        return $this->isTender() && $this->approval_status === 'pending';
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->approval_status === 'approved';
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->approval_status === 'rejected';
+    }
+
 
     public function vehicles(): HasMany
     {

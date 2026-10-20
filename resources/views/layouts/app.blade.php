@@ -119,6 +119,41 @@
             padding-bottom: 1.5rem;
             text-align: center;
         }
+
+        /* Pagination Alignment & Styling */
+        nav:has(.pagination),
+        .card-footer nav {
+            width: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+        }
+        nav:has(.pagination) p,
+        .card-footer nav p {
+            margin-bottom: 0 !important;
+            line-height: 1.5;
+        }
+        .pagination {
+            margin-bottom: 0 !important;
+            gap: 2px;
+            display: flex !important;
+            align-items: center !important;
+        }
+        .pagination svg {
+            width: 1em !important;
+            height: 1em !important;
+            vertical-align: middle;
+            max-width: 16px;
+            max-height: 16px;
+        }
+        .page-item .page-link {
+            border-radius: 4px;
+            font-size: 0.82rem;
+            padding: 0.25rem 0.55rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 
@@ -184,6 +219,39 @@
                             <a class="nav-link {{ request()->routeIs('costing.create') ? 'active fw-bold' : '' }}" href="{{ route('costing.create') }}">
                                 <i class="bi bi-plus-circle me-1"></i>New Costing
                             </a>
+                        </li>
+                        @php
+                            $costingPendingCount = \App\Models\Costing::where('fph_type', 'tender')->where('approval_status', 'pending')->count();
+                        @endphp
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-1 {{ request()->routeIs('costing.approvals') ? 'active fw-bold' : '' }}" href="{{ route('costing.approvals') }}">
+                                <i class="bi bi-check2-square me-1"></i>Approvals
+                                @if ($costingPendingCount > 0)
+                                    <span class="badge bg-danger rounded-pill px-2 py-1" style="font-size: 0.7rem;">{{ $costingPendingCount }}</span>
+                                @endif
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle {{ request()->is('costing/master*') ? 'active fw-bold' : '' }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-database me-1"></i>Master Data
+                            </a>
+                            <ul class="dropdown-menu shadow">
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2" href="{{ route('costing.master.index', ['tab' => 'brands']) }}">
+                                        <i class="bi bi-tag text-primary"></i>Brand Kendaraan
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2" href="{{ route('costing.master.index', ['tab' => 'types']) }}">
+                                        <i class="bi bi-car-front text-success"></i>Type Kendaraan
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2" href="{{ route('costing.master.index', ['tab' => 'bbn']) }}">
+                                        <i class="bi bi-geo-alt text-danger"></i>BBN (Wilayah)
+                                    </a>
+                                </li>
+                            </ul>
                         </li>
                         @if (Auth::user()->isAdmin())
                             <li class="nav-item">

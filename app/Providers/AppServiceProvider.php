@@ -12,6 +12,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        \Illuminate\Pagination\Paginator::useBootstrapFive();
+
         // Only creators (staff) can submit comparisons
         Gate::define('create-comparison', fn(User $user) => $user->isCreator());
         // Only admins can manage users

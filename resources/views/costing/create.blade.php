@@ -4,7 +4,7 @@
 @section('main_container_class', 'container-fluid px-3 px-xl-4')
 
 @push('styles')
-    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+
     <style>
         .costing-table {
             width: 100% !important;
@@ -152,36 +152,68 @@
                 <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-info-circle me-2 text-primary"></i>Project & Customer Details</h6>
             </div>
             <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-7">
-                        <div class="mb-3">
-                            <label class="form-label small fw-semibold mb-1">
-                                Cari Supplier <span class="text-muted fw-normal">(opsional, untuk auto-isi)</span>
-                            </label>
-                            <select class="form-select form-select-sm" id="supplierSelect" onchange="onSupplierSelected(this)">
-                                <option value="">— Pilih supplier —</option>
-                                @foreach ($vendors as $v)
-                                    <option value="{{ $v['name'] }}">{{ $v['name'] }}{{ !empty($v['city']) ? ' - ' . $v['city'] : '' }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <label class="form-label small fw-semibold">Nama Calon Vendor / Customer / Project <span class="text-danger">*</span></label>
+                <div class="row g-3 align-items-start">
+                    {{-- Section 1: Customer / Project (Left) --}}
+                    <div class="col-lg-4 col-md-5">
+                        <label class="form-label small fw-semibold">Nama Customer / Project <span class="text-danger">*</span></label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="bi bi-building"></i></span>
                             <input type="text" name="customer_name" id="customerNameInput"
                                 class="form-control form-control-sm @error('customer_name') is-invalid @enderror"
-                                placeholder="Pilih supplier dari dropdown di atas atau ketik nama langsung..."
+                                placeholder="Masukkan nama customer / project..."
                                 value="{{ old('customer_name') }}" required autocomplete="off">
                         </div>
-                        <div class="text-muted small mt-1">Pilih supplier dari Odoo di atas untuk auto-isi atau ketik nama secara bebas.</div>
+                        <div class="text-muted small mt-1">Ketik nama customer atau instansi project.</div>
                         @error('customer_name')
                             <div class="text-danger small mt-1">{{ $message }}</div>
                         @enderror
                     </div>
-                    <div class="col-md-5">
-                        <label class="form-label small fw-semibold">Internal Notes / Reference</label>
-                        <textarea name="notes" rows="3" class="form-control form-control-sm"
+
+                    {{-- Section 2: Contract Details - SMD, Masa Sewa, Delivery Date (Middle) --}}
+                    <div class="col-lg-5 col-md-7 ps-lg-4" style="border-left: 1px solid #e9ecef;">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold mb-1">SMD</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                                    <select name="smd" class="form-select form-select-sm">
+                                        <option value="">Select SMD</option>
+                                        @foreach ($smdList as $smd)
+                                            <option value="{{ $smd }}" {{ old('smd') === $smd ? 'selected' : '' }}>{{ $smd }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold mb-1">Masa Sewa</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-calendar3-range"></i></span>
+                                    <input type="text" name="masa_sewa" list="masaSewaOptions" class="form-control form-control-sm"
+                                        placeholder="e.g. 12 Bulan" value="{{ old('masa_sewa') }}">
+                                    <datalist id="masaSewaOptions">
+                                        <option value="12 Bulan">
+                                        <option value="24 Bulan">
+                                        <option value="36 Bulan">
+                                        <option value="48 Bulan">
+                                        <option value="60 Bulan">
+                                    </datalist>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold mb-1">Request Delivery Date</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+                                    <input type="date" name="request_delivery_date" class="form-control form-control-sm"
+                                        value="{{ old('request_delivery_date') }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Section 3: Internal Notes / Reference (Right) --}}
+                    <div class="col-lg-3 col-md-12 ps-lg-4" style="border-left: 1px solid #e9ecef;">
+                        <label class="form-label small fw-semibold mb-1">Internal Notes / Reference</label>
+                        <textarea name="notes" rows="4" class="form-control form-control-sm"
                             placeholder="Optional remarks or procurement notes...">{{ old('notes') }}</textarea>
                     </div>
                 </div>
@@ -190,8 +222,39 @@
 
         {{-- Comparison Sheet Card --}}
         <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
-                <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-grid-3x3-gap me-2 text-primary"></i>Vehicle Comparison Grid</h6>
+            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-grid-3x3-gap me-2 text-primary"></i>Vehicle Comparison Grid</h6>
+                    <div class="form-check form-switch mb-0 d-flex align-items-center gap-2 ps-0 border-start ps-3">
+                        <input class="form-check-input ms-0 mt-0" type="checkbox" role="switch" name="is_tender" id="isTenderSwitch" value="1" {{ old('is_tender') ? 'checked' : '' }} style="cursor: pointer; width: 2.2em; height: 1.2em;">
+                        <label class="form-check-label fw-bold small text-dark d-flex align-items-center gap-1" for="isTenderSwitch" style="cursor: pointer;">
+                            <span class="badge bg-warning text-dark border border-warning-subtle px-2 py-1"><i class="bi bi-award me-1"></i>Tender FPH</span>
+                            <span class="text-muted fw-normal small d-none d-md-inline">(Memerlukan Approval Manager)</span>
+                        </label>
+                    </div>
+
+                    {{-- 3 Checkmarks for Same Brand, Same Type, Same BBN --}}
+                    <div class="d-flex align-items-center gap-3 border-start ps-3 flex-wrap">
+                        <div class="form-check mb-0 d-flex align-items-center gap-1">
+                            <input class="form-check-input mt-0" type="checkbox" id="syncSameBrand" style="cursor: pointer;">
+                            <label class="form-check-label small fw-semibold text-dark" for="syncSameBrand" style="cursor: pointer; user-select: none;">
+                                Same Brand
+                            </label>
+                        </div>
+                        <div class="form-check mb-0 d-flex align-items-center gap-1">
+                            <input class="form-check-input mt-0" type="checkbox" id="syncSameType" style="cursor: pointer;">
+                            <label class="form-check-label small fw-semibold text-dark" for="syncSameType" style="cursor: pointer; user-select: none;">
+                                Same Type
+                            </label>
+                        </div>
+                        <div class="form-check mb-0 d-flex align-items-center gap-1">
+                            <input class="form-check-input mt-0" type="checkbox" id="syncSameBbn" style="cursor: pointer;">
+                            <label class="form-check-label small fw-semibold text-dark" for="syncSameBbn" style="cursor: pointer; user-select: none;">
+                                Same BBN
+                            </label>
+                        </div>
+                    </div>
+                </div>
                 <div class="d-flex align-items-center gap-2">
                     <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshCatalogBtn" onclick="refreshCostingCatalog(this)" title="Sync latest vehicle catalog, BBN & suppliers from Odoo without losing entered data">
                         <i class="bi bi-arrow-clockwise me-1"></i><span>Sync from Odoo</span>
@@ -211,6 +274,18 @@
                             </tr>
                         </thead>
                         <tbody>
+                            {{-- Row: Pulau --}}
+                            <tr id="rowPulau">
+                                <td class="costing-label-col">
+                                    PULAU : <span class="badge bg-light text-muted border py-0 px-1 ms-1 fw-normal" style="font-size: 0.65rem;" title="Auto-filled from BBN"><i class="bi bi-lock me-1"></i>Auto</span>
+                                </td>
+                            </tr>
+                            {{-- Row: Provinsi --}}
+                            <tr id="rowProvinsi">
+                                <td class="costing-label-col">
+                                    PROVINSI : <span class="badge bg-light text-muted border py-0 px-1 ms-1 fw-normal" style="font-size: 0.65rem;" title="Auto-filled from BBN"><i class="bi bi-lock me-1"></i>Auto</span>
+                                </td>
+                            </tr>
                             {{-- Row: Brand --}}
                             <tr id="rowBrand">
                                 <td class="costing-label-col">Brand :</td>
@@ -283,10 +358,20 @@
         </div>
     </form>
 
-    {{-- Datalists for brands and products --}}
+    {{-- Datalists for brands, products, pulau and provinsi --}}
     <datalist id="globalBrandList">
         @foreach ($brands as $b)
             <option value="{{ $b }}"></option>
+        @endforeach
+    </datalist>
+    <datalist id="pulauListDatalist">
+        @foreach ($pulauList as $p)
+            <option value="{{ $p }}"></option>
+        @endforeach
+    </datalist>
+    <datalist id="provinsiListDatalist">
+        @foreach ($provinsiList as $pr)
+            <option value="{{ $pr }}"></option>
         @endforeach
     </datalist>
 
@@ -308,6 +393,7 @@
         let bbnOptions = @json($bbnList);
         let odooBrands = @json($brands);
         let odooProducts = @json($products);
+        let allRegions = {!! $regionsJson !!};
 
         // Seamless live refresh of Odoo vehicle catalog, BBN & suppliers without reloading or losing typed form data
         async function refreshCostingCatalog(btn) {
@@ -352,10 +438,11 @@
                         document.querySelectorAll('tr#rowBbn select').forEach(sel => {
                             const curVal = sel.value;
                             let html = '<option value="">-- BBN --</option>';
-                            bbnOptions.forEach(b => {
-                                const isSel = (b.kode === curVal || b.display_name === curVal) ? 'selected' : '';
-                                html += `<option value="${b.kode}" ${isSel}>${b.display_name}</option>`;
-                            });
+                                bbnOptions.forEach(b => {
+                                    const label = b.name || b.display_name || b.kode;
+                                    const isSel = (b.name === curVal || b.kode === curVal || b.display_name === curVal) ? 'selected' : '';
+                                    html += `<option value="${label}" data-pulau="${b.pulau || ''}" data-provinsi="${b.provinsi || ''}" ${isSel}>${label}</option>`;
+                                });
                             sel.innerHTML = html;
                         });
                     }
@@ -405,14 +492,157 @@
             return 'Rp ' + Math.round(num).toLocaleString('id-ID');
         }
 
+        function getFirstVehicleIndex() {
+            const firstTh = document.querySelector('#vehicleHeaderRow th.costing-header-col');
+            if (!firstTh) return null;
+            const match = firstTh.id.match(/^colHeader_(\d+)$/);
+            return match ? parseInt(match[1]) : null;
+        }
+
+        function getAllVehicleIndices() {
+            const indices = [];
+            document.querySelectorAll('#vehicleHeaderRow th.costing-header-col').forEach(th => {
+                const m = th.id.match(/^colHeader_(\d+)$/);
+                if (m) indices.push(parseInt(m[1]));
+            });
+            return indices;
+        }
+
+        function syncBrandToAll() {
+            const isChecked = document.getElementById('syncSameBrand')?.checked;
+            if (!isChecked) return;
+            const firstIdx = getFirstVehicleIndex();
+            if (firstIdx === null) return;
+            const firstVal = document.getElementById(`inputBrand_${firstIdx}`)?.value || '';
+
+            getAllVehicleIndices().forEach(idx => {
+                if (idx !== firstIdx) {
+                    const input = document.getElementById(`inputBrand_${idx}`);
+                    if (input) {
+                        input.value = firstVal;
+                    }
+                }
+            });
+        }
+
+        function syncTypeToAll() {
+            const isChecked = document.getElementById('syncSameType')?.checked;
+            if (!isChecked) return;
+            const firstIdx = getFirstVehicleIndex();
+            if (firstIdx === null) return;
+            const firstTypeInp = document.getElementById(`inputType_${firstIdx}`);
+            const firstProdIdInp = document.getElementById(`inputOdooProductId_${firstIdx}`);
+            if (!firstTypeInp) return;
+
+            const firstVal = firstTypeInp.value || '';
+            const firstProdId = firstProdIdInp ? firstProdIdInp.value : '';
+
+            getAllVehicleIndices().forEach(idx => {
+                if (idx !== firstIdx) {
+                    const inp = document.getElementById(`inputType_${idx}`);
+                    const prodInp = document.getElementById(`inputOdooProductId_${idx}`);
+                    if (inp) {
+                        inp.value = firstVal;
+                        autoResize(inp);
+                    }
+                    if (prodInp) {
+                        prodInp.value = firstProdId;
+                    }
+                }
+            });
+        }
+
+        function syncBbnToAll() {
+            const isChecked = document.getElementById('syncSameBbn')?.checked;
+            if (!isChecked) return;
+            const firstIdx = getFirstVehicleIndex();
+            if (firstIdx === null) return;
+            const firstSelect = document.querySelector(`#cellBbn_${firstIdx} select`);
+            const firstPulau = document.getElementById(`inputPulau_${firstIdx}`)?.value || '';
+            const firstProvinsi = document.getElementById(`inputProvinsi_${firstIdx}`)?.value || '';
+            if (!firstSelect) return;
+            const firstVal = firstSelect.value || '';
+
+            getAllVehicleIndices().forEach(idx => {
+                if (idx !== firstIdx) {
+                    const sel = document.querySelector(`#cellBbn_${idx} select`);
+                    if (sel) sel.value = firstVal;
+                    const pInp = document.getElementById(`inputPulau_${idx}`);
+                    if (pInp) pInp.value = firstPulau;
+                    const prInp = document.getElementById(`inputProvinsi_${idx}`);
+                    if (prInp) prInp.value = firstProvinsi;
+                }
+            });
+        }
+
+        function lookupRegion(areaName) {
+            if (!areaName || !allRegions || !allRegions.length) return null;
+            const clean = areaName.trim().toLowerCase();
+            return allRegions.find(r => r.area.toLowerCase() === clean || clean.includes(r.area.toLowerCase()) || r.area.toLowerCase().includes(clean));
+        }
+
+        function onBbnChanged(vIndex) {
+            const firstIdx = getFirstVehicleIndex();
+            const bbnSelect = document.querySelector(`#cellBbn_${vIndex} select`);
+            const bbnVal = bbnSelect ? bbnSelect.value : '';
+            const selectedOpt = bbnSelect ? bbnSelect.selectedOptions[0] : null;
+
+            const pInp = document.getElementById(`inputPulau_${vIndex}`);
+            const prInp = document.getElementById(`inputProvinsi_${vIndex}`);
+
+            if (selectedOpt && (selectedOpt.dataset.pulau || selectedOpt.dataset.provinsi)) {
+                if (pInp) pInp.value = selectedOpt.dataset.pulau || '';
+                if (prInp) prInp.value = selectedOpt.dataset.provinsi || '';
+            } else if (bbnVal) {
+                const match = lookupRegion(bbnVal);
+                if (match) {
+                    if (pInp) pInp.value = match.pulau || '';
+                    if (prInp) prInp.value = match.provinsi || '';
+                }
+            } else {
+                if (pInp) pInp.value = '';
+                if (prInp) prInp.value = '';
+            }
+
+            if (vIndex === firstIdx && document.getElementById('syncSameBbn')?.checked) {
+                syncBbnToAll();
+            }
+        }
+
+        function onPemakaianChanged(vIndex) {
+            // Pemakaian is free-text (e.g. "JABODETABEK", "SEMARANG & DEMAK") - does not affect Pulau / Provinsi
+        }
+
         // Add Vehicle Column
         function addVehicleColumn(data = {}) {
             const vIndex = vehicleCount;
             vehicleCount++;
 
-            const brand = data.brand || '';
-            const vType = data.vehicle_type || '';
-            const bbn = data.bbn || '';
+            // If sync checkmarks are active and this is not the first column, auto-populate from Vehicle #1
+            const firstIdx = getFirstVehicleIndex();
+            let pulau = data.pulau || '';
+            let provinsi = data.provinsi || '';
+            let brand = data.brand || '';
+            let vType = data.vehicle_type || '';
+            let odooProdId = data.odoo_product_id || '';
+            let bbn = data.bbn || '';
+
+            if (firstIdx !== null && vIndex !== firstIdx) {
+                if (!brand && document.getElementById('syncSameBrand')?.checked) {
+                    brand = document.getElementById(`inputBrand_${firstIdx}`)?.value || '';
+                }
+                if (!vType && document.getElementById('syncSameType')?.checked) {
+                    vType = document.getElementById(`inputType_${firstIdx}`)?.value || '';
+                    odooProdId = document.getElementById(`inputOdooProductId_${firstIdx}`)?.value || '';
+                }
+                if (!bbn && document.getElementById('syncSameBbn')?.checked) {
+                    const firstBbnSel = document.querySelector(`#cellBbn_${firstIdx} select`);
+                    if (firstBbnSel) bbn = firstBbnSel.value || '';
+                    if (!pulau) pulau = document.getElementById(`inputPulau_${firstIdx}`)?.value || '';
+                    if (!provinsi) provinsi = document.getElementById(`inputProvinsi_${firstIdx}`)?.value || '';
+                }
+            }
+
             const pemakaian = data.pemakaian || '';
             const otr = (data.harga_otr !== undefined && data.harga_otr !== null && data.harga_otr !== '') ? data.harga_otr : '';
             const diskon = (data.diskon !== undefined && data.diskon !== null && data.diskon !== '') ? data.diskon : '';
@@ -431,6 +661,24 @@
                 </div>
             `;
             document.getElementById('vehicleHeaderRow').appendChild(th);
+
+            // 1a. Pulau Cell (Locked & driven automatically by BBN)
+            const tdPulau = document.createElement('td');
+            tdPulau.id = `cellPulau_${vIndex}`;
+            tdPulau.innerHTML = `
+                <input type="text" name="vehicles[${vIndex}][pulau]" id="inputPulau_${vIndex}"
+                    class="form-control form-control-sm text-uppercase fw-semibold bg-light" placeholder="PULAU (Auto)..." value="${pulau}" readonly tabindex="-1" style="cursor: not-allowed;" title="Auto-filled from BBN selection">
+            `;
+            document.getElementById('rowPulau').appendChild(tdPulau);
+
+            // 1b. Provinsi Cell (Locked & driven automatically by BBN)
+            const tdProvinsi = document.createElement('td');
+            tdProvinsi.id = `cellProvinsi_${vIndex}`;
+            tdProvinsi.innerHTML = `
+                <input type="text" name="vehicles[${vIndex}][provinsi]" id="inputProvinsi_${vIndex}"
+                    class="form-control form-control-sm text-uppercase fw-semibold bg-light" placeholder="PROVINSI (Auto)..." value="${provinsi}" readonly tabindex="-1" style="cursor: not-allowed;" title="Auto-filled from BBN selection">
+            `;
+            document.getElementById('rowProvinsi').appendChild(tdProvinsi);
 
             // 2. Brand Cell
             const tdBrand = document.createElement('td');
@@ -452,7 +700,7 @@
                         oninput="handleTypeInput(${vIndex})"
                         onfocus="showTypeSuggestions(${vIndex})"
                         onkeydown="handleTypeKeyDown(event, ${vIndex})">${vType}</textarea>
-                    <input type="hidden" name="vehicles[${vIndex}][odoo_product_id]" id="inputOdooProductId_${vIndex}" value="${data.odoo_product_id || ''}">
+                    <input type="hidden" name="vehicles[${vIndex}][odoo_product_id]" id="inputOdooProductId_${vIndex}" value="${odooProdId}">
                     <div id="typeSuggestions_${vIndex}" class="type-suggestions-dropdown shadow rounded border bg-white" style="display: none;"></div>
                 </div>
             `;
@@ -463,11 +711,12 @@
             tdBbn.id = `cellBbn_${vIndex}`;
             let bbnOptsHtml = `<option value="">-- BBN --</option>`;
             bbnOptions.forEach(b => {
-                const isSel = (b.kode === bbn || b.display_name === bbn) ? 'selected' : '';
-                bbnOptsHtml += `<option value="${b.kode}" ${isSel}>${b.display_name}</option>`;
+                const label = b.name || b.display_name || b.kode;
+                const isSel = (b.name === bbn || b.kode === bbn || b.display_name === bbn) ? 'selected' : '';
+                bbnOptsHtml += `<option value="${label}" data-pulau="${b.pulau || ''}" data-provinsi="${b.provinsi || ''}" ${isSel}>${label}</option>`;
             });
             tdBbn.innerHTML = `
-                <select name="vehicles[${vIndex}][bbn]" class="form-select form-select-sm">
+                <select name="vehicles[${vIndex}][bbn]" class="form-select form-select-sm" onchange="onBbnChanged(${vIndex})">
                     ${bbnOptsHtml}
                 </select>
             `;
@@ -479,7 +728,7 @@
             tdPemakaian.innerHTML = `
                 <textarea name="vehicles[${vIndex}][pemakaian]" id="inputPemakaian_${vIndex}"
                     class="form-control form-control-sm auto-expand" placeholder="e.g. Jabodetabek"
-                    rows="1" oninput="autoResize(this)"
+                    rows="1" oninput="autoResize(this); onPemakaianChanged(${vIndex})"
                     onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); this.blur(); }">${pemakaian}</textarea>
             `;
             document.getElementById('rowPemakaian').appendChild(tdPemakaian);
@@ -642,6 +891,10 @@
                 autoResize(textarea);
             }
             showTypeSuggestions(vIndex);
+            const firstIdx = getFirstVehicleIndex();
+            if (vIndex === firstIdx && document.getElementById('syncSameType')?.checked) {
+                syncTypeToAll();
+            }
         }
 
         function selectTypeSuggestion(vIndex, product) {
@@ -665,6 +918,16 @@
             }
             if (dropdown) {
                 dropdown.style.display = 'none';
+            }
+
+            const firstIdx = getFirstVehicleIndex();
+            if (vIndex === firstIdx) {
+                if (document.getElementById('syncSameBrand')?.checked && brandInput && brandInput.value) {
+                    syncBrandToAll();
+                }
+                if (document.getElementById('syncSameType')?.checked) {
+                    syncTypeToAll();
+                }
             }
         }
 
@@ -722,6 +985,10 @@
             if (dropdown && dropdown.style.display !== 'none') {
                 showTypeSuggestions(vIndex);
             }
+            const firstIdx = getFirstVehicleIndex();
+            if (vIndex === firstIdx && document.getElementById('syncSameBrand')?.checked) {
+                syncBrandToAll();
+            }
         }
 
         // Remove Vehicle Column
@@ -738,6 +1005,8 @@
 
             const idsToRemove = [
                 `colHeader_${vIndex}`,
+                `cellPulau_${vIndex}`,
+                `cellProvinsi_${vIndex}`,
                 `cellBrand_${vIndex}`,
                 `cellType_${vIndex}`,
                 `cellBbn_${vIndex}`,
@@ -900,23 +1169,7 @@
 
         // Initialize default state: 2 clean empty columns, NO pre-filled mock data
         document.addEventListener('DOMContentLoaded', function() {
-            // Init TomSelect on supplier dropdown matching Comparison
-            const supplierSelectEl = document.getElementById('supplierSelect');
-            if (supplierSelectEl && typeof TomSelect !== 'undefined') {
-                new TomSelect(supplierSelectEl, {
-                    maxOptions: 250,
-                    searchField: ['text'],
-                    placeholder: '— Pilih supplier —',
-                    onChange(val) {
-                        if (val) {
-                            const custInp = document.getElementById('customerNameInput');
-                            if (custInp) {
-                                custInp.value = val;
-                            }
-                        }
-                    }
-                });
-            }
+
 
             // Start with 2 clean empty columns ready for user input
             addVehicleColumn();
@@ -930,6 +1183,17 @@
             // Add Vehicle Button Event
             document.getElementById('addVehicleBtn').addEventListener('click', function() {
                 addVehicleColumn();
+            });
+
+            // Listeners for Same Brand, Same Type, Same BBN checkmarks
+            document.getElementById('syncSameBrand')?.addEventListener('change', function() {
+                if (this.checked) syncBrandToAll();
+            });
+            document.getElementById('syncSameType')?.addEventListener('change', function() {
+                if (this.checked) syncTypeToAll();
+            });
+            document.getElementById('syncSameBbn')?.addEventListener('change', function() {
+                if (this.checked) syncBbnToAll();
             });
 
             // Close suggestion dropdowns on click outside

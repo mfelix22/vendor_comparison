@@ -58,6 +58,7 @@
                             <tr>
                                 <th class="ps-3 py-3">Costing No</th>
                                 <th>Customer / Instansi</th>
+                                <th class="text-center">FPH Type</th>
                                 <th class="text-center">Vehicles Compared</th>
                                 <th class="text-end">Price Range (Unit + Acc)</th>
                                 <th>Created By</th>
@@ -86,6 +87,34 @@
                                         @endif
                                     </td>
                                     <td class="text-center">
+                                        @if ($costing->isTender())
+                                            <div>
+                                                <span class="badge bg-warning text-dark border border-warning-subtle px-2 py-1">
+                                                    <i class="bi bi-award me-1"></i>Tender
+                                                </span>
+                                            </div>
+                                            <div class="mt-1">
+                                                @if ($costing->isPendingApproval())
+                                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.72rem;">
+                                                        <i class="bi bi-clock me-1"></i>Pending
+                                                    </span>
+                                                @elseif ($costing->isApproved())
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.72rem;">
+                                                        <i class="bi bi-check-circle me-1"></i>Approved
+                                                    </span>
+                                                @elseif ($costing->isRejected())
+                                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.72rem;" title="{{ $costing->rejection_reason }}">
+                                                        <i class="bi bi-x-circle me-1"></i>Rejected
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        @else
+                                            <span class="badge bg-light text-secondary border px-2 py-1">
+                                                <i class="bi bi-shop me-1"></i>Retail
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center">
                                         <span class="badge bg-light text-dark border">
                                             <i class="bi bi-car-front me-1"></i>{{ $costing->vehicles->count() }} unit(s)
                                         </span>
@@ -109,19 +138,47 @@
                                             <a href="{{ route('costing.show', $costing) }}" class="btn btn-outline-secondary" title="View Sheet">
                                                 <i class="bi bi-eye"></i>
                                             </a>
-                                            <a href="{{ route('costing.export', $costing) }}" class="btn btn-outline-success" title="Download Excel (.xlsx)">
-                                                <i class="bi bi-file-earmark-excel"></i>
-                                            </a>
-                                            <a href="{{ route('costing.edit', $costing) }}" class="btn btn-outline-primary" title="Edit">
-                                                <i class="bi bi-pencil"></i>
-                                            </a>
-                                            <form method="POST" action="{{ route('costing.destroy', $costing) }}" class="d-inline"
-                                                onsubmit="return confirm('Delete Costing {{ $costing->costing_number }}?')">
-                                                @csrf @method('DELETE')
-                                                <button type="submit" class="btn btn-outline-danger" title="Delete">
-                                                    <i class="bi bi-trash"></i>
+                                            {{-- Excel Export Button (Locked if Pending or Rejected) --}}
+                                            @if (!$costing->isPendingApproval() && !$costing->isRejected())
+                                                <a href="{{ route('costing.export', $costing) }}" class="btn btn-outline-success" title="Download Excel (.xlsx)">
+                                                    <i class="bi bi-file-earmark-excel"></i>
+                                                </a>
+                                            @else
+                                                <button type="button" class="btn btn-outline-secondary text-muted" disabled 
+                                                    title="{{ $costing->isPendingApproval() ? 'Cannot download Excel while awaiting Manager approval' : 'Cannot download rejected costing' }}" 
+                                                    style="cursor: not-allowed; opacity: 0.55;">
+                                                    <i class="bi bi-file-earmark-excel"></i>
                                                 </button>
-                                            </form>
+                                            @endif
+
+                                            {{-- Edit Button (Retail is always editable; Tender is locked when Pending or Approved, unlocked when Rejected) --}}
+                                            @php
+                                                $canEdit = !$costing->isTender() || $costing->isRejected();
+                                                $lockReason = 'Edit';
+                                                if ($costing->isPendingApproval()) {
+                                                    $lockReason = 'Awaiting Manager Approval — Editing is locked';
+                                                } elseif ($costing->isTender() && $costing->isApproved()) {
+                                                    $lockReason = 'Tender FPH Approved — Editing is locked';
+                                                }
+                                            @endphp
+                                            @if ($canEdit)
+                                                <a href="{{ route('costing.edit', $costing) }}" class="btn btn-outline-primary" title="Edit">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
+                                            @else
+                                                <button type="button" class="btn btn-outline-secondary text-muted" disabled title="{{ $lockReason }}" style="cursor: not-allowed; opacity: 0.55;">
+                                                    <i class="bi bi-lock-fill"></i>
+                                                </button>
+                                            @endif
+                                            @if (Auth::user()?->isAdmin())
+                                                <form method="POST" action="{{ route('costing.destroy', $costing) }}" class="d-inline"
+                                                    onsubmit="return confirm('Delete Costing {{ $costing->costing_number }}?')">
+                                                    @csrf @method('DELETE')
+                                                    <button type="submit" class="btn btn-outline-danger" title="Delete">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

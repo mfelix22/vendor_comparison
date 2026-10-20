@@ -12,7 +12,25 @@ class CostingBbnMaster extends Model
     protected $fillable = [
         'odoo_bbn_id',
         'kode',
+        'name',
         'alamat',
         'display_name',
+        'pulau',
+        'provinsi',
+        'is_active',
+        'created_by',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+        ];
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 }
+

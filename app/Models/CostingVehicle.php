@@ -14,6 +14,8 @@ class CostingVehicle extends Model
     protected $fillable = [
         'costing_id',
         'sort_order',
+        'pulau',
+        'provinsi',
         'brand',
         'vehicle_type',
         'odoo_product_id',

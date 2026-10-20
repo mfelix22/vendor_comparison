@@ -64,34 +64,85 @@ class CostingOdooService
         return $brands;
     }
 
+
+
     /**
-     * Fetch and sync BBN from Odoo (vehicle.bbn) into local CostingBbnMaster table.
+     * BBN master is 100% locally unified with all Indonesian cities, Pulau, and Provinsi.
+     * Preserves local master without overwriting from Odoo.
      */
     public function syncBbnMaster(): array
     {
-        try {
-            $records = $this->odoo->call('vehicle.bbn', 'search_read', [[]], [
-                'fields' => ['id', 'kode', 'alamat', 'display_name'],
-                'order'  => 'kode asc',
-            ]);
+        return \App\Models\CostingBbnMaster::where('is_active', true)->orderBy('name')->get()->toArray();
+    }
 
-            if (!empty($records)) {
-                foreach ($records as $rec) {
-                    \App\Models\CostingBbnMaster::updateOrCreate(
-                        ['kode' => $rec['kode'] ?: $rec['display_name']],
-                        [
-                            'odoo_bbn_id'  => $rec['id'],
-                            'alamat'       => $rec['alamat'] ?: null,
-                            'display_name' => $rec['display_name'] ?: $rec['kode'],
-                        ]
-                    );
-                }
+    /**
+     * Complete, safe sync of Costing Masters (Brands, Vehicle Types) from Odoo.
+     * Pure service method: ZERO seeders required, safe for fresh Portainer deployments.
+     * Preserves all local custom records and unified BBN master.
+     */
+    public function syncCostingMasters(): array
+    {
+        $this->flushCostingCache();
+
+        // 1. Unified BBN list is preserved from local database
+        $bbnList = $this->syncBbnMaster();
+
+        // 2. Sync Brands & Vehicle Types from Odoo Products
+        $products = $this->getCarProducts();
+        $syncedBrands = 0;
+        $syncedTypes = 0;
+
+        foreach ($products as $p) {
+            $brandName = '';
+            $odooBrandId = null;
+            if (!empty($p['vehicle_brand_id']) && is_array($p['vehicle_brand_id'])) {
+                $odooBrandId = (int) $p['vehicle_brand_id'][0];
+                $rawBrand = explode(' - ', $p['vehicle_brand_id'][1])[0] ?? $p['vehicle_brand_id'][1];
+                $brandName = strtoupper(trim($rawBrand));
             }
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('CostingOdooService: Could not sync BBN: ' . $e->getMessage());
+
+            if (!$brandName) {
+                continue;
+            }
+
+            $brand = \App\Models\CostingBrand::firstOrCreate(
+                ['name' => $brandName],
+                [
+                    'odoo_brand_id' => $odooBrandId,
+                    'is_active'     => true,
+                ]
+            );
+            $syncedBrands++;
+
+            $typeName = trim($p['name'] ?? $p['display_name'] ?? '');
+            if (!$typeName) {
+                continue;
+            }
+
+            \App\Models\CostingVehicleType::firstOrCreate(
+                [
+                    'costing_brand_id' => $brand->id,
+                    'name'             => $typeName,
+                ],
+                [
+                    'brand_name'      => $brand->name,
+                    'odoo_product_id' => !empty($p['id']) ? (int) $p['id'] : null,
+                    'is_active'       => true,
+                ]
+            );
+            $syncedTypes++;
         }
 
-        return \App\Models\CostingBbnMaster::orderBy('kode')->get()->toArray();
+        return [
+            'brands'   => \App\Models\CostingBrand::where('is_active', true)->orderBy('name')->pluck('name')->toArray(),
+            'products' => \App\Models\CostingVehicleType::where('is_active', true)->orderBy('name')->get()->toArray(),
+            'bbn'      => $bbnList,
+            'counts'   => [
+                'brands'   => \App\Models\CostingBrand::count(),
+                'products' => \App\Models\CostingVehicleType::count(),
+                'bbn'      => \App\Models\CostingBbnMaster::count(),
+            ],
+        ];
     }
 
     /**
@@ -115,5 +166,49 @@ class CostingOdooService
         } catch (\Throwable) {
             return [];
         }
+    }
+
+    /**
+     * Get list of SMD Sales Managers from Odoo (excluding Ahmad Sofwan Qudsy and Wahyu Iskandar).
+     */
+    public function getSmdList(): array
+    {
+        return Cache::remember('costing_smd_list', 3600, function () {
+            $excluded = ['Ahmad Sofwan Qudsy', 'Wahyu Iskandar'];
+            try {
+                $teams = $this->odoo->call('crm.team', 'search_read', [
+                    [['active', '=', true]]
+                ], [
+                    'fields' => ['id', 'user_id'],
+                    'limit'  => 50,
+                ]);
+
+                $list = [];
+                foreach ($teams as $t) {
+                    if (!empty($t['user_id']) && is_array($t['user_id'])) {
+                        $name = trim($t['user_id'][1]);
+                        if ($name && !in_array($name, $excluded, true) && !in_array($name, $list, true)) {
+                            $list[] = $name;
+                        }
+                    }
+                }
+
+                sort($list);
+                if (!empty($list)) {
+                    return $list;
+                }
+            } catch (\Throwable) {
+                // Fallback to verified active Sales Managers
+            }
+
+            return [
+                'Adhitya',
+                'Bambang Sumantri',
+                'Fuji',
+                'Kiki',
+                'Suryanti',
+                'Wahyu Waraka',
+            ];
+        });
     }
 }
