@@ -26,8 +26,14 @@ class CostingController extends Controller
      */
     public function index(Request $request)
     {
+        $user = Auth::user();
         $query = Costing::with(['creator', 'vehicles'])
             ->orderByDesc('created_at');
+
+        // Scoping: Managers and Admins can see all costings; other users can only see costings they created
+        if (!$user->isAdmin() && !$user->isManager()) {
+            $query->where('created_by', $user->id);
+        }
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -103,7 +109,7 @@ class CostingController extends Controller
             // Generate unique Costing Number
             $prefix = 'CST/' . date('Y/m') . '/';
             $last = Costing::where('costing_number', 'like', $prefix . '%')
-                ->orderByDesc('id')
+                ->orderByDesc('costing_number')
                 ->lockForUpdate()
                 ->first();
 
@@ -201,6 +207,11 @@ class CostingController extends Controller
      */
     public function show(Costing $costing)
     {
+        $user = Auth::user();
+        if (!$user->isAdmin() && !$user->isManager() && $costing->created_by !== $user->id) {
+            abort(403, 'Unauthorized. You can only view costings that you created.');
+        }
+
         $costing->load(['creator', 'vehicles.accessories']);
 
         // Auto-sort vehicles by Pulau -> Provinsi -> BBN -> sort_order so grouping & horizontal cell merging are cohesive
@@ -237,6 +248,11 @@ class CostingController extends Controller
      */
     public function edit(Costing $costing)
     {
+        $user = Auth::user();
+        if (!$user->isAdmin() && $costing->created_by !== $user->id) {
+            abort(403, 'Unauthorized. You can only edit costings that you created.');
+        }
+
         if ($costing->isPendingApproval()) {
             return redirect()->route('costing.show', $costing)
                 ->with('error', 'Costing ' . $costing->costing_number . ' is currently pending approval by the Purchasing Manager and cannot be edited.');
@@ -289,6 +305,11 @@ class CostingController extends Controller
      */
     public function update(Request $request, Costing $costing)
     {
+        $user = Auth::user();
+        if (!$user->isAdmin() && $costing->created_by !== $user->id) {
+            abort(403, 'Unauthorized. You can only edit costings that you created.');
+        }
+
         if ($costing->isPendingApproval()) {
             return redirect()->route('costing.show', $costing)
                 ->with('error', 'Costing ' . $costing->costing_number . ' is currently pending approval by the Purchasing Manager and cannot be edited.');
@@ -427,6 +448,12 @@ class CostingController extends Controller
      */
     public function destroy(Costing $costing)
     {
+        $user = Auth::user();
+        if (!$user || !$user->isAdmin()) {
+            return redirect()->route('costing.index')
+                ->with('error', 'Only Administrators have permission to delete Costings.');
+        }
+
         $num = $costing->costing_number;
         $costing->delete();
 
@@ -436,6 +463,11 @@ class CostingController extends Controller
 
     public function export(Costing $costing, \App\Services\CostingExportService $exportService)
     {
+        $user = Auth::user();
+        if (!$user->isAdmin() && !$user->isManager() && $costing->created_by !== $user->id) {
+            abort(403, 'Unauthorized. You can only export costings that you created.');
+        }
+
         if ($costing->isPendingApproval()) {
             return redirect()->route('costing.show', $costing)
                 ->with('error', 'Costing ' . $costing->costing_number . ' is currently pending approval and cannot be exported to Excel.');

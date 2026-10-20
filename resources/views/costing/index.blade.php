@@ -170,13 +170,15 @@
                                                     <i class="bi bi-lock-fill"></i>
                                                 </button>
                                             @endif
-                                            <form method="POST" action="{{ route('costing.destroy', $costing) }}" class="d-inline"
-                                                onsubmit="return confirm('Delete Costing {{ $costing->costing_number }}?')">
-                                                @csrf @method('DELETE')
-                                                <button type="submit" class="btn btn-outline-danger" title="Delete">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </form>
+                                            @if (Auth::user()?->isAdmin())
+                                                <form method="POST" action="{{ route('costing.destroy', $costing) }}" class="d-inline"
+                                                    onsubmit="return confirm('Delete Costing {{ $costing->costing_number }}?')">
+                                                    @csrf @method('DELETE')
+                                                    <button type="submit" class="btn btn-outline-danger" title="Delete">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>
