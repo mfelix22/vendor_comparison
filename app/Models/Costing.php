@@ -14,6 +14,9 @@ class Costing extends Model
     protected $fillable = [
         'costing_number',
         'customer_name',
+        'smd',
+        'masa_sewa',
+        'request_delivery_date',
         'odoo_partner_id',
         'notes',
         'fph_type',
@@ -28,7 +31,8 @@ class Costing extends Model
     protected function casts(): array
     {
         return [
-            'approved_at' => 'datetime',
+            'approved_at'           => 'datetime',
+            'request_delivery_date' => 'date',
         ];
     }
 

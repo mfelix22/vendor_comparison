@@ -555,6 +555,15 @@
                 <div class="text-muted small mt-1">
                     <span class="fw-semibold text-primary">{{ $costing->costing_number }}</span>
                     &middot; Customer: <span class="fw-semibold text-dark">{{ $costing->customer_name }}</span>
+                    @if ($costing->smd)
+                        &middot; SMD: <span class="fw-semibold text-dark">{{ $costing->smd }}</span>
+                    @endif
+                    @if ($costing->masa_sewa)
+                        &middot; Masa Sewa: <span class="fw-semibold text-dark">{{ $costing->masa_sewa }}</span>
+                    @endif
+                    @if ($costing->request_delivery_date)
+                        &middot; Delivery: <span class="fw-semibold text-dark">{{ $costing->request_delivery_date->format('d/m/Y') }}</span>
+                    @endif
                     &middot; {{ $costing->created_at->format('d/m/Y') }}
                     &middot; Created by <span class="fw-semibold text-dark">{{ $costing->creator->name ?? '—' }}</span>
                 </div>
@@ -731,10 +740,22 @@
                         @endforeach
                     </tr>
 
-                    {{-- Row 2: Blank --}}
+                    {{-- Row 2: SMD / Masa Sewa / Delivery Date --}}
                     <tr>
                         <td class="excel-row-hdr" data-row="2">2</td>
-                        <td class="excel-cell" data-coord="A2" data-val=""></td>
+                        <td class="excel-cell text-muted small" data-coord="A2" data-val="@if($costing->smd)SMD: {{ $costing->smd }} @endif @if($costing->masa_sewa)| Masa Sewa: {{ $costing->masa_sewa }} @endif @if($costing->request_delivery_date)| Delivery: {{ $costing->request_delivery_date->format('d/m/Y') }}@endif">
+                            @if($costing->smd)
+                                <span class="fw-semibold text-dark">SMD:</span> {{ $costing->smd }}
+                            @endif
+                            @if($costing->masa_sewa)
+                                @if($costing->smd) &nbsp;&middot;&nbsp; @endif
+                                <span class="fw-semibold text-dark">Masa Sewa:</span> {{ $costing->masa_sewa }}
+                            @endif
+                            @if($costing->request_delivery_date)
+                                @if($costing->smd || $costing->masa_sewa) &nbsp;&middot;&nbsp; @endif
+                                <span class="fw-semibold text-dark">Delivery:</span> {{ $costing->request_delivery_date->format('d/m/Y') }}
+                            @endif
+                        </td>
                         @foreach ($vehicles as $idx => $v)
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
                             <td class="excel-cell" data-coord="{{ $colLet }}2" data-val=""></td>
@@ -1062,10 +1083,22 @@
                         @endforeach
                     </tr>
 
-                    {{-- Row 2: Blank --}}
+                    {{-- Row 2: SMD / Masa Sewa / Delivery Date --}}
                     <tr>
                         <td class="excel-row-hdr" data-row="2">2</td>
-                        <td class="excel-cell" data-coord="A2" data-val=""></td>
+                        <td class="excel-cell text-muted small" data-coord="A2" data-val="@if($costing->smd)SMD: {{ $costing->smd }} @endif @if($costing->masa_sewa)| Masa Sewa: {{ $costing->masa_sewa }} @endif @if($costing->request_delivery_date)| Delivery: {{ $costing->request_delivery_date->format('d/m/Y') }}@endif">
+                            @if($costing->smd)
+                                <span class="fw-semibold text-dark">SMD:</span> {{ $costing->smd }}
+                            @endif
+                            @if($costing->masa_sewa)
+                                @if($costing->smd) &nbsp;&middot;&nbsp; @endif
+                                <span class="fw-semibold text-dark">Masa Sewa:</span> {{ $costing->masa_sewa }}
+                            @endif
+                            @if($costing->request_delivery_date)
+                                @if($costing->smd || $costing->masa_sewa) &nbsp;&middot;&nbsp; @endif
+                                <span class="fw-semibold text-dark">Delivery:</span> {{ $costing->request_delivery_date->format('d/m/Y') }}
+                            @endif
+                        </td>
                         @foreach ($vehicles as $idx => $v)
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
                             <td class="excel-cell" data-coord="{{ $colLet }}2" data-val=""></td>

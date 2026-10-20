@@ -225,4 +225,48 @@ class CostingOdooService
             return [];
         }
     }
+
+    /**
+     * Get list of SMD Sales Managers from Odoo (excluding Ahmad Sofwan Qudsy and Wahyu Iskandar).
+     */
+    public function getSmdList(): array
+    {
+        return Cache::remember('costing_smd_list', 3600, function () {
+            $excluded = ['Ahmad Sofwan Qudsy', 'Wahyu Iskandar'];
+            try {
+                $teams = $this->odoo->call('crm.team', 'search_read', [
+                    [['active', '=', true]]
+                ], [
+                    'fields' => ['id', 'user_id'],
+                    'limit'  => 50,
+                ]);
+
+                $list = [];
+                foreach ($teams as $t) {
+                    if (!empty($t['user_id']) && is_array($t['user_id'])) {
+                        $name = trim($t['user_id'][1]);
+                        if ($name && !in_array($name, $excluded, true) && !in_array($name, $list, true)) {
+                            $list[] = $name;
+                        }
+                    }
+                }
+
+                sort($list);
+                if (!empty($list)) {
+                    return $list;
+                }
+            } catch (\Throwable) {
+                // Fallback to verified active Sales Managers
+            }
+
+            return [
+                'Adhitya',
+                'Bambang Sumantri',
+                'Fuji',
+                'Kiki',
+                'Suryanti',
+                'Wahyu Waraka',
+            ];
+        });
+    }
 }

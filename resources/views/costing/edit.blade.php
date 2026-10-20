@@ -163,26 +163,69 @@
                     Details</h6>
             </div>
             <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-7">
+                <div class="row g-3 align-items-start">
+                    {{-- Section 1: Customer / Project (Left) --}}
+                    <div class="col-lg-4 col-md-5">
                         <label class="form-label small fw-semibold">Nama Customer / Project <span class="text-danger">*</span></label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="bi bi-building"></i></span>
                             <input type="text" name="customer_name" id="customerNameInput"
                                 class="form-control form-control-sm @error('customer_name') is-invalid @enderror"
-                                placeholder="Masukkan nama customer atau nama project..."
+                                placeholder="Masukkan nama customer / project..."
                                 value="{{ old('customer_name', $costing->customer_name) }}" required autocomplete="off">
                         </div>
-                        <div class="text-muted small mt-1">Ketik nama customer atau instansi project secara langsung.</div>
+                        <div class="text-muted small mt-1">Ketik nama customer atau instansi project.</div>
                         @error('customer_name')
                             <div class="text-danger small mt-1">{{ $message }}</div>
                         @enderror
                     </div>
-                    <div class="col-md-5">
-                        <label class="form-label small fw-semibold">Internal Notes / Reference</label>
-                        <input type="text" name="notes" class="form-control form-control-sm"
-                            placeholder="Optional remarks or procurement notes..."
-                            value="{{ old('notes', $costing->notes) }}">
+
+                    {{-- Section 2: Contract Details - SMD, Masa Sewa, Delivery Date (Middle) --}}
+                    <div class="col-lg-5 col-md-7 ps-lg-4" style="border-left: 1px solid #e9ecef;">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold mb-1">SMD</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                                    <select name="smd" class="form-select form-select-sm">
+                                        <option value="">Select SMD</option>
+                                        @foreach ($smdList as $smd)
+                                            <option value="{{ $smd }}" {{ old('smd', $costing->smd) === $smd ? 'selected' : '' }}>{{ $smd }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold mb-1">Masa Sewa</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-calendar3-range"></i></span>
+                                    <input type="text" name="masa_sewa" list="masaSewaOptions" class="form-control form-control-sm"
+                                        placeholder="e.g. 12 Bulan" value="{{ old('masa_sewa', $costing->masa_sewa) }}">
+                                    <datalist id="masaSewaOptions">
+                                        <option value="12 Bulan">
+                                        <option value="24 Bulan">
+                                        <option value="36 Bulan">
+                                        <option value="48 Bulan">
+                                        <option value="60 Bulan">
+                                    </datalist>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold mb-1">Request Delivery Date</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+                                    <input type="date" name="request_delivery_date" class="form-control form-control-sm"
+                                        value="{{ old('request_delivery_date', $costing->request_delivery_date?->format('Y-m-d')) }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Section 3: Internal Notes / Reference (Right) --}}
+                    <div class="col-lg-3 col-md-12 ps-lg-4" style="border-left: 1px solid #e9ecef;">
+                        <label class="form-label small fw-semibold mb-1">Internal Notes / Reference</label>
+                        <textarea name="notes" rows="4" class="form-control form-control-sm"
+                            placeholder="Optional remarks or procurement notes...">{{ old('notes', $costing->notes) }}</textarea>
                     </div>
                 </div>
             </div>

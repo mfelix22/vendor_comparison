@@ -76,6 +76,22 @@ class CostingExportService
         $sheet->setCellValue('A1', $costing->customer_name);
         $sheet->getStyle('A1')->getFont()->setName('Calibri')->setBold(true)->setSize(11);
 
+        // Row 2: SMD, Masa Sewa, Delivery Date
+        $metaParts = [];
+        if (!empty($costing->smd)) {
+            $metaParts[] = 'SMD: ' . $costing->smd;
+        }
+        if (!empty($costing->masa_sewa)) {
+            $metaParts[] = 'Masa Sewa: ' . $costing->masa_sewa;
+        }
+        if (!empty($costing->request_delivery_date)) {
+            $metaParts[] = 'Delivery: ' . $costing->request_delivery_date->format('d/m/Y');
+        }
+        if (!empty($metaParts)) {
+            $sheet->setCellValue('A2', implode(' | ', $metaParts));
+            $sheet->getStyle('A2')->getFont()->setName('Calibri')->setItalic(true)->setSize(10)->getColor()->setRGB('555555');
+        }
+
         // Row 3: Brand
         $sheet->setCellValue('A3', 'Brand :');
         $sheet->getStyle("A3:{$lastColLetter}3")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FFFF00');

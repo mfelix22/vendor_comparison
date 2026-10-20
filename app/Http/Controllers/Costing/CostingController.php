@@ -58,7 +58,9 @@ class CostingController extends Controller
                 'vehicle_brand_id' => [0, $vt->brand_name],
             ];
         })->toArray();
-        return view('costing.create', compact('bbnList', 'templates', 'brands', 'products'));
+        $smdList   = $this->odooService->getSmdList();
+
+        return view('costing.create', compact('bbnList', 'templates', 'brands', 'products', 'smdList'));
     }
 
 
@@ -69,6 +71,9 @@ class CostingController extends Controller
     {
         $validated = $request->validate([
             'customer_name'             => ['required', 'string', 'max:255'],
+            'smd'                       => ['nullable', 'string', 'max:255'],
+            'masa_sewa'                 => ['nullable', 'string', 'max:50'],
+            'request_delivery_date'     => ['nullable', 'date'],
             'odoo_partner_id'           => ['nullable', 'integer'],
             'notes'                     => ['nullable', 'string'],
             'vehicles'                  => ['required', 'array', 'min:1'],
@@ -104,14 +109,17 @@ class CostingController extends Controller
             $costingNumber = $prefix . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
 
             $costing = Costing::create([
-                'costing_number'  => $costingNumber,
-                'customer_name'   => $validated['customer_name'],
-                'odoo_partner_id' => $validated['odoo_partner_id'] ?? null,
-                'notes'           => $validated['notes'] ?? null,
-                'fph_type'        => $fphType,
-                'approval_status' => $approvalStatus,
-                'status'          => 'saved',
-                'created_by'      => Auth::id(),
+                'costing_number'        => $costingNumber,
+                'customer_name'         => $validated['customer_name'],
+                'smd'                   => $validated['smd'] ?? null,
+                'masa_sewa'             => $validated['masa_sewa'] ?? null,
+                'request_delivery_date' => $validated['request_delivery_date'] ?? null,
+                'odoo_partner_id'       => $validated['odoo_partner_id'] ?? null,
+                'notes'                 => $validated['notes'] ?? null,
+                'fph_type'              => $fphType,
+                'approval_status'       => $approvalStatus,
+                'status'                => 'saved',
+                'created_by'            => Auth::id(),
             ]);
 
             // Save vehicles
@@ -242,7 +250,9 @@ class CostingController extends Controller
             }
         }
 
-        return view('costing.edit', compact('costing', 'bbnList', 'templates', 'brands', 'products', 'accRows'));
+        $smdList   = $this->odooService->getSmdList();
+
+        return view('costing.edit', compact('costing', 'bbnList', 'templates', 'brands', 'products', 'accRows', 'smdList'));
     }
 
     /**
@@ -252,6 +262,9 @@ class CostingController extends Controller
     {
         $validated = $request->validate([
             'customer_name'             => ['required', 'string', 'max:255'],
+            'smd'                       => ['nullable', 'string', 'max:255'],
+            'masa_sewa'                 => ['nullable', 'string', 'max:50'],
+            'request_delivery_date'     => ['nullable', 'date'],
             'odoo_partner_id'           => ['nullable', 'integer'],
             'notes'                     => ['nullable', 'string'],
             'vehicles'                  => ['required', 'array', 'min:1'],
@@ -273,9 +286,12 @@ class CostingController extends Controller
 
         return DB::transaction(function () use ($validated, $costing, $newFphType) {
             $updateData = [
-                'customer_name'   => $validated['customer_name'],
-                'odoo_partner_id' => $validated['odoo_partner_id'] ?? null,
-                'notes'           => $validated['notes'] ?? null,
+                'customer_name'         => $validated['customer_name'],
+                'smd'                   => $validated['smd'] ?? null,
+                'masa_sewa'             => $validated['masa_sewa'] ?? null,
+                'request_delivery_date' => $validated['request_delivery_date'] ?? null,
+                'odoo_partner_id'       => $validated['odoo_partner_id'] ?? null,
+                'notes'                 => $validated['notes'] ?? null,
             ];
 
             if ($costing->fph_type !== $newFphType) {
