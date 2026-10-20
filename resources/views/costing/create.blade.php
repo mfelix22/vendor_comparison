@@ -434,11 +434,11 @@
                         document.querySelectorAll('tr#rowBbn select').forEach(sel => {
                             const curVal = sel.value;
                             let html = '<option value="">-- BBN --</option>';
-                            bbnOptions.forEach(b => {
-                                const label = b.name || b.display_name || b.kode;
-                                const isSel = (b.name === curVal || b.kode === curVal || b.display_name === curVal) ? 'selected' : '';
-                                html += `<option value="${label}" ${isSel}>${label}</option>`;
-                            });
+                                bbnOptions.forEach(b => {
+                                    const label = b.name || b.display_name || b.kode;
+                                    const isSel = (b.name === curVal || b.kode === curVal || b.display_name === curVal) ? 'selected' : '';
+                                    html += `<option value="${label}" data-pulau="${b.pulau || ''}" data-provinsi="${b.provinsi || ''}" ${isSel}>${label}</option>`;
+                                });
                             sel.innerHTML = html;
                         });
                     }
@@ -581,8 +581,14 @@
             const firstIdx = getFirstVehicleIndex();
             const bbnSelect = document.querySelector(`#cellBbn_${vIndex} select`);
             const bbnVal = bbnSelect ? bbnSelect.value : '';
+            const selectedOpt = bbnSelect ? bbnSelect.selectedOptions[0] : null;
 
-            if (bbnVal) {
+            if (selectedOpt && (selectedOpt.dataset.pulau || selectedOpt.dataset.provinsi)) {
+                const pInp = document.getElementById(`inputPulau_${vIndex}`);
+                const prInp = document.getElementById(`inputProvinsi_${vIndex}`);
+                if (pInp && selectedOpt.dataset.pulau) pInp.value = selectedOpt.dataset.pulau;
+                if (prInp && selectedOpt.dataset.provinsi) prInp.value = selectedOpt.dataset.provinsi;
+            } else if (bbnVal) {
                 const match = lookupRegion(bbnVal);
                 if (match) {
                     const pInp = document.getElementById(`inputPulau_${vIndex}`);
@@ -711,7 +717,7 @@
             bbnOptions.forEach(b => {
                 const label = b.name || b.display_name || b.kode;
                 const isSel = (b.name === bbn || b.kode === bbn || b.display_name === bbn) ? 'selected' : '';
-                bbnOptsHtml += `<option value="${label}" ${isSel}>${label}</option>`;
+                bbnOptsHtml += `<option value="${label}" data-pulau="${b.pulau || ''}" data-provinsi="${b.provinsi || ''}" ${isSel}>${label}</option>`;
             });
             tdBbn.innerHTML = `
                 <select name="vehicles[${vIndex}][bbn]" class="form-select form-select-sm" onchange="onBbnChanged(${vIndex})">

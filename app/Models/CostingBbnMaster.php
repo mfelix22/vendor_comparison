@@ -15,6 +15,8 @@ class CostingBbnMaster extends Model
         'name',
         'alamat',
         'display_name',
+        'pulau',
+        'provinsi',
         'is_active',
         'created_by',
     ];

@@ -192,17 +192,23 @@ class MasterDataController extends Controller
     public function storeBbn(Request $request)
     {
         $validated = $request->validate([
-            'kode' => ['required', 'string', 'max:20', 'unique:costing_bbn_masters,kode'],
-            'name' => ['required', 'string', 'max:100'],
+            'kode'     => ['required', 'string', 'max:20', 'unique:costing_bbn_masters,kode'],
+            'name'     => ['required', 'string', 'max:100'],
+            'pulau'    => ['nullable', 'string', 'max:100'],
+            'provinsi' => ['nullable', 'string', 'max:100'],
         ]);
 
         $code = strtoupper(trim($validated['kode']));
         $name = trim($validated['name']);
+        $pulau = !empty($validated['pulau']) ? strtoupper(trim($validated['pulau'])) : null;
+        $provinsi = !empty($validated['provinsi']) ? strtoupper(trim($validated['provinsi'])) : null;
 
         CostingBbnMaster::create([
             'kode'         => $code,
             'name'         => $name,
             'display_name' => $name,
+            'pulau'        => $pulau,
+            'provinsi'     => $provinsi,
             'is_active'    => true,
             'created_by'   => Auth::id(),
         ]);
@@ -216,16 +222,22 @@ class MasterDataController extends Controller
         $validated = $request->validate([
             'kode'      => ['required', 'string', 'max:20', 'unique:costing_bbn_masters,kode,' . $bbn->id],
             'name'      => ['required', 'string', 'max:100'],
+            'pulau'     => ['nullable', 'string', 'max:100'],
+            'provinsi'  => ['nullable', 'string', 'max:100'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
         $code = strtoupper(trim($validated['kode']));
         $name = trim($validated['name']);
+        $pulau = !empty($validated['pulau']) ? strtoupper(trim($validated['pulau'])) : null;
+        $provinsi = !empty($validated['provinsi']) ? strtoupper(trim($validated['provinsi'])) : null;
 
         $bbn->update([
             'kode'         => $code,
             'name'         => $name,
             'display_name' => $name,
+            'pulau'        => $pulau,
+            'provinsi'     => $provinsi,
             'is_active'    => $request->has('is_active'),
         ]);
 
@@ -349,7 +361,7 @@ class MasterDataController extends Controller
     {
         $bbnList = CostingBbnMaster::where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'kode', 'name', 'display_name']);
+            ->get(['id', 'kode', 'name', 'display_name', 'pulau', 'provinsi']);
 
         return response()->json($bbnList);
     }

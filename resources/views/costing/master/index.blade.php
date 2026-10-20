@@ -345,12 +345,14 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th class="ps-3 py-3" style="width: 70px;">#</th>
-                                <th style="width: 140px;">Kode BBN</th>
-                                <th>Wilayah / Meaning (Tanpa Singkatan)</th>
-                                <th>Source</th>
-                                <th>Status</th>
-                                <th class="text-center pe-3" style="width: 140px;">Actions</th>
+                                <th class="ps-3 py-3" style="width: 60px;">#</th>
+                                <th style="width: 110px;">Kode BBN</th>
+                                <th>Wilayah / Meaning</th>
+                                <th style="width: 170px;">Provinsi</th>
+                                <th style="width: 150px;">Pulau</th>
+                                <th style="width: 110px;">Source</th>
+                                <th style="width: 90px;">Status</th>
+                                <th class="text-center pe-3" style="width: 110px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -364,6 +366,20 @@
                                     </td>
                                     <td>
                                         <div class="fw-bold text-dark fs-6">{{ $bbn->name ?: $bbn->display_name }}</div>
+                                    </td>
+                                    <td>
+                                        @if ($bbn->provinsi)
+                                            <span class="badge bg-light text-dark border">{{ $bbn->provinsi }}</span>
+                                        @else
+                                            <span class="text-muted small">—</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if ($bbn->pulau)
+                                            <span class="badge bg-secondary-subtle text-secondary border">{{ $bbn->pulau }}</span>
+                                        @else
+                                            <span class="text-muted small">—</span>
+                                        @endif
                                     </td>
                                     <td>
                                         @if ($bbn->odoo_bbn_id)
@@ -386,7 +402,7 @@
                                     <td class="text-center pe-3">
                                         <div class="btn-group btn-group-sm">
                                             <button type="button" class="btn btn-outline-primary"
-                                                onclick="openEditBbnModal('{{ $bbn->id }}', '{{ addslashes($bbn->kode) }}', '{{ addslashes($bbn->name) }}', {{ $bbn->is_active ? 'true' : 'false' }})"
+                                                onclick="openEditBbnModal('{{ $bbn->id }}', '{{ addslashes($bbn->kode) }}', '{{ addslashes($bbn->name) }}', '{{ addslashes($bbn->pulau ?? '') }}', '{{ addslashes($bbn->provinsi ?? '') }}', {{ $bbn->is_active ? 'true' : 'false' }})"
                                                 title="Edit BBN">
                                                 <i class="bi bi-pencil"></i>
                                             </button>
@@ -402,7 +418,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="text-center py-5 text-muted">
+                                    <td colspan="8" class="text-center py-5 text-muted">
                                         <i class="bi bi-geo-alt display-6 d-block mb-2 text-muted"></i>
                                         No BBN records found.
                                     </td>
@@ -690,6 +706,26 @@
                             <input type="text" name="name" class="form-control" placeholder="e.g. Jakarta, Malili, Sukabumi..." required autocomplete="off">
                             <div class="text-muted small mt-1">Full city / region name displayed in Costing sheets.</div>
                         </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Pulau</label>
+                                <input type="text" name="pulau" list="bbnPulauDatalist" class="form-control" placeholder="Select or type Pulau..." autocomplete="off">
+                                <datalist id="bbnPulauDatalist">
+                                    @foreach ($pulauList as $p)
+                                        <option value="{{ $p }}">{{ $p }}</option>
+                                    @endforeach
+                                </datalist>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Provinsi</label>
+                                <input type="text" name="provinsi" list="bbnProvinsiDatalist" class="form-control" placeholder="Select or type Provinsi..." autocomplete="off">
+                                <datalist id="bbnProvinsiDatalist">
+                                    @foreach ($provinsiList as $pr)
+                                        <option value="{{ $pr }}">{{ $pr }}</option>
+                                    @endforeach
+                                </datalist>
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-footer border-top bg-light">
                         <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -718,6 +754,16 @@
                         <div class="mb-3">
                             <label class="form-label small fw-semibold">Wilayah / Meaning (Tanpa Singkatan) <span class="text-danger">*</span></label>
                             <input type="text" name="name" id="editBbnName" class="form-control" required autocomplete="off">
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Pulau</label>
+                                <input type="text" name="pulau" id="editBbnPulau" list="bbnPulauDatalist" class="form-control" placeholder="Select or type Pulau..." autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Provinsi</label>
+                                <input type="text" name="provinsi" id="editBbnProvinsi" list="bbnProvinsiDatalist" class="form-control" placeholder="Select or type Provinsi..." autocomplete="off">
+                            </div>
                         </div>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" name="is_active" id="editBbnActive" value="1">
@@ -838,10 +884,12 @@
     }
 
     // BBN Modal Helper
-    function openEditBbnModal(id, code, name, isActive) {
+    function openEditBbnModal(id, code, name, pulau, provinsi, isActive) {
         document.getElementById('editBbnForm').action = "{{ url('costing/master/bbn') }}/" + id;
         document.getElementById('editBbnCode').value = code;
         document.getElementById('editBbnName').value = name;
+        document.getElementById('editBbnPulau').value = pulau || '';
+        document.getElementById('editBbnProvinsi').value = provinsi || '';
         document.getElementById('editBbnActive').checked = isActive;
         new bootstrap.Modal(document.getElementById('editBbnModal')).show();
     }
