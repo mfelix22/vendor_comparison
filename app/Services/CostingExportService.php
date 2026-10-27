@@ -46,11 +46,11 @@ class CostingExportService
      */
     private function buildSheet(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet, Costing $costing, bool $isSmd): void
     {
-        // Auto-sort vehicles by Pulau -> Provinsi -> BBN -> sort_order so grouping & horizontal cell merging are cohesive
+        // Auto-sort vehicles by Pulau -> Provinsi -> Pemakaian -> sort_order so grouping & horizontal cell merging are cohesive
         $vehicles = $costing->vehicles->sortBy([
             ['pulau', 'asc'],
             ['provinsi', 'asc'],
-            ['bbn', 'asc'],
+            ['pemakaian', 'asc'],
             ['sort_order', 'asc'],
         ])->values();
         $sheet->setTitle($isSmd ? 'SMD' : 'BU AB');
@@ -519,13 +519,44 @@ class CostingExportService
         }
         $currRow++;
 
+        // Row: Note per vehicle column
+        $vehicleNoteRow = $currRow;
+        $sheet->setCellValue("A{$vehicleNoteRow}", 'Note :');
+        $sheet->getStyle("A{$vehicleNoteRow}")->getFont()->setName('Calibri')->setBold(true);
+        $sheet->getStyle("A{$vehicleNoteRow}:{$lastColLetter}{$vehicleNoteRow}")->applyFromArray($thinBorder);
+        $sheet->getStyle("A{$vehicleNoteRow}:{$lastColLetter}{$vehicleNoteRow}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+
+        $maxNoteLines = 1;
+        $cIdx = 2;
+        foreach ($vehicles as $v) {
+            $cLet = Coordinate::stringFromColumnIndex($cIdx);
+            $noteContent = $v->note ?? '';
+            $sheet->setCellValue("{$cLet}{$vehicleNoteRow}", $noteContent);
+            $sheet->getStyle("{$cLet}{$vehicleNoteRow}")->getFont()->setName('Calibri');
+            $sheet->getStyle("{$cLet}{$vehicleNoteRow}")->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
+            
+            if (!empty($noteContent)) {
+                $lines = count(explode("\n", str_replace("\r", "", $noteContent)));
+                $maxNoteLines = max($maxNoteLines, $lines);
+            }
+            $cIdx++;
+        }
+        // Set dynamic row height for vehicle notes row
+        $sheet->getRowDimension($vehicleNoteRow)->setRowHeight(max(24, $maxNoteLines * 18));
+        $currRow++;
+
         // 2 blank rows without borders
         $currRow += 2;
 
-        // Notes row
-        $notesText = 'Notes :' . ($costing->notes ? ' ' . $costing->notes : '');
+        // Master Notes row
+        $notesText = 'Notes :' . ($costing->notes ? "\n" . $costing->notes : '');
         $sheet->setCellValue("A{$currRow}", $notesText);
         $sheet->getStyle("A{$currRow}")->getFont()->setName('Calibri')->setBold(true);
+        $sheet->getStyle("A{$currRow}")->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
+        if (!empty($costing->notes)) {
+            $masterLines = count(explode("\n", str_replace("\r", "", $costing->notes))) + 1;
+            $sheet->getRowDimension($currRow)->setRowHeight(max(24, $masterLines * 18));
+        }
 
         // Column widths - dynamically fit the longest vehicle names and descriptions
         $sheet->getColumnDimension('A')->setWidth(32);
