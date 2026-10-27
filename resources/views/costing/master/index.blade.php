@@ -474,6 +474,9 @@
                                     </td>
                                     <td>
                                         <div class="fw-bold text-dark fs-6">{{ $bbn->name ?: $bbn->display_name }}</div>
+                                        @if ($bbn->display_name && $bbn->display_name !== $bbn->name)
+                                            <div class="small text-muted">{{ $bbn->display_name }}</div>
+                                        @endif
                                     </td>
                                     <td>
                                         @if ($bbn->odoo_bbn_id)

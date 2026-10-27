@@ -464,12 +464,18 @@
                         bbnOptions = data.bbn;
                         document.querySelectorAll('tr#rowBbn select').forEach(sel => {
                             const curVal = sel.value;
-                            let html = '<option value="">-- BBN --</option>';
-                                bbnOptions.forEach(b => {
-                                    const label = b.name || b.display_name || b.kode;
-                                    const isSel = (b.name === curVal || b.kode === curVal || b.display_name === curVal) ? 'selected' : '';
-                                    html += `<option value="${label}" data-pulau="${b.pulau || ''}" data-provinsi="${b.provinsi || ''}" ${isSel}>${label}</option>`;
-                                });
+                            let html = '<option value="">-- BBN (Samsat) --</option>';
+                            let matched = false;
+                            bbnOptions.forEach(b => {
+                                const val = b.name || b.kode;
+                                const text = (b.display_name && b.display_name !== b.name) ? b.display_name : (b.name || b.kode);
+                                const isSel = (b.name === curVal || b.kode === curVal || b.display_name === curVal) ? 'selected' : '';
+                                if (isSel) matched = true;
+                                html += `<option value="${val}" data-pulau="${b.pulau || ''}" data-provinsi="${b.provinsi || ''}" ${isSel}>${text}</option>`;
+                            });
+                            if (curVal && !matched) {
+                                html += `<option value="${curVal}" selected>${curVal}</option>`;
+                            }
                             sel.innerHTML = html;
                         });
                     }
@@ -747,11 +753,26 @@
             const tdBbn = document.createElement('td');
             tdBbn.id = `cellBbn_${vIndex}`;
             let bbnOptsHtml = `<option value="">-- BBN (Samsat) --</option>`;
+            let matchedBbn = false;
             bbnOptions.forEach(b => {
-                const label = b.name || b.display_name || b.kode;
-                const isSel = (b.name === bbn || b.kode === bbn || b.display_name === bbn) ? 'selected' : '';
-                bbnOptsHtml += `<option value="${label}" ${isSel}>${label}</option>`;
+                const val = b.name || b.kode;
+                const text = (b.display_name && b.display_name !== b.name) ? b.display_name : (b.name || b.kode);
+                const isSel = (
+                    b.name === bbn ||
+                    b.kode === bbn ||
+                    b.display_name === bbn ||
+                    (bbn === 'Jakarta' && b.name === 'DKI Jakarta') ||
+                    (bbn === 'Jabodetabek' && b.name === 'DKI Jakarta') ||
+                    (bbn === 'Semarang' && b.name === 'Jawa Tengah') ||
+                    (bbn === 'MAKASSAR' && b.name === 'Sulawesi Selatan') ||
+                    (bbn === 'Makassar' && b.name === 'Sulawesi Selatan')
+                ) ? 'selected' : '';
+                if (isSel) matchedBbn = true;
+                bbnOptsHtml += `<option value="${val}" ${isSel}>${text}</option>`;
             });
+            if (bbn && !matchedBbn) {
+                bbnOptsHtml += `<option value="${bbn}" selected>${bbn}</option>`;
+            }
             tdBbn.innerHTML = `<select name="vehicles[${vIndex}][bbn]" class="form-select form-select-sm" onchange="onBbnChanged(${vIndex})">${bbnOptsHtml}</select>`;
             document.getElementById('rowBbn').appendChild(tdBbn);
 
