@@ -416,6 +416,7 @@
         let vehicleCount = 0;
         let accessoryCount = 0;
         let bbnOptions = @json($bbnList);
+        let pemakaianOptions = @json($pemakaianList);
         let odooBrands = @json($brands);
         let odooProducts = @json($products);
         let allRegions = {!! $regionsJson !!};
@@ -650,10 +651,19 @@
             const prInp = document.getElementById(`inputProvinsi_${vIndex}`);
 
             if (val) {
-                const match = lookupRegion(val);
-                if (match) {
-                    if (pInp) pInp.value = match.pulau || '';
-                    if (prInp) prInp.value = match.provinsi || '';
+                const opt = pemInp.options ? pemInp.options[pemInp.selectedIndex] : null;
+                const optPulau = opt ? opt.getAttribute('data-pulau') : null;
+                const optProv = opt ? opt.getAttribute('data-provinsi') : null;
+
+                if (optPulau && optProv) {
+                    if (pInp) pInp.value = optPulau;
+                    if (prInp) prInp.value = optProv;
+                } else {
+                    const match = lookupRegion(val);
+                    if (match) {
+                        if (pInp) pInp.value = match.pulau || '';
+                        if (prInp) prInp.value = match.provinsi || '';
+                    }
                 }
             } else {
                 if (pInp) pInp.value = '';
@@ -776,14 +786,46 @@
             tdBbn.innerHTML = `<select name="vehicles[${vIndex}][bbn]" class="form-select form-select-sm" onchange="onBbnChanged(${vIndex})">${bbnOptsHtml}</select>`;
             document.getElementById('rowBbn').appendChild(tdBbn);
 
-            // 5. Lokasi Pemakaian Cell (Searchable datalist with 514 Kota & Kabupaten)
+            // 5. Lokasi Pemakaian Cell (Selection dropdown just like BBN)
             const tdPemakaian = document.createElement('td');
             tdPemakaian.id = `cellPemakaian_${vIndex}`;
+            let pemakaianOptsHtml = `<option value="">-- Lokasi Pemakaian --</option>`;
+            let matchedPem = false;
+
+            const cleanVal = pemakaian ? pemakaian.toLowerCase().replace(/^(kota|kabupaten|kab\.)\s+/i, '').trim() : '';
+
+            // Group pemakaian options by Provinsi (Pulau)
+            const groupedPem = {};
+            pemakaianOptions.forEach(p => {
+                const groupKey = p.provinsi ? (p.pulau ? `${p.provinsi} (${p.pulau})` : p.provinsi) : 'Lainnya';
+                if (!groupedPem[groupKey]) groupedPem[groupKey] = [];
+                groupedPem[groupKey].push(p);
+            });
+
+            for (const [groupLabel, items] of Object.entries(groupedPem)) {
+                pemakaianOptsHtml += `<optgroup label="${groupLabel}">`;
+                items.forEach(p => {
+                    const cleanName = p.name ? p.name.toLowerCase().replace(/^(kota|kabupaten|kab\.)\s+/i, '').trim() : '';
+                    const isSel = (
+                        p.name === pemakaian ||
+                        (pemakaian && p.name.toLowerCase() === pemakaian.toLowerCase()) ||
+                        (cleanVal && cleanName && cleanVal === cleanName)
+                    ) ? 'selected' : '';
+                    if (isSel) matchedPem = true;
+                    pemakaianOptsHtml += `<option value="${p.name}" data-pulau="${p.pulau || ''}" data-provinsi="${p.provinsi || ''}" ${isSel}>${p.name}</option>`;
+                });
+                pemakaianOptsHtml += `</optgroup>`;
+            }
+
+            if (pemakaian && !matchedPem) {
+                pemakaianOptsHtml += `<option value="${pemakaian}" selected>${pemakaian}</option>`;
+            }
+
             tdPemakaian.innerHTML = `
-                <input type="text" name="vehicles[${vIndex}][pemakaian]" id="inputPemakaian_${vIndex}"
-                    list="pemakaianListDatalist" class="form-control form-control-sm"
-                    placeholder="Search kota/kabupaten..." value="${pemakaian}"
-                    oninput="onPemakaianChanged(${vIndex})" onchange="onPemakaianChanged(${vIndex})" autocomplete="off">
+                <select name="vehicles[${vIndex}][pemakaian]" id="inputPemakaian_${vIndex}"
+                    class="form-select form-select-sm" onchange="onPemakaianChanged(${vIndex})">
+                    ${pemakaianOptsHtml}
+                </select>
             `;
             document.getElementById('rowPemakaian').appendChild(tdPemakaian);
 
