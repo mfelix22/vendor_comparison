@@ -190,9 +190,11 @@
                                     </td>
                                     <td class="text-center pe-3">
                                         <div class="d-flex align-items-center justify-content-center gap-1">
-                                            <a href="{{ route('costing.show', $costing) }}" class="btn btn-outline-secondary btn-sm" title="View Excel Grid">
-                                                <i class="bi bi-eye"></i>
-                                            </a>
+                                            @if ($costing->isApproved())
+                                                <a href="{{ route('costing.export', $costing) }}" class="btn btn-outline-success btn-sm" title="Download Excel (.xlsx)">
+                                                    <i class="bi bi-file-earmark-excel me-1"></i>Excel
+                                                </a>
+                                            @endif
 
                                             @if ($isMgrOrAdmin)
                                                 @if ($costing->isPendingApproval())
@@ -217,6 +219,8 @@
                                                         </button>
                                                     </form>
                                                 @endif
+                                            @elseif (!$costing->isApproved())
+                                                <span class="text-muted small">—</span>
                                             @endif
                                         </div>
                                     </td>
