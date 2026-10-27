@@ -63,7 +63,7 @@
                                 <th class="text-end">Price Range (Unit + Acc)</th>
                                 <th>Created By</th>
                                 <th>Created Date</th>
-                                <th class="text-center pe-3" style="width: 140px;">Actions</th>
+                                <th class="text-center pe-3" style="width: 110px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -141,9 +141,6 @@
                                     </td>
                                     <td class="text-center pe-3">
                                         <div class="btn-group btn-group-sm">
-                                            <a href="{{ route('costing.show', $costing) }}" class="btn btn-outline-secondary" title="View Sheet">
-                                                <i class="bi bi-eye"></i>
-                                            </a>
                                             {{-- Excel Export Button (Locked if Pending or Rejected) --}}
                                             @if (!$costing->isPendingApproval() && !$costing->isRejected())
                                                 <a href="{{ route('costing.export', $costing) }}" class="btn btn-outline-success" title="Download Excel (.xlsx)">
