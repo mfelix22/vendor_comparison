@@ -141,7 +141,7 @@
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
             <div>
                 <div class="d-flex align-items-center gap-2">
-                    <a href="{{ route('costing.show', $costing) }}" class="btn btn-sm btn-outline-secondary">
+                    <a href="{{ route('costing.show', $costing) }}" class="btn btn-sm btn-outline-secondary back-guard-link">
                         <i class="bi bi-arrow-left"></i>
                     </a>
                     <h4 class="fw-bold mb-0">Edit Costing: {{ $costing->costing_number }}</h4>
@@ -149,8 +149,11 @@
                 <p class="text-muted small mb-0 mt-1">Update vehicle options, prices, and accessories.</p>
             </div>
             <div class="d-flex gap-2">
-                <a href="{{ route('costing.show', $costing) }}" class="btn btn-outline-secondary btn-sm">Cancel</a>
-                <button type="submit" class="btn btn-primary btn-sm px-3">
+                <a href="{{ route('costing.show', $costing) }}" class="btn btn-outline-secondary btn-sm back-guard-link">Cancel</a>
+                <button type="submit" name="action" value="draft" class="btn btn-outline-secondary btn-sm px-3" title="Save current progress as a draft">
+                    <i class="bi bi-file-earmark me-1"></i>Save as Draft
+                </button>
+                <button type="submit" name="action" value="save" class="btn btn-primary btn-sm px-3">
                     <i class="bi bi-check-lg me-1"></i>Save Changes
                 </button>
             </div>
@@ -244,7 +247,7 @@
                         </label>
                     </div>
 
-                    {{-- 3 Checkmarks for Same Brand, Same Type, Same BBN --}}
+                    {{-- 4 Checkmarks for Same Brand, Same Type, Same Pemakaian, Same BBN --}}
                     <div class="d-flex align-items-center gap-3 border-start ps-3 flex-wrap">
                         <div class="form-check mb-0 d-flex align-items-center gap-1">
                             <input class="form-check-input mt-0" type="checkbox" id="syncSameBrand" style="cursor: pointer;">
@@ -256,6 +259,12 @@
                             <input class="form-check-input mt-0" type="checkbox" id="syncSameType" style="cursor: pointer;">
                             <label class="form-check-label small fw-semibold text-dark" for="syncSameType" style="cursor: pointer; user-select: none;">
                                 Same Type
+                            </label>
+                        </div>
+                        <div class="form-check mb-0 d-flex align-items-center gap-1">
+                            <input class="form-check-input mt-0" type="checkbox" id="syncSamePemakaian" style="cursor: pointer;">
+                            <label class="form-check-label small fw-semibold text-dark" for="syncSamePemakaian" style="cursor: pointer; user-select: none;">
+                                Same Pemakaian
                             </label>
                         </div>
                         <div class="form-check mb-0 d-flex align-items-center gap-1">
@@ -287,12 +296,12 @@
                         <tbody>
                             <tr id="rowPulau">
                                 <td class="costing-label-col">
-                                    PULAU : <span class="badge bg-light text-muted border py-0 px-1 ms-1 fw-normal" style="font-size: 0.65rem;" title="Auto-filled from BBN"><i class="bi bi-lock me-1"></i>Auto</span>
+                                    PULAU : <span class="badge bg-light text-muted border py-0 px-1 ms-1 fw-normal" style="font-size: 0.65rem;" title="Auto-filled from Lokasi Pemakaian"><i class="bi bi-lock me-1"></i>Auto</span>
                                 </td>
                             </tr>
                             <tr id="rowProvinsi">
                                 <td class="costing-label-col">
-                                    PROVINSI : <span class="badge bg-light text-muted border py-0 px-1 ms-1 fw-normal" style="font-size: 0.65rem;" title="Auto-filled from BBN"><i class="bi bi-lock me-1"></i>Auto</span>
+                                    PROVINSI : <span class="badge bg-light text-muted border py-0 px-1 ms-1 fw-normal" style="font-size: 0.65rem;" title="Auto-filled from Lokasi Pemakaian"><i class="bi bi-lock me-1"></i>Auto</span>
                                 </td>
                             </tr>
                             <tr id="rowBrand">
@@ -302,10 +311,10 @@
                                 <td class="costing-label-col">Type Kendaraan :</td>
                             </tr>
                             <tr id="rowBbn">
-                                <td class="costing-label-col">BBN :</td>
+                                <td class="costing-label-col">BBN (Samsat) :</td>
                             </tr>
                             <tr id="rowPemakaian">
-                                <td class="costing-label-col">Pemakaian :</td>
+                                <td class="costing-label-col">Lokasi Pemakaian :</td>
                             </tr>
                             <tr id="rowOtr">
                                 <td class="costing-label-col">Harga OTR :</td>
@@ -331,7 +340,7 @@
                                     <div class="d-flex align-items-center justify-content-between">
                                         <span><i class="bi bi-wrench-adjustable me-1"></i>Tambahan (Accessories & Upgrades)</span>
                                         <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2"
-                                            onclick="addAccessoryRow(''); return false;">
+                                             onclick="addAccessoryRow(''); return false;">
                                             <i class="bi bi-plus me-1"></i>Add Row (+)
                                         </button>
                                     </div>
@@ -347,14 +356,25 @@
                             <tr id="rowGrandTotal" class="costing-grand-row">
                                 <td class="costing-label-col text-primary">Harga Unit + Aksesoris :</td>
                             </tr>
+
+                            <tr id="rowVehicleNote" class="table-light">
+                                <td class="costing-label-col align-top pt-2">
+                                    <div class="fw-bold text-dark"><i class="bi bi-pencil-square me-1 text-primary"></i>Note :</div>
+                                    <span class="text-muted" style="font-size: 0.7rem; font-weight: normal;">Notes per unit</span>
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
             <div class="card-footer bg-light py-2 text-muted small d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-info-circle me-1"></i>Calculations update live automatically. You can add or remove
-                    vehicle columns and accessory rows dynamically.</span>
-                <button type="submit" class="btn btn-primary btn-sm px-4">Update Costing</button>
+                <span><i class="bi bi-info-circle me-1"></i>Calculations update live automatically. You can add or remove vehicle columns and accessory rows dynamically.</span>
+                <div class="d-flex gap-2">
+                    <button type="submit" name="action" value="draft" class="btn btn-outline-secondary btn-sm px-3">
+                        <i class="bi bi-file-earmark me-1"></i>Save as Draft
+                    </button>
+                    <button type="submit" name="action" value="save" class="btn btn-primary btn-sm px-4">Update Costing</button>
+                </div>
             </div>
         </div>
     </form>
@@ -362,6 +382,12 @@
     <datalist id="globalBrandList">
         @foreach ($brands as $b)
             <option value="{{ $b }}"></option>
+        @endforeach
+    </datalist>
+
+    <datalist id="pemakaianListDatalist">
+        @foreach($pemakaianList as $p)
+            <option value="{{ $p->name }}">{{ $p->pulau }} - {{ $p->provinsi }}</option>
         @endforeach
     </datalist>
     <datalist id="pulauListDatalist">
@@ -560,14 +586,33 @@
             });
         }
 
+        function syncPemakaianToAll() {
+            const isChecked = document.getElementById('syncSamePemakaian')?.checked;
+            if (!isChecked) return;
+            const firstIdx = getFirstVehicleIndex();
+            if (firstIdx === null) return;
+            const firstPem = document.getElementById(`inputPemakaian_${firstIdx}`)?.value || '';
+            const firstPulau = document.getElementById(`inputPulau_${firstIdx}`)?.value || '';
+            const firstProv = document.getElementById(`inputProvinsi_${firstIdx}`)?.value || '';
+
+            getAllVehicleIndices().forEach(idx => {
+                if (idx !== firstIdx) {
+                    const pemInp = document.getElementById(`inputPemakaian_${idx}`);
+                    if (pemInp) pemInp.value = firstPem;
+                    const pInp = document.getElementById(`inputPulau_${idx}`);
+                    if (pInp) pInp.value = firstPulau;
+                    const prInp = document.getElementById(`inputProvinsi_${idx}`);
+                    if (prInp) prInp.value = firstProv;
+                }
+            });
+        }
+
         function syncBbnToAll() {
             const isChecked = document.getElementById('syncSameBbn')?.checked;
             if (!isChecked) return;
             const firstIdx = getFirstVehicleIndex();
             if (firstIdx === null) return;
             const firstSelect = document.querySelector(`#cellBbn_${firstIdx} select`);
-            const firstPulau = document.getElementById(`inputPulau_${firstIdx}`)?.value || '';
-            const firstProvinsi = document.getElementById(`inputProvinsi_${firstIdx}`)?.value || '';
             if (!firstSelect) return;
             const firstVal = firstSelect.value || '';
 
@@ -575,10 +620,6 @@
                 if (idx !== firstIdx) {
                     const sel = document.querySelector(`#cellBbn_${idx} select`);
                     if (sel) sel.value = firstVal;
-                    const pInp = document.getElementById(`inputPulau_${idx}`);
-                    if (pInp) pInp.value = firstPulau;
-                    const prInp = document.getElementById(`inputProvinsi_${idx}`);
-                    if (prInp) prInp.value = firstProvinsi;
                 }
             });
         }
@@ -591,18 +632,19 @@
 
         function onBbnChanged(vIndex) {
             const firstIdx = getFirstVehicleIndex();
-            const bbnSelect = document.querySelector(`#cellBbn_${vIndex} select`);
-            const bbnVal = bbnSelect ? bbnSelect.value : '';
-            const selectedOpt = bbnSelect ? bbnSelect.selectedOptions[0] : null;
+            if (vIndex === firstIdx && document.getElementById('syncSameBbn')?.checked) {
+                syncBbnToAll();
+            }
+        }
 
+        function onPemakaianChanged(vIndex) {
+            const pemInp = document.getElementById(`inputPemakaian_${vIndex}`);
+            const val = pemInp ? pemInp.value.trim() : '';
             const pInp = document.getElementById(`inputPulau_${vIndex}`);
             const prInp = document.getElementById(`inputProvinsi_${vIndex}`);
 
-            if (selectedOpt && (selectedOpt.dataset.pulau || selectedOpt.dataset.provinsi)) {
-                if (pInp) pInp.value = selectedOpt.dataset.pulau || '';
-                if (prInp) prInp.value = selectedOpt.dataset.provinsi || '';
-            } else if (bbnVal) {
-                const match = lookupRegion(bbnVal);
+            if (val) {
+                const match = lookupRegion(val);
                 if (match) {
                     if (pInp) pInp.value = match.pulau || '';
                     if (prInp) prInp.value = match.provinsi || '';
@@ -612,13 +654,10 @@
                 if (prInp) prInp.value = '';
             }
 
-            if (vIndex === firstIdx && document.getElementById('syncSameBbn')?.checked) {
-                syncBbnToAll();
+            const firstIdx = getFirstVehicleIndex();
+            if (vIndex === firstIdx && document.getElementById('syncSamePemakaian')?.checked) {
+                syncPemakaianToAll();
             }
-        }
-
-        function onPemakaianChanged(vIndex) {
-            // Pemakaian is free-text (e.g. "JABODETABEK", "SEMARANG & DEMAK") - does not affect Pulau / Provinsi
         }
 
         function addVehicleColumn(data = {}) {
@@ -633,6 +672,8 @@
             let vType = data.vehicle_type || '';
             let odooProdId = data.odoo_product_id || '';
             let bbn = data.bbn || '';
+            let pemakaian = data.pemakaian || '';
+            let note = data.note || '';
 
             if (firstIdx !== null && vIndex !== firstIdx) {
                 if (!brand && document.getElementById('syncSameBrand')?.checked) {
@@ -642,14 +683,16 @@
                     vType = document.getElementById(`inputType_${firstIdx}`)?.value || '';
                     odooProdId = document.getElementById(`inputOdooProductId_${firstIdx}`)?.value || '';
                 }
-                if (!bbn && document.getElementById('syncSameBbn')?.checked) {
-                    const firstBbnSel = document.querySelector(`#cellBbn_${firstIdx} select`);
-                    if (firstBbnSel) bbn = firstBbnSel.value || '';
+                if (!pemakaian && document.getElementById('syncSamePemakaian')?.checked) {
+                    pemakaian = document.getElementById(`inputPemakaian_${firstIdx}`)?.value || '';
                     if (!pulau) pulau = document.getElementById(`inputPulau_${firstIdx}`)?.value || '';
                     if (!provinsi) provinsi = document.getElementById(`inputProvinsi_${firstIdx}`)?.value || '';
                 }
+                if (!bbn && document.getElementById('syncSameBbn')?.checked) {
+                    const firstBbnSel = document.querySelector(`#cellBbn_${firstIdx} select`);
+                    if (firstBbnSel) bbn = firstBbnSel.value || '';
+                }
             }
-            const pemakaian = data.pemakaian || '';
             const otr = cleanNumber(data.harga_otr);
             const diskon = cleanNumber(data.diskon);
             const estimasi = cleanNumber(data.estimasi_kenaikan);
@@ -667,16 +710,16 @@
             `;
             document.getElementById('vehicleHeaderRow').appendChild(th);
 
-            // 1a. Pulau Cell (Locked & driven automatically by BBN)
+            // 1a. Pulau Cell (Locked & driven automatically by Lokasi Pemakaian)
             const tdPulau = document.createElement('td');
             tdPulau.id = `cellPulau_${vIndex}`;
-            tdPulau.innerHTML = `<input type="text" name="vehicles[${vIndex}][pulau]" id="inputPulau_${vIndex}" class="form-control form-control-sm text-uppercase fw-semibold bg-light" placeholder="PULAU (Auto)..." value="${pulau}" readonly tabindex="-1" style="cursor: not-allowed;" title="Auto-filled from BBN selection">`;
+            tdPulau.innerHTML = `<input type="text" name="vehicles[${vIndex}][pulau]" id="inputPulau_${vIndex}" class="form-control form-control-sm text-uppercase fw-semibold bg-light" placeholder="PULAU (Auto)..." value="${pulau}" readonly tabindex="-1" style="cursor: not-allowed;" title="Auto-filled from Lokasi Pemakaian">`;
             document.getElementById('rowPulau').appendChild(tdPulau);
 
-            // 1b. Provinsi Cell (Locked & driven automatically by BBN)
+            // 1b. Provinsi Cell (Locked & driven automatically by Lokasi Pemakaian)
             const tdProvinsi = document.createElement('td');
             tdProvinsi.id = `cellProvinsi_${vIndex}`;
-            tdProvinsi.innerHTML = `<input type="text" name="vehicles[${vIndex}][provinsi]" id="inputProvinsi_${vIndex}" class="form-control form-control-sm text-uppercase fw-semibold bg-light" placeholder="PROVINSI (Auto)..." value="${provinsi}" readonly tabindex="-1" style="cursor: not-allowed;" title="Auto-filled from BBN selection">`;
+            tdProvinsi.innerHTML = `<input type="text" name="vehicles[${vIndex}][provinsi]" id="inputProvinsi_${vIndex}" class="form-control form-control-sm text-uppercase fw-semibold bg-light" placeholder="PROVINSI (Auto)..." value="${provinsi}" readonly tabindex="-1" style="cursor: not-allowed;" title="Auto-filled from Lokasi Pemakaian">`;
             document.getElementById('rowProvinsi').appendChild(tdProvinsi);
 
             const tdBrand = document.createElement('td');
@@ -700,29 +743,30 @@
             `;
             document.getElementById('rowType').appendChild(tdType);
 
+            // 4. BBN Cell (Tax / Samsat only - decoupled from Pulau/Provinsi)
             const tdBbn = document.createElement('td');
             tdBbn.id = `cellBbn_${vIndex}`;
-            let bbnOptsHtml = `<option value="">-- BBN --</option>`;
+            let bbnOptsHtml = `<option value="">-- BBN (Samsat) --</option>`;
             bbnOptions.forEach(b => {
                 const label = b.name || b.display_name || b.kode;
                 const isSel = (b.name === bbn || b.kode === bbn || b.display_name === bbn) ? 'selected' : '';
-                bbnOptsHtml += `<option value="${label}" data-pulau="${b.pulau || ''}" data-provinsi="${b.provinsi || ''}" ${isSel}>${label}</option>`;
+                bbnOptsHtml += `<option value="${label}" ${isSel}>${label}</option>`;
             });
             tdBbn.innerHTML = `<select name="vehicles[${vIndex}][bbn]" class="form-select form-select-sm" onchange="onBbnChanged(${vIndex})">${bbnOptsHtml}</select>`;
             document.getElementById('rowBbn').appendChild(tdBbn);
 
+            // 5. Lokasi Pemakaian Cell (Searchable datalist with 514 Kota & Kabupaten)
             const tdPemakaian = document.createElement('td');
             tdPemakaian.id = `cellPemakaian_${vIndex}`;
             tdPemakaian.innerHTML = `
-                <textarea name="vehicles[${vIndex}][pemakaian]" id="inputPemakaian_${vIndex}"
-                    class="form-control form-control-sm auto-expand" placeholder="e.g. Jabodetabek"
-                    rows="1" oninput="autoResize(this); onPemakaianChanged(${vIndex})"
-                    onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); this.blur(); }">${pemakaian}</textarea>
+                <input type="text" name="vehicles[${vIndex}][pemakaian]" id="inputPemakaian_${vIndex}"
+                    list="pemakaianListDatalist" class="form-control form-control-sm"
+                    placeholder="Search kota/kabupaten..." value="${pemakaian}"
+                    oninput="onPemakaianChanged(${vIndex})" onchange="onPemakaianChanged(${vIndex})" autocomplete="off">
             `;
             document.getElementById('rowPemakaian').appendChild(tdPemakaian);
 
             autoResize(tdType.querySelector('textarea'));
-            autoResize(tdPemakaian.querySelector('textarea'));
 
             const tdOtr = document.createElement('td');
             tdOtr.id = `cellOtr_${vIndex}`;
@@ -784,6 +828,17 @@
             tdGrand.className = 'fw-bold text-primary';
             tdGrand.innerHTML = `<div class="text-end small" id="valGrand_${vIndex}">Rp 0</div>`;
             document.getElementById('rowGrandTotal').appendChild(tdGrand);
+
+            // 14. Note Cell (Per column at bottom)
+            const tdNote = document.createElement('td');
+            tdNote.id = `cellNote_${vIndex}`;
+            tdNote.innerHTML = `
+                <textarea name="vehicles[${vIndex}][note]" id="inputNote_${vIndex}"
+                    class="form-control form-control-sm auto-expand" placeholder="Vehicle notes / remarks..."
+                    rows="2" oninput="autoResize(this)">${note}</textarea>
+            `;
+            document.getElementById('rowVehicleNote').appendChild(tdNote);
+            autoResize(tdNote.querySelector('textarea'));
 
             updateRemoveColButtonsState();
             renumberVehicleColumns();
@@ -995,7 +1050,8 @@
                 `cellEstimasi_${vIndex}`,
                 `cellAfterInc_${vIndex}`,
                 `cellTotalAcc_${vIndex}`,
-                `cellGrand_${vIndex}`
+                `cellGrand_${vIndex}`,
+                `cellNote_${vIndex}`
             ];
 
             idsToRemove.forEach(id => {
@@ -1140,6 +1196,9 @@
             if (valGrand) valGrand.innerText = formatRupiah(grandTotal);
         }
 
+        // Form Dirty Tracking for Unsaved Changes Guard
+        let isFormDirty = false;
+
         // Populate existing data
         document.addEventListener('DOMContentLoaded', function () {
             if (existingVehicles && existingVehicles.length > 0) {
@@ -1162,21 +1221,55 @@
                 addAccessoryRow('', '');
             }
 
-
-
             document.getElementById('addVehicleBtn').addEventListener('click', function () {
                 addVehicleColumn();
             });
 
-            // Listeners for Same Brand, Same Type, Same BBN checkmarks
+            // Listeners for Same Brand, Same Type, Same Pemakaian, Same BBN checkmarks
             document.getElementById('syncSameBrand')?.addEventListener('change', function() {
                 if (this.checked) syncBrandToAll();
             });
             document.getElementById('syncSameType')?.addEventListener('change', function() {
                 if (this.checked) syncTypeToAll();
             });
+            document.getElementById('syncSamePemakaian')?.addEventListener('change', function() {
+                if (this.checked) syncPemakaianToAll();
+            });
             document.getElementById('syncSameBbn')?.addEventListener('change', function() {
                 if (this.checked) syncBbnToAll();
+            });
+
+            // Dirty Form Tracking
+            const costingForm = document.getElementById('costingForm');
+            if (costingForm) {
+                costingForm.addEventListener('input', function() {
+                    isFormDirty = true;
+                });
+                costingForm.addEventListener('change', function() {
+                    isFormDirty = true;
+                });
+                costingForm.addEventListener('submit', function() {
+                    isFormDirty = false;
+                });
+            }
+
+            // Window BeforeUnload Guard
+            window.addEventListener('beforeunload', function(e) {
+                if (isFormDirty) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
+
+            // Navigation Links Guard (.back-guard-link)
+            document.querySelectorAll('.back-guard-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    if (isFormDirty) {
+                        if (!confirm('You have unsaved changes on this Costing Sheet. Are you sure you want to leave without saving? Any unsaved data will be lost.')) {
+                            e.preventDefault();
+                        }
+                    }
+                });
             });
 
             updateAccHeaderColspan();
