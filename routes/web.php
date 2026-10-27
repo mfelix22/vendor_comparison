@@ -74,9 +74,15 @@ Route::middleware('auth')->group(function () {
             Route::put('/bbn/{bbn}', [App\Http\Controllers\Costing\MasterDataController::class, 'updateBbn'])->name('bbn.update');
             Route::delete('/bbn/{bbn}', [App\Http\Controllers\Costing\MasterDataController::class, 'destroyBbn'])->name('bbn.destroy');
 
+            // Lokasi Pemakaian
+            Route::post('/pemakaian', [App\Http\Controllers\Costing\MasterDataController::class, 'storePemakaian'])->name('pemakaian.store');
+            Route::put('/pemakaian/{pemakaian}', [App\Http\Controllers\Costing\MasterDataController::class, 'updatePemakaian'])->name('pemakaian.update');
+            Route::delete('/pemakaian/{pemakaian}', [App\Http\Controllers\Costing\MasterDataController::class, 'destroyPemakaian'])->name('pemakaian.destroy');
+
             // Dynamic APIs for costing form
             Route::get('/api/brands', [App\Http\Controllers\Costing\MasterDataController::class, 'apiBrands'])->name('api.brands');
             Route::get('/api/vehicle-types', [App\Http\Controllers\Costing\MasterDataController::class, 'apiVehicleTypes'])->name('api.vehicle-types');
+            Route::get('/api/pemakaian', [App\Http\Controllers\Costing\MasterDataController::class, 'apiLokasiPemakaian'])->name('api.pemakaian');
             Route::get('/api/bbn', [App\Http\Controllers\Costing\MasterDataController::class, 'apiBbn'])->name('api.bbn');
         });
 

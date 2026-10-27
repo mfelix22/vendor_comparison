@@ -106,7 +106,7 @@
         <div class="card border-0 shadow-sm">
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-hover align-middle mb-0" id="approvalsTable">
                         <thead class="table-light">
                             <tr>
                                 <th class="ps-3 py-3">Costing No</th>
@@ -125,7 +125,7 @@
                                     $maxPrice = $costing->vehicles->max('grand_total') ?? 0;
                                     $isMgrOrAdmin = Auth::check() && (Auth::user()->isManager() || Auth::user()->isAdmin());
                                 @endphp
-                                <tr>
+                                <tr data-href="{{ route('costing.show', $costing) }}" style="cursor: pointer;">
                                     <td class="ps-3 fw-bold text-primary">
                                         <a href="{{ route('costing.show', $costing) }}" class="text-decoration-none">
                                             {{ $costing->costing_number }}
@@ -190,9 +190,11 @@
                                     </td>
                                     <td class="text-center pe-3">
                                         <div class="d-flex align-items-center justify-content-center gap-1">
-                                            <a href="{{ route('costing.show', $costing) }}" class="btn btn-outline-secondary btn-sm" title="View Excel Grid">
-                                                <i class="bi bi-eye"></i>
-                                            </a>
+                                            @if ($costing->isApproved())
+                                                <a href="{{ route('costing.export', $costing) }}" class="btn btn-outline-success btn-sm" title="Download Excel (.xlsx)">
+                                                    <i class="bi bi-file-earmark-excel me-1"></i>Excel
+                                                </a>
+                                            @endif
 
                                             @if ($isMgrOrAdmin)
                                                 @if ($costing->isPendingApproval())
@@ -217,6 +219,8 @@
                                                         </button>
                                                     </form>
                                                 @endif
+                                            @elseif (!$costing->isApproved())
+                                                <span class="text-muted small">—</span>
                                             @endif
                                         </div>
                                     </td>
@@ -278,5 +282,46 @@
         const modal = new bootstrap.Modal(document.getElementById('rejectModal'));
         modal.show();
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const approvalsTableBody = document.querySelector('#approvalsTable tbody');
+        if (approvalsTableBody) {
+            approvalsTableBody.addEventListener('click', function(e) {
+                // Ignore clicks on explicit links, buttons, or form controls
+                if (e.target.closest('a, button, input, select, textarea, form')) {
+                    return;
+                }
+                // Ignore if user is selecting text (e.g., copying costing number)
+                const selection = window.getSelection();
+                if (selection && selection.toString().trim().length > 0) {
+                    return;
+                }
+                const row = e.target.closest('tr');
+                if (!row || !approvalsTableBody.contains(row)) return;
+
+                if (row.dataset.href) {
+                    if (e.ctrlKey || e.metaKey) {
+                        window.open(row.dataset.href, '_blank');
+                    } else {
+                        window.location.href = row.dataset.href;
+                    }
+                }
+            });
+
+            approvalsTableBody.addEventListener('auxclick', function(e) {
+                if (e.button === 1) { // Middle click
+                    if (e.target.closest('a, button, input, select, textarea, form')) {
+                        return;
+                    }
+                    const row = e.target.closest('tr');
+                    if (!row || !approvalsTableBody.contains(row)) return;
+
+                    if (row.dataset.href) {
+                        window.open(row.dataset.href, '_blank');
+                    }
+                }
+            });
+        }
+    });
 </script>
 @endpush

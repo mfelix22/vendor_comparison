@@ -66,6 +66,11 @@ class Costing extends Model
         return $this->approval_status === 'rejected';
     }
 
+    public function isDraft(): bool
+    {
+        return $this->status === 'draft' || $this->approval_status === 'draft';
+    }
+
 
     public function vehicles(): HasMany
     {

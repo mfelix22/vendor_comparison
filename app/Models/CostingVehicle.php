@@ -29,6 +29,7 @@ class CostingVehicle extends Model
         'harga_setelah_kenaikan',
         'total_acc',
         'grand_total',
+        'note',
     ];
 
     protected function casts(): array

@@ -53,7 +53,7 @@
         <div class="card border-0 shadow-sm">
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-hover align-middle mb-0" id="costingTable">
                         <thead class="table-light">
                             <tr>
                                 <th class="ps-3 py-3">Costing No</th>
@@ -63,7 +63,7 @@
                                 <th class="text-end">Price Range (Unit + Acc)</th>
                                 <th>Created By</th>
                                 <th>Created Date</th>
-                                <th class="text-center pe-3" style="width: 140px;">Actions</th>
+                                <th class="text-center pe-3" style="width: 110px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -72,7 +72,7 @@
                                     $minPrice = $costing->vehicles->min('grand_total') ?? 0;
                                     $maxPrice = $costing->vehicles->max('grand_total') ?? 0;
                                 @endphp
-                                <tr>
+                                <tr data-href="{{ route('costing.show', $costing) }}" style="cursor: pointer;">
                                     <td class="ps-3 fw-bold text-primary">
                                         <a href="{{ route('costing.show', $costing) }}" class="text-decoration-none">
                                             {{ $costing->costing_number }}
@@ -87,7 +87,13 @@
                                         @endif
                                     </td>
                                     <td class="text-center">
-                                        @if ($costing->isTender())
+                                        @if ($costing->isDraft())
+                                            <div>
+                                                <span class="badge bg-secondary text-white border px-2 py-1">
+                                                    <i class="bi bi-file-earmark me-1"></i>Draft
+                                                </span>
+                                            </div>
+                                        @elseif ($costing->isTender())
                                             <div>
                                                 <span class="badge bg-warning text-dark border border-warning-subtle px-2 py-1">
                                                     <i class="bi bi-award me-1"></i>Tender
@@ -135,9 +141,6 @@
                                     </td>
                                     <td class="text-center pe-3">
                                         <div class="btn-group btn-group-sm">
-                                            <a href="{{ route('costing.show', $costing) }}" class="btn btn-outline-secondary" title="View Sheet">
-                                                <i class="bi bi-eye"></i>
-                                            </a>
                                             {{-- Excel Export Button (Locked if Pending or Rejected) --}}
                                             @if (!$costing->isPendingApproval() && !$costing->isRejected())
                                                 <a href="{{ route('costing.export', $costing) }}" class="btn btn-outline-success" title="Download Excel (.xlsx)">
@@ -151,9 +154,9 @@
                                                 </button>
                                             @endif
 
-                                            {{-- Edit Button (Retail is always editable; Tender is locked when Pending or Approved, unlocked when Rejected) --}}
+                                            {{-- Edit Button (Draft or Retail is always editable; Tender is locked when Pending or Approved, unlocked when Rejected) --}}
                                             @php
-                                                $canEdit = !$costing->isTender() || $costing->isRejected();
+                                                $canEdit = $costing->isDraft() || !$costing->isTender() || $costing->isRejected();
                                                 $lockReason = 'Edit';
                                                 if ($costing->isPendingApproval()) {
                                                     $lockReason = 'Awaiting Manager Approval — Editing is locked';
@@ -196,3 +199,48 @@
     @endif
 
 @endsection
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const costingTableBody = document.querySelector('#costingTable tbody');
+        if (costingTableBody) {
+            costingTableBody.addEventListener('click', function(e) {
+                // Ignore clicks on explicit links, buttons, or form controls
+                if (e.target.closest('a, button, input, select, textarea, form')) {
+                    return;
+                }
+                // Ignore if user is selecting text (e.g., copying costing number)
+                const selection = window.getSelection();
+                if (selection && selection.toString().trim().length > 0) {
+                    return;
+                }
+                const row = e.target.closest('tr');
+                if (!row || !costingTableBody.contains(row)) return;
+
+                if (row.dataset.href) {
+                    if (e.ctrlKey || e.metaKey) {
+                        window.open(row.dataset.href, '_blank');
+                    } else {
+                        window.location.href = row.dataset.href;
+                    }
+                }
+            });
+
+            costingTableBody.addEventListener('auxclick', function(e) {
+                if (e.button === 1) { // Middle click
+                    if (e.target.closest('a, button, input, select, textarea, form')) {
+                        return;
+                    }
+                    const row = e.target.closest('tr');
+                    if (!row || !costingTableBody.contains(row)) return;
+
+                    if (row.dataset.href) {
+                        window.open(row.dataset.href, '_blank');
+                    }
+                }
+            });
+        }
+    });
+</script>
+@endpush

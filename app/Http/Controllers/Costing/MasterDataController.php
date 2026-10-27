@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Costing;
 use App\Http\Controllers\Controller;
 use App\Models\CostingBbnMaster;
 use App\Models\CostingBrand;
+use App\Models\CostingLokasiPemakaian;
 use App\Models\CostingVehicleType;
 use App\Services\CostingOdooService;
 use Illuminate\Http\Request;
@@ -24,7 +25,7 @@ class MasterDataController extends Controller
     {
         $tab = $request->input('tab', 'brands');
 
-        // Brands
+        // 1. Brands
         $brandsQuery = CostingBrand::withCount('vehicleTypes')->orderBy('name');
         if ($searchBrand = $request->input('search_brand')) {
             $brandsQuery->where('name', 'like', "%{$searchBrand}%");
@@ -34,7 +35,7 @@ class MasterDataController extends Controller
         // All active brands for dropdowns
         $allBrands = CostingBrand::where('is_active', true)->orderBy('name')->get();
 
-        // Vehicle Types
+        // 2. Vehicle Types
         $typesQuery = CostingVehicleType::with('brand')->orderBy('brand_name')->orderBy('name');
         if ($filterBrand = $request->input('filter_brand')) {
             $typesQuery->where('brand_name', $filterBrand);
@@ -47,24 +48,43 @@ class MasterDataController extends Controller
         }
         $vehicleTypes = $typesQuery->paginate(20, ['*'], 'types_page')->withQueryString();
 
-        // BBN Masters
-        $bbnQuery = CostingBbnMaster::orderBy('pulau')->orderBy('provinsi')->orderBy('name');
+        // 3. Lokasi Pemakaian (514 official Kota & Kabupaten baseline + custom additions)
+        $pemakaianQuery = CostingLokasiPemakaian::orderBy('pulau')->orderBy('provinsi')->orderBy('name');
+        if ($filterPulau = $request->input('filter_pulau')) {
+            $pemakaianQuery->where('pulau', $filterPulau);
+        }
+        if ($filterProvinsi = $request->input('filter_provinsi')) {
+            $pemakaianQuery->where('provinsi', $filterProvinsi);
+        }
+        if ($searchPemakaian = $request->input('search_pemakaian')) {
+            $pemakaianQuery->where(function ($q) use ($searchPemakaian) {
+                $q->where('name', 'like', "%{$searchPemakaian}%")
+                  ->orWhere('pulau', 'like', "%{$searchPemakaian}%")
+                  ->orWhere('provinsi', 'like', "%{$searchPemakaian}%");
+            });
+        }
+        $pemakaianList = $pemakaianQuery->paginate(20, ['*'], 'pemakaian_page')->withQueryString();
+
+        // 4. BBN Masters (Samsat vehicle tax registration areas)
+        $bbnQuery = CostingBbnMaster::orderBy('name');
         if ($searchBbn = $request->input('search_bbn')) {
             $bbnQuery->where(function ($q) use ($searchBbn) {
                 $q->where('kode', 'like', "%{$searchBbn}%")
                   ->orWhere('name', 'like', "%{$searchBbn}%")
-                  ->orWhere('pulau', 'like', "%{$searchBbn}%")
-                  ->orWhere('provinsi', 'like', "%{$searchBbn}%");
+                  ->orWhere('display_name', 'like', "%{$searchBbn}%");
             });
         }
         $bbnList = $bbnQuery->paginate(20, ['*'], 'bbn_page')->withQueryString();
 
-        // Distinct Pulau and Provinsi directly from unified BBN master for datalist suggestions
-        $pulauList = CostingBbnMaster::whereNotNull('pulau')->distinct()->orderBy('pulau')->pluck('pulau')->toArray();
-        $provinsiList = CostingBbnMaster::whereNotNull('provinsi')->distinct()->orderBy('provinsi')->pluck('provinsi')->toArray();
+        // Distinct Pulau and Provinsi for dropdown filters & modals
+        $pulauList = CostingLokasiPemakaian::whereNotNull('pulau')->distinct()->orderBy('pulau')->pluck('pulau')->toArray();
+        if (empty($pulauList)) {
+            $pulauList = ['JAWA', 'SUMATERA', 'KALIMANTAN', 'SULAWESI', 'BALI & NUSA TENGGARA', 'PAPUA & MALUKU'];
+        }
+        $provinsiList = CostingLokasiPemakaian::whereNotNull('provinsi')->distinct()->orderBy('provinsi')->pluck('provinsi')->toArray();
 
         return view('costing.master.index', compact(
-            'tab', 'brands', 'allBrands', 'vehicleTypes', 'bbnList', 'pulauList', 'provinsiList'
+            'tab', 'brands', 'allBrands', 'vehicleTypes', 'pemakaianList', 'bbnList', 'pulauList', 'provinsiList'
         ));
     }
 
@@ -93,21 +113,13 @@ class MasterDataController extends Controller
             'is_active' => ['nullable', 'boolean'],
         ]);
 
-        $oldName = $brand->name;
-        $newName = strtoupper(trim($validated['name']));
-
         $brand->update([
-            'name'      => $newName,
+            'name'      => strtoupper(trim($validated['name'])),
             'is_active' => $request->has('is_active'),
         ]);
 
-        // Keep cached brand_name in sync on children
-        if ($oldName !== $newName) {
-            $brand->vehicleTypes()->update(['brand_name' => $newName]);
-        }
-
         return redirect()->route('costing.master.index', ['tab' => 'brands'])
-            ->with('success', "Brand {$newName} updated successfully.");
+            ->with('success', "Brand {$brand->name} updated successfully.");
     }
 
     public function destroyBrand(CostingBrand $brand)
@@ -119,7 +131,7 @@ class MasterDataController extends Controller
             ->with('success', "Brand {$name} deleted successfully.");
     }
 
-    // ── Vehicle Type Actions ──────────────────────────────────────────────────
+    // ── Vehicle Type Actions ─────────────────────────────────────────────────
 
     public function storeVehicleType(Request $request)
     {
@@ -138,8 +150,8 @@ class MasterDataController extends Controller
             'created_by'       => Auth::id(),
         ]);
 
-        return redirect()->route('costing.master.index', ['tab' => 'types', 'filter_brand' => $brand->name])
-            ->with('success', "Vehicle Type {$validated['name']} added for {$brand->name}.");
+        return redirect()->route('costing.master.index', ['tab' => 'types'])
+            ->with('success', "Vehicle Type {$validated['name']} ({$brand->name}) added successfully.");
     }
 
     public function updateVehicleType(Request $request, CostingVehicleType $vehicleType)
@@ -172,28 +184,81 @@ class MasterDataController extends Controller
             ->with('success', "Vehicle Type {$name} deleted successfully.");
     }
 
+    // ── Lokasi Pemakaian Actions ─────────────────────────────────────────────
+
+    public function storePemakaian(Request $request)
+    {
+        $validated = $request->validate([
+            'name'     => ['required', 'string', 'max:150', 'unique:costing_lokasi_pemakaians,name'],
+            'pulau'    => ['required', 'string', 'max:100'],
+            'provinsi' => ['required', 'string', 'max:100'],
+        ]);
+
+        $name = trim($validated['name']);
+        $pulau = strtoupper(trim($validated['pulau']));
+        $provinsi = strtoupper(trim($validated['provinsi']));
+
+        CostingLokasiPemakaian::create([
+            'name'       => $name,
+            'pulau'      => $pulau,
+            'provinsi'   => $provinsi,
+            'is_active'  => true,
+            'created_by' => Auth::id(),
+        ]);
+
+        return redirect()->route('costing.master.index', ['tab' => 'pemakaian'])
+            ->with('success', "Lokasi Pemakaian {$name} added successfully.");
+    }
+
+    public function updatePemakaian(Request $request, CostingLokasiPemakaian $pemakaian)
+    {
+        $validated = $request->validate([
+            'name'      => ['required', 'string', 'max:150', 'unique:costing_lokasi_pemakaians,name,' . $pemakaian->id],
+            'pulau'     => ['required', 'string', 'max:100'],
+            'provinsi'  => ['required', 'string', 'max:100'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $name = trim($validated['name']);
+        $pulau = strtoupper(trim($validated['pulau']));
+        $provinsi = strtoupper(trim($validated['provinsi']));
+
+        $pemakaian->update([
+            'name'      => $name,
+            'pulau'     => $pulau,
+            'provinsi'  => $provinsi,
+            'is_active' => $request->has('is_active'),
+        ]);
+
+        return redirect()->route('costing.master.index', ['tab' => 'pemakaian'])
+            ->with('success', "Lokasi Pemakaian {$name} updated successfully.");
+    }
+
+    public function destroyPemakaian(CostingLokasiPemakaian $pemakaian)
+    {
+        $name = $pemakaian->name;
+        $pemakaian->delete();
+
+        return redirect()->route('costing.master.index', ['tab' => 'pemakaian'])
+            ->with('success', "Lokasi Pemakaian {$name} deleted successfully.");
+    }
+
     // ── BBN Actions ──────────────────────────────────────────────────────────
 
     public function storeBbn(Request $request)
     {
         $validated = $request->validate([
-            'kode'     => ['required', 'string', 'max:20', 'unique:costing_bbn_masters,kode'],
-            'name'     => ['required', 'string', 'max:100'],
-            'pulau'    => ['nullable', 'string', 'max:100'],
-            'provinsi' => ['nullable', 'string', 'max:100'],
+            'kode' => ['required', 'string', 'max:20', 'unique:costing_bbn_masters,kode'],
+            'name' => ['required', 'string', 'max:100'],
         ]);
 
         $code = strtoupper(trim($validated['kode']));
         $name = trim($validated['name']);
-        $pulau = !empty($validated['pulau']) ? strtoupper(trim($validated['pulau'])) : null;
-        $provinsi = !empty($validated['provinsi']) ? strtoupper(trim($validated['provinsi'])) : null;
 
         CostingBbnMaster::create([
             'kode'         => $code,
             'name'         => $name,
             'display_name' => $name,
-            'pulau'        => $pulau,
-            'provinsi'     => $provinsi,
             'is_active'    => true,
             'created_by'   => Auth::id(),
         ]);
@@ -207,22 +272,16 @@ class MasterDataController extends Controller
         $validated = $request->validate([
             'kode'      => ['required', 'string', 'max:20', 'unique:costing_bbn_masters,kode,' . $bbn->id],
             'name'      => ['required', 'string', 'max:100'],
-            'pulau'     => ['nullable', 'string', 'max:100'],
-            'provinsi'  => ['nullable', 'string', 'max:100'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
         $code = strtoupper(trim($validated['kode']));
         $name = trim($validated['name']);
-        $pulau = !empty($validated['pulau']) ? strtoupper(trim($validated['pulau'])) : null;
-        $provinsi = !empty($validated['provinsi']) ? strtoupper(trim($validated['provinsi'])) : null;
 
         $bbn->update([
             'kode'         => $code,
             'name'         => $name,
             'display_name' => $name,
-            'pulau'        => $pulau,
-            'provinsi'     => $provinsi,
             'is_active'    => $request->has('is_active'),
         ]);
 
@@ -277,11 +336,22 @@ class MasterDataController extends Controller
         return response()->json($types);
     }
 
+    public function apiLokasiPemakaian()
+    {
+        $pemakaianList = CostingLokasiPemakaian::where('is_active', true)
+            ->orderBy('pulau')
+            ->orderBy('provinsi')
+            ->orderBy('name')
+            ->get(['id', 'name', 'pulau', 'provinsi']);
+
+        return response()->json($pemakaianList);
+    }
+
     public function apiBbn()
     {
         $bbnList = CostingBbnMaster::where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'kode', 'name', 'display_name', 'pulau', 'provinsi']);
+            ->get(['id', 'kode', 'name', 'display_name']);
 
         return response()->json($bbnList);
     }

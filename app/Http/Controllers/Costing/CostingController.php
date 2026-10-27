@@ -8,6 +8,7 @@ use App\Models\CostingAccessory;
 use App\Models\CostingAccessoryTemplate;
 use App\Models\CostingBbnMaster;
 use App\Models\CostingBrand;
+use App\Models\CostingLokasiPemakaian;
 use App\Models\CostingVehicle;
 use App\Models\CostingVehicleType;
 use App\Services\CostingOdooService;
@@ -53,10 +54,11 @@ class CostingController extends Controller
      */
     public function create()
     {
-        $bbnList   = CostingBbnMaster::where('is_active', true)->orderBy('name')->get();
-        $templates = CostingAccessoryTemplate::orderBy('sort_order')->get();
-        $brands    = CostingBrand::where('is_active', true)->orderBy('name')->pluck('name')->toArray();
-        $products  = CostingVehicleType::where('is_active', true)->orderBy('name')->get()->map(function ($vt) {
+        $bbnList       = CostingBbnMaster::where('is_active', true)->orderBy('name')->get();
+        $pemakaianList = CostingLokasiPemakaian::where('is_active', true)->orderBy('pulau')->orderBy('provinsi')->orderBy('name')->get();
+        $templates     = CostingAccessoryTemplate::orderBy('sort_order')->get();
+        $brands        = CostingBrand::where('is_active', true)->orderBy('name')->pluck('name')->toArray();
+        $products      = CostingVehicleType::where('is_active', true)->orderBy('name')->get()->map(function ($vt) {
             return [
                 'id'               => $vt->odoo_product_id ?: $vt->id,
                 'name'             => $vt->name,
@@ -64,12 +66,12 @@ class CostingController extends Controller
                 'vehicle_brand_id' => [0, $vt->brand_name],
             ];
         })->toArray();
-        $smdList   = $this->odooService->getSmdList();
-        $pulauList   = CostingBbnMaster::where('is_active', true)->whereNotNull('pulau')->distinct()->orderBy('pulau')->pluck('pulau')->toArray();
-        $provinsiList = CostingBbnMaster::where('is_active', true)->whereNotNull('provinsi')->distinct()->orderBy('provinsi')->pluck('provinsi')->toArray();
-        $regionsJson = CostingBbnMaster::where('is_active', true)->get(['pulau', 'provinsi', 'name as area'])->toJson();
+        $smdList       = $this->odooService->getSmdList();
+        $pulauList     = CostingLokasiPemakaian::where('is_active', true)->whereNotNull('pulau')->distinct()->orderBy('pulau')->pluck('pulau')->toArray();
+        $provinsiList  = CostingLokasiPemakaian::where('is_active', true)->whereNotNull('provinsi')->distinct()->orderBy('provinsi')->pluck('provinsi')->toArray();
+        $regionsJson   = CostingLokasiPemakaian::where('is_active', true)->get(['pulau', 'provinsi', 'name as area'])->toJson();
 
-        return view('costing.create', compact('bbnList', 'templates', 'brands', 'products', 'smdList', 'pulauList', 'provinsiList', 'regionsJson'));
+        return view('costing.create', compact('bbnList', 'pemakaianList', 'templates', 'brands', 'products', 'smdList', 'pulauList', 'provinsiList', 'regionsJson'));
     }
 
 
@@ -93,6 +95,7 @@ class CostingController extends Controller
             'vehicles.*.odoo_product_id'=> ['nullable', 'integer'],
             'vehicles.*.bbn'            => ['nullable', 'string', 'max:100'],
             'vehicles.*.pemakaian'      => ['nullable', 'string', 'max:255'],
+            'vehicles.*.note'           => ['nullable', 'string'],
             'vehicles.*.harga_otr'      => ['nullable', 'numeric', 'min:0'],
             'vehicles.*.diskon'         => ['nullable', 'numeric', 'min:0'],
             'vehicles.*.estimasi_kenaikan'=> ['nullable', 'numeric', 'min:0'],
@@ -103,9 +106,11 @@ class CostingController extends Controller
 
         $isTender = $request->boolean('is_tender');
         $fphType = $isTender ? 'tender' : 'retail';
-        $approvalStatus = $isTender ? 'pending' : 'approved';
+        $isDraft = $request->input('action') === 'draft';
+        $status = $isDraft ? 'draft' : 'saved';
+        $approvalStatus = $isDraft ? 'draft' : ($isTender ? 'pending' : 'approved');
 
-        return DB::transaction(function () use ($validated, $request, $fphType, $approvalStatus) {
+        return DB::transaction(function () use ($validated, $request, $fphType, $approvalStatus, $status, $isDraft) {
             // Generate unique Costing Number
             $prefix = 'CST/' . date('Y/m') . '/';
             $last = Costing::where('costing_number', 'like', $prefix . '%')
@@ -129,7 +134,7 @@ class CostingController extends Controller
                 'notes'                 => $validated['notes'] ?? null,
                 'fph_type'              => $fphType,
                 'approval_status'       => $approvalStatus,
-                'status'                => 'saved',
+                'status'                => $status,
                 'created_by'            => Auth::id(),
             ]);
 
@@ -160,6 +165,7 @@ class CostingController extends Controller
                     'harga_setelah_kenaikan' => $afterInc,
                     'total_acc'              => 0,
                     'grand_total'            => $afterInc,
+                    'note'                   => $vData['note'] ?? null,
                 ]);
 
                 $createdVehicles[$vIndex] = $vehicle;
@@ -214,11 +220,11 @@ class CostingController extends Controller
 
         $costing->load(['creator', 'vehicles.accessories']);
 
-        // Auto-sort vehicles by Pulau -> Provinsi -> BBN -> sort_order so grouping & horizontal cell merging are cohesive
+        // Auto-sort vehicles by Pulau -> Provinsi -> Pemakaian -> sort_order so grouping & horizontal cell merging are cohesive
         $sortedVehicles = $costing->vehicles->sortBy([
             ['pulau', 'asc'],
             ['provinsi', 'asc'],
-            ['bbn', 'asc'],
+            ['pemakaian', 'asc'],
             ['sort_order', 'asc'],
         ])->values();
         $costing->setRelation('vehicles', $sortedVehicles);
@@ -294,12 +300,13 @@ class CostingController extends Controller
             }
         }
 
-        $smdList   = $this->odooService->getSmdList();
-        $pulauList   = CostingBbnMaster::where('is_active', true)->whereNotNull('pulau')->distinct()->orderBy('pulau')->pluck('pulau')->toArray();
-        $provinsiList = CostingBbnMaster::where('is_active', true)->whereNotNull('provinsi')->distinct()->orderBy('provinsi')->pluck('provinsi')->toArray();
-        $regionsJson = CostingBbnMaster::where('is_active', true)->get(['pulau', 'provinsi', 'name as area'])->toJson();
+        $smdList       = $this->odooService->getSmdList();
+        $pemakaianList = CostingLokasiPemakaian::where('is_active', true)->orderBy('pulau')->orderBy('provinsi')->orderBy('name')->get();
+        $pulauList     = CostingLokasiPemakaian::where('is_active', true)->whereNotNull('pulau')->distinct()->orderBy('pulau')->pluck('pulau')->toArray();
+        $provinsiList  = CostingLokasiPemakaian::where('is_active', true)->whereNotNull('provinsi')->distinct()->orderBy('provinsi')->pluck('provinsi')->toArray();
+        $regionsJson   = CostingLokasiPemakaian::where('is_active', true)->get(['pulau', 'provinsi', 'name as area'])->toJson();
 
-        return view('costing.edit', compact('costing', 'bbnList', 'templates', 'brands', 'products', 'accRows', 'smdList', 'pulauList', 'provinsiList', 'regionsJson'));
+        return view('costing.edit', compact('costing', 'bbnList', 'pemakaianList', 'templates', 'brands', 'products', 'accRows', 'smdList', 'pulauList', 'provinsiList', 'regionsJson'));
     }
 
     /**
@@ -339,6 +346,7 @@ class CostingController extends Controller
             'vehicles.*.odoo_product_id'=> ['nullable', 'integer'],
             'vehicles.*.bbn'            => ['nullable', 'string', 'max:100'],
             'vehicles.*.pemakaian'      => ['nullable', 'string', 'max:255'],
+            'vehicles.*.note'           => ['nullable', 'string'],
             'vehicles.*.harga_otr'      => ['nullable', 'numeric', 'min:0'],
             'vehicles.*.diskon'         => ['nullable', 'numeric', 'min:0'],
             'vehicles.*.estimasi_kenaikan'=> ['nullable', 'numeric', 'min:0'],
@@ -349,8 +357,9 @@ class CostingController extends Controller
 
         $isTender = $request->boolean('is_tender');
         $newFphType = $isTender ? 'tender' : 'retail';
+        $isDraft = $request->input('action') === 'draft';
 
-        return DB::transaction(function () use ($validated, $costing, $newFphType) {
+        return DB::transaction(function () use ($validated, $costing, $newFphType, $isDraft) {
             $updateData = [
                 'customer_name'         => $validated['customer_name'],
                 'smd'                   => $validated['smd'] ?? null,
@@ -361,12 +370,20 @@ class CostingController extends Controller
                 'fph_type'              => $newFphType,
             ];
 
-            if ($newFphType === 'tender') {
+            if ($isDraft) {
+                $updateData['status']           = 'draft';
+                $updateData['approval_status']  = 'draft';
+                $updateData['approved_by']      = null;
+                $updateData['approved_at']      = null;
+                $updateData['rejection_reason'] = null;
+            } elseif ($newFphType === 'tender') {
+                $updateData['status']           = 'saved';
                 $updateData['approval_status']  = 'pending';
                 $updateData['approved_by']      = null;
                 $updateData['approved_at']      = null;
                 $updateData['rejection_reason'] = null;
             } else {
+                $updateData['status']           = 'saved';
                 $updateData['approval_status']  = 'approved';
                 $updateData['approved_by']      = null;
                 $updateData['approved_at']      = null;
@@ -405,6 +422,7 @@ class CostingController extends Controller
                     'harga_setelah_kenaikan' => $afterInc,
                     'total_acc'              => 0,
                     'grand_total'            => $afterInc,
+                    'note'                   => $vData['note'] ?? null,
                 ]);
 
                 $createdVehicles[$vIndex] = $vehicle;
