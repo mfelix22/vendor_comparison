@@ -33,3 +33,4 @@ backup.sql
 !README.md
 session_log_*.md
 /.gemini
+/scratch
