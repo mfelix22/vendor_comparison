@@ -526,6 +526,11 @@
             <div>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <h4 class="fw-bold mb-0">Costing Details</h4>
+                    @if ($costing->isDraft())
+                        <span class="badge bg-secondary text-white px-2 py-1">
+                            <i class="bi bi-file-earmark me-1"></i>Draft
+                        </span>
+                    @endif
                     <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
                         <i class="bi bi-file-earmark-excel me-1"></i>Excel Grid View
                     </span>
@@ -695,11 +700,11 @@
     @endif
 
     @php
-        // Auto-sort vehicles by Pulau -> Provinsi -> BBN -> sort_order so grouping & horizontal cell merging are cohesive
+        // Auto-sort vehicles by Pulau -> Provinsi -> Pemakaian -> sort_order so grouping & horizontal cell merging are cohesive
         $vehicles = $costing->vehicles->sortBy([
             ['pulau', 'asc'],
             ['provinsi', 'asc'],
-            ['bbn', 'asc'],
+            ['pemakaian', 'asc'],
             ['sort_order', 'asc'],
         ])->values();
         $colCount = count($vehicles);
@@ -1225,17 +1230,36 @@
                             </td>
                         @endforeach
                     </tr>
+                    @php $curRowBu++; @endphp
+
+                    {{-- Vehicle Column Note Row --}}
+                    @php $vehicleNoteRowBu = $curRowBu; @endphp
+                    <tr>
+                        <td class="excel-row-hdr" data-row="{{ $vehicleNoteRowBu }}">{{ $vehicleNoteRowBu }}</td>
+                        <td class="excel-cell cell-calibri-bold cell-left text-muted" data-coord="A{{ $vehicleNoteRowBu }}" data-val="Note :">
+                            Note :
+                        </td>
+                        @foreach ($vehicles as $idx => $v)
+                            @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
+                            <td class="excel-cell cell-calibri cell-left" data-coord="{{ $colLet }}{{ $vehicleNoteRowBu }}" data-val="{{ $v->note }}" style="white-space: pre-line; word-break: break-word; vertical-align: top;">
+                                {!! nl2br(e($v->note)) !!}
+                            </td>
+                        @endforeach
+                    </tr>
                     @php $curRowBu += 3; @endphp
 
-                    {{-- Notes Row --}}
+                    {{-- Master Notes Row --}}
                     @php 
                         $notesRowBu = $curRowBu;
                         $notesText = 'Notes :' . ($costing->notes ? ' ' . $costing->notes : '');
                     @endphp
                     <tr>
                         <td class="excel-row-hdr" data-row="{{ $notesRowBu }}">{{ $notesRowBu }}</td>
-                        <td class="excel-cell cell-calibri-bold cell-left cell-no-border" colspan="{{ $colCount + 1 }}" data-coord="A{{ $notesRowBu }}" data-val="{{ $notesText }}">
-                            {{ $notesText }}
+                        <td class="excel-cell cell-calibri-bold cell-left cell-no-border" colspan="{{ $colCount + 1 }}" data-coord="A{{ $notesRowBu }}" data-val="{{ $notesText }}" style="white-space: pre-line; word-break: break-word; line-height: 1.4;">
+                            <span class="text-dark">Notes :</span>
+                            @if ($costing->notes)
+                                <div class="fw-normal mt-1">{!! nl2br(e($costing->notes)) !!}</div>
+                            @endif
                         </td>
                     </tr>
                 </tbody>
@@ -1561,17 +1585,36 @@
                             </td>
                         @endforeach
                     </tr>
+                    @php $curRowSmd++; @endphp
+
+                    {{-- Vehicle Column Note Row --}}
+                    @php $vehicleNoteRowSmd = $curRowSmd; @endphp
+                    <tr>
+                        <td class="excel-row-hdr" data-row="{{ $vehicleNoteRowSmd }}">{{ $vehicleNoteRowSmd }}</td>
+                        <td class="excel-cell cell-calibri-bold cell-left text-muted" data-coord="A{{ $vehicleNoteRowSmd }}" data-val="Note :">
+                            Note :
+                        </td>
+                        @foreach ($vehicles as $idx => $v)
+                            @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
+                            <td class="excel-cell cell-calibri cell-left" data-coord="{{ $colLet }}{{ $vehicleNoteRowSmd }}" data-val="{{ $v->note }}" style="white-space: pre-line; word-break: break-word; vertical-align: top;">
+                                {!! nl2br(e($v->note)) !!}
+                            </td>
+                        @endforeach
+                    </tr>
                     @php $curRowSmd += 3; @endphp
 
-                    {{-- Notes Row --}}
+                    {{-- Master Notes Row --}}
                     @php 
                         $notesRowSmd = $curRowSmd;
                         $notesText = 'Notes :' . ($costing->notes ? ' ' . $costing->notes : '');
                     @endphp
                     <tr>
                         <td class="excel-row-hdr" data-row="{{ $notesRowSmd }}">{{ $notesRowSmd }}</td>
-                        <td class="excel-cell cell-calibri-bold cell-left cell-no-border" colspan="{{ $colCount + 1 }}" data-coord="A{{ $notesRowSmd }}" data-val="{{ $notesText }}">
-                            {{ $notesText }}
+                        <td class="excel-cell cell-calibri-bold cell-left cell-no-border" colspan="{{ $colCount + 1 }}" data-coord="A{{ $notesRowSmd }}" data-val="{{ $notesText }}" style="white-space: pre-line; word-break: break-word; line-height: 1.4;">
+                            <span class="text-dark">Notes :</span>
+                            @if ($costing->notes)
+                                <div class="fw-normal mt-1">{!! nl2br(e($costing->notes)) !!}</div>
+                            @endif
                         </td>
                     </tr>
                 </tbody>

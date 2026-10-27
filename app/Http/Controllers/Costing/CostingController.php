@@ -220,11 +220,11 @@ class CostingController extends Controller
 
         $costing->load(['creator', 'vehicles.accessories']);
 
-        // Auto-sort vehicles by Pulau -> Provinsi -> BBN -> sort_order so grouping & horizontal cell merging are cohesive
+        // Auto-sort vehicles by Pulau -> Provinsi -> Pemakaian -> sort_order so grouping & horizontal cell merging are cohesive
         $sortedVehicles = $costing->vehicles->sortBy([
             ['pulau', 'asc'],
             ['provinsi', 'asc'],
-            ['bbn', 'asc'],
+            ['pemakaian', 'asc'],
             ['sort_order', 'asc'],
         ])->values();
         $costing->setRelation('vehicles', $sortedVehicles);
