@@ -22,6 +22,7 @@ class CostingVehicle extends Model
         'bbn',
         'odoo_bbn_id',
         'pemakaian',
+        'qty',
         'harga_otr',
         'diskon',
         'harga_nett',
@@ -35,6 +36,7 @@ class CostingVehicle extends Model
     protected function casts(): array
     {
         return [
+            'qty'                    => 'integer',
             'harga_otr'              => 'decimal:2',
             'diskon'                 => 'decimal:2',
             'harga_nett'             => 'decimal:2',

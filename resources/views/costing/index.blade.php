@@ -16,24 +16,31 @@
         </div>
     </div>
 
-    {{-- Filter & Search Bar --}}
+    {{-- Filter, Search & Monthly Export Bar --}}
     <div class="card mb-4 border-0 shadow-sm">
         <div class="card-body p-3">
-            <form method="GET" action="{{ route('costing.index') }}" class="row g-2 align-items-center">
-                <div class="col-md-5">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <form method="GET" action="{{ route('costing.index') }}" class="d-flex align-items-center gap-2 flex-grow-1" style="max-width: 480px;">
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
                         <input type="text" name="search" class="form-control border-start-0"
                             placeholder="Search by Costing No, Customer / Instansi..." value="{{ request('search') }}">
                     </div>
-                </div>
-                <div class="col-auto">
                     <button type="submit" class="btn btn-sm btn-secondary">Search</button>
                     @if (request('search'))
                         <a href="{{ route('costing.index') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
                     @endif
-                </div>
-            </form>
+                </form>
+
+                {{-- Monthly Costing List Export Form --}}
+                <form method="GET" action="{{ route('costing.export-monthly') }}" class="d-flex align-items-center gap-2">
+                    <span class="small text-muted fw-semibold text-nowrap"><i class="bi bi-file-earmark-spreadsheet text-success me-1"></i>Export List (Data / Bulan):</span>
+                    <input type="month" name="month" class="form-control form-control-sm" value="{{ date('Y-m') }}" required style="width: 145px;">
+                    <button type="submit" class="btn btn-sm btn-success text-white shadow-sm text-nowrap">
+                        <i class="bi bi-download me-1"></i>Export Excel
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -63,6 +70,9 @@
                                 <th class="text-end">Price Range (Unit + Acc)</th>
                                 <th>Created By</th>
                                 <th>Created Date</th>
+                                <th class="text-center">Tanggal FPH</th>
+                                <th class="text-center">Tanggal Revisi FPH</th>
+                                <th class="text-center">Tanggal Email ke SMD</th>
                                 <th class="text-center pe-3" style="width: 110px;">Actions</th>
                             </tr>
                         </thead>
@@ -71,6 +81,8 @@
                                 @php
                                     $minPrice = $costing->vehicles->min('grand_total') ?? 0;
                                     $maxPrice = $costing->vehicles->max('grand_total') ?? 0;
+                                    $vCount = $costing->vehicles->count();
+                                    $totalQty = (int) $costing->vehicles->sum('qty');
                                 @endphp
                                 <tr data-href="{{ route('costing.show', $costing) }}" style="cursor: pointer;">
                                     <td class="ps-3 fw-bold text-primary">
@@ -122,7 +134,10 @@
                                     </td>
                                     <td class="text-center">
                                         <span class="badge bg-light text-dark border">
-                                            <i class="bi bi-car-front me-1"></i>{{ $costing->vehicles->count() }} unit(s)
+                                            <i class="bi bi-car-front me-1"></i>{{ $vCount }} vehicle(s)
+                                            @if ($totalQty > $vCount)
+                                                <span class="text-primary fw-semibold ms-1">({{ $totalQty }} units)</span>
+                                            @endif
                                         </span>
                                     </td>
                                     <td class="text-end fw-semibold">
@@ -138,6 +153,15 @@
                                     </td>
                                     <td class="text-muted small">
                                         {{ $costing->created_at->format('d M Y, H:i') }}
+                                    </td>
+                                    <td class="text-center small">
+                                        {{ $costing->tanggal_fph ? $costing->tanggal_fph->format('d M Y') : '—' }}
+                                    </td>
+                                    <td class="text-center small">
+                                        {{ $costing->tanggal_revisi_fph ? $costing->tanggal_revisi_fph->format('d M Y') : '—' }}
+                                    </td>
+                                    <td class="text-center small">
+                                        {{ $costing->tanggal_email_smd ? $costing->tanggal_email_smd->format('d M Y') : '—' }}
                                     </td>
                                     <td class="text-center pe-3">
                                         <div class="btn-group btn-group-sm">

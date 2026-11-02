@@ -170,6 +170,42 @@
                         @error('customer_name')
                             <div class="text-danger small mt-1">{{ $message }}</div>
                         @enderror
+
+                        {{-- Tanggal FPH --}}
+                        <div class="mt-3">
+                            <label class="form-label small fw-semibold mb-1">Tanggal FPH</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text"><i class="bi bi-calendar-check"></i></span>
+                                <input type="date" name="tanggal_fph" id="inputTanggalFph"
+                                    class="form-control form-control-sm @error('tanggal_fph') is-invalid @enderror"
+                                    value="{{ old('tanggal_fph') }}">
+                            </div>
+                            <div class="text-muted small mt-1" style="font-size: 0.75rem;">Tanggal permintaan FPH.</div>
+                        </div>
+
+                        {{-- Tanggal Revisi FPH --}}
+                        <div class="mt-2">
+                            <label class="form-label small fw-semibold mb-1">Tanggal Revisi FPH</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text"><i class="bi bi-arrow-repeat"></i></span>
+                                <input type="date" name="tanggal_revisi_fph" id="inputTanggalRevisiFph"
+                                    class="form-control form-control-sm @error('tanggal_revisi_fph') is-invalid @enderror"
+                                    value="{{ old('tanggal_revisi_fph') }}">
+                            </div>
+                            <div class="text-muted small mt-1" style="font-size: 0.75rem;">Tanggal revisi FPH.</div>
+                        </div>
+
+                        {{-- Tanggal PCH Email ke SMD --}}
+                        <div class="mt-2">
+                            <label class="form-label small fw-semibold mb-1">Tanggal PCH Email ke SMD</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text"><i class="bi bi-envelope-check"></i></span>
+                                <input type="date" name="tanggal_email_smd" id="inputTanggalEmailSmd"
+                                    class="form-control form-control-sm @error('tanggal_email_smd') is-invalid @enderror"
+                                    value="{{ old('tanggal_email_smd') }}">
+                            </div>
+                            <div class="text-muted small mt-1" style="font-size: 0.75rem;">Tanggal PCH mengirim email costing ke SMD.</div>
+                        </div>
                     </div>
 
                     {{-- Section 2: Contract Details - SMD, Masa Sewa, Delivery Date (Middle) --}}
@@ -310,6 +346,10 @@
                             {{-- Row: Pemakaian --}}
                             <tr id="rowPemakaian">
                                 <td class="costing-label-col">Lokasi Pemakaian :</td>
+                            </tr>
+                            {{-- Row: Qty Unit --}}
+                            <tr id="rowQty">
+                                <td class="costing-label-col">Qty Unit :</td>
                             </tr>
                             {{-- Row: Harga OTR --}}
                             <tr id="rowOtr">
@@ -710,6 +750,7 @@
             const otr = (data.harga_otr !== undefined && data.harga_otr !== null && data.harga_otr !== '') ? data.harga_otr : '';
             const diskon = (data.diskon !== undefined && data.diskon !== null && data.diskon !== '') ? data.diskon : '';
             const estimasi = (data.estimasi_kenaikan !== undefined && data.estimasi_kenaikan !== null && data.estimasi_kenaikan !== '') ? data.estimasi_kenaikan : '';
+            const qty = (data.qty !== undefined && data.qty !== null && data.qty !== '') ? data.qty : 1;
 
             // 1. Header Cell
             const th = document.createElement('th');
@@ -842,6 +883,15 @@
                 </select>
             `;
             document.getElementById('rowPemakaian').appendChild(tdPemakaian);
+
+            // 5b. Qty Unit Cell
+            const tdQty = document.createElement('td');
+            tdQty.id = `cellQty_${vIndex}`;
+            tdQty.innerHTML = `
+                <input type="number" min="1" step="1" name="vehicles[${vIndex}][qty]" id="inputQty_${vIndex}"
+                    class="form-control form-control-sm text-center num-input fw-semibold" value="${qty}" placeholder="1" title="Quantity Unit">
+            `;
+            document.getElementById('rowQty').appendChild(tdQty);
 
             autoResize(tdType.querySelector('textarea'));
 
@@ -1131,6 +1181,7 @@
                 `cellType_${vIndex}`,
                 `cellBbn_${vIndex}`,
                 `cellPemakaian_${vIndex}`,
+                `cellQty_${vIndex}`,
                 `cellOtr_${vIndex}`,
                 `cellDiskon_${vIndex}`,
                 `cellNett_${vIndex}`,

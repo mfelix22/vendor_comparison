@@ -94,6 +94,9 @@ Route::middleware('auth')->group(function () {
         // Approvals Queue (Defined before /{costing})
         Route::get('/approvals', [App\Http\Controllers\Costing\CostingController::class, 'approvals'])->name('approvals');
 
+        // Monthly Costing Report Export (Defined before /{costing})
+        Route::get('/export-monthly', [App\Http\Controllers\Costing\CostingController::class, 'exportMonthly'])->name('export-monthly');
+
         // Parameterized Costing routes (Constrained to numbers so they never conflict with static prefixes)
         Route::get('/{costing}', [App\Http\Controllers\Costing\CostingController::class, 'show'])->name('show')->where('costing', '[0-9]+');
         Route::get('/{costing}/edit', [App\Http\Controllers\Costing\CostingController::class, 'edit'])->name('edit')->where('costing', '[0-9]+');
