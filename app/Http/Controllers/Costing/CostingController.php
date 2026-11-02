@@ -31,11 +31,6 @@ class CostingController extends Controller
         $query = Costing::with(['creator', 'vehicles'])
             ->orderByDesc('created_at');
 
-        // Scoping: Managers and Admins can see all costings; other users can only see costings they created
-        if (!$user->isAdmin() && !$user->isManager()) {
-            $query->where('created_by', $user->id);
-        }
-
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('costing_number', 'like', "%{$search}%")
@@ -82,6 +77,9 @@ class CostingController extends Controller
     {
         $validated = $request->validate([
             'customer_name'             => ['required', 'string', 'max:255'],
+            'tanggal_fph'               => ['nullable', 'date'],
+            'tanggal_revisi_fph'        => ['nullable', 'date'],
+            'tanggal_email_smd'         => ['nullable', 'date'],
             'smd'                       => ['nullable', 'string', 'max:255'],
             'masa_sewa'                 => ['nullable', 'string', 'max:50'],
             'request_delivery_date'     => ['nullable', 'date'],
@@ -95,6 +93,7 @@ class CostingController extends Controller
             'vehicles.*.odoo_product_id'=> ['nullable', 'integer'],
             'vehicles.*.bbn'            => ['nullable', 'string', 'max:100'],
             'vehicles.*.pemakaian'      => ['nullable', 'string', 'max:255'],
+            'vehicles.*.qty'            => ['nullable', 'integer', 'min:1'],
             'vehicles.*.note'           => ['nullable', 'string'],
             'vehicles.*.harga_otr'      => ['nullable', 'numeric', 'min:0'],
             'vehicles.*.diskon'         => ['nullable', 'numeric', 'min:0'],
@@ -127,6 +126,9 @@ class CostingController extends Controller
             $costing = Costing::create([
                 'costing_number'        => $costingNumber,
                 'customer_name'         => $validated['customer_name'],
+                'tanggal_fph'           => $validated['tanggal_fph'] ?? null,
+                'tanggal_revisi_fph'    => $validated['tanggal_revisi_fph'] ?? null,
+                'tanggal_email_smd'     => $validated['tanggal_email_smd'] ?? null,
                 'smd'                   => $validated['smd'] ?? null,
                 'masa_sewa'             => $validated['masa_sewa'] ?? null,
                 'request_delivery_date' => $validated['request_delivery_date'] ?? null,
@@ -147,6 +149,7 @@ class CostingController extends Controller
                 $nett      = max(0, $otr - $diskon);
                 $kenaikan  = (float) ($vData['estimasi_kenaikan'] ?? 0);
                 $afterInc  = $nett + $kenaikan;
+                $qty       = !empty($vData['qty']) ? (int) $vData['qty'] : 1;
 
                 $vehicle = CostingVehicle::create([
                     'costing_id'             => $costing->id,
@@ -158,6 +161,7 @@ class CostingController extends Controller
                     'odoo_product_id'        => !empty($vData['odoo_product_id']) ? (int) $vData['odoo_product_id'] : null,
                     'bbn'                    => $vData['bbn'] ?? '',
                     'pemakaian'              => $vData['pemakaian'] ?? '',
+                    'qty'                    => $qty,
                     'harga_otr'              => $otr,
                     'diskon'                 => $diskon,
                     'harga_nett'             => $nett,
@@ -333,6 +337,9 @@ class CostingController extends Controller
 
         $validated = $request->validate([
             'customer_name'             => ['required', 'string', 'max:255'],
+            'tanggal_fph'               => ['nullable', 'date'],
+            'tanggal_revisi_fph'        => ['nullable', 'date'],
+            'tanggal_email_smd'         => ['nullable', 'date'],
             'smd'                       => ['nullable', 'string', 'max:255'],
             'masa_sewa'                 => ['nullable', 'string', 'max:50'],
             'request_delivery_date'     => ['nullable', 'date'],
@@ -346,6 +353,7 @@ class CostingController extends Controller
             'vehicles.*.odoo_product_id'=> ['nullable', 'integer'],
             'vehicles.*.bbn'            => ['nullable', 'string', 'max:100'],
             'vehicles.*.pemakaian'      => ['nullable', 'string', 'max:255'],
+            'vehicles.*.qty'            => ['nullable', 'integer', 'min:1'],
             'vehicles.*.note'           => ['nullable', 'string'],
             'vehicles.*.harga_otr'      => ['nullable', 'numeric', 'min:0'],
             'vehicles.*.diskon'         => ['nullable', 'numeric', 'min:0'],
@@ -362,6 +370,9 @@ class CostingController extends Controller
         return DB::transaction(function () use ($validated, $costing, $newFphType, $isDraft) {
             $updateData = [
                 'customer_name'         => $validated['customer_name'],
+                'tanggal_fph'           => !empty($validated['tanggal_fph']) ? date('Y-m-d', strtotime($validated['tanggal_fph'])) : null,
+                'tanggal_revisi_fph'    => !empty($validated['tanggal_revisi_fph']) ? date('Y-m-d', strtotime($validated['tanggal_revisi_fph'])) : null,
+                'tanggal_email_smd'     => !empty($validated['tanggal_email_smd']) ? date('Y-m-d', strtotime($validated['tanggal_email_smd'])) : null,
                 'smd'                   => $validated['smd'] ?? null,
                 'masa_sewa'             => $validated['masa_sewa'] ?? null,
                 'request_delivery_date' => $validated['request_delivery_date'] ?? null,
@@ -415,6 +426,7 @@ class CostingController extends Controller
                     'odoo_product_id'        => !empty($vData['odoo_product_id']) ? (int) $vData['odoo_product_id'] : null,
                     'bbn'                    => $vData['bbn'] ?? '',
                     'pemakaian'              => $vData['pemakaian'] ?? '',
+                    'qty'                    => !empty($vData['qty']) ? (int) $vData['qty'] : 1,
                     'harga_otr'              => $otr,
                     'diskon'                 => $diskon,
                     'harga_nett'             => $nett,
@@ -503,6 +515,15 @@ class CostingController extends Controller
         }
 
         return $exportService->export($costing);
+    }
+
+    /**
+     * Export Costing List by Month as Excel report.
+     */
+    public function exportMonthly(Request $request, CostingExportService $exportService)
+    {
+        $month = $request->input('month', date('Y-m'));
+        return $exportService->exportMonthlyList($month);
     }
 
     /**

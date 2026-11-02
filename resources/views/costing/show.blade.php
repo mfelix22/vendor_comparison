@@ -569,6 +569,15 @@
                     @if ($costing->request_delivery_date)
                         &middot; Delivery: <span class="fw-semibold text-dark">{{ $costing->request_delivery_date->format('d/m/Y') }}</span>
                     @endif
+                    @if ($costing->tanggal_fph)
+                        &middot; Tgl FPH: <span class="fw-semibold text-dark">{{ $costing->tanggal_fph->format('d/m/Y') }}</span>
+                    @endif
+                    @if ($costing->tanggal_revisi_fph)
+                        &middot; Revisi FPH: <span class="fw-semibold text-dark">{{ $costing->tanggal_revisi_fph->format('d/m/Y') }}</span>
+                    @endif
+                    @if ($costing->tanggal_email_smd)
+                        &middot; Email SMD: <span class="fw-semibold text-dark">{{ $costing->tanggal_email_smd->format('d/m/Y') }}</span>
+                    @endif
                     &middot; {{ $costing->created_at->format('d/m/Y') }}
                     &middot; Created by <span class="fw-semibold text-dark">{{ $costing->creator->name ?? '—' }}</span>
                 </div>
@@ -1017,6 +1026,20 @@
                         @endforeach
                     </tr>
 
+                    {{-- Row: Qty Unit --}}
+                    <tr>
+                        <td class="excel-row-hdr" data-row="qty">#</td>
+                        <td class="excel-cell cell-cyan cell-left" data-val="Qty Unit :">
+                            Qty Unit :
+                        </td>
+                        @foreach ($vehicles as $idx => $v)
+                            @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
+                            <td class="excel-cell cell-cyan cell-center" data-val="{{ $v->qty ?: 1 }}">
+                                {{ $v->qty ?: 1 }}
+                            </td>
+                        @endforeach
+                    </tr>
+
                     {{-- Row 9: Harga OTR --}}
                     <tr>
                         <td class="excel-row-hdr" data-row="9">9</td>
@@ -1401,6 +1424,20 @@
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
                             <td class="excel-cell cell-cyan cell-center" data-coord="{{ $colLet }}8" data-val="{{ $v->pemakaian }}">
                                 {{ $v->pemakaian }}
+                            </td>
+                        @endforeach
+                    </tr>
+
+                    {{-- Row: Qty Unit --}}
+                    <tr>
+                        <td class="excel-row-hdr" data-row="qty">#</td>
+                        <td class="excel-cell cell-cyan cell-left" data-val="Qty Unit :">
+                            Qty Unit :
+                        </td>
+                        @foreach ($vehicles as $idx => $v)
+                            @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
+                            <td class="excel-cell cell-cyan cell-center" data-val="{{ $v->qty ?: 1 }}">
+                                {{ $v->qty ?: 1 }}
                             </td>
                         @endforeach
                     </tr>

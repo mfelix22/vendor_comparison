@@ -580,4 +580,150 @@ class CostingExportService
         $sheet->getPageSetup()->setFitToWidth(1);
         $sheet->getPageSetup()->setFitToHeight(0);
     }
+
+    /**
+     * Export Costing List summary report for a specific month as Excel.
+     */
+    public function exportMonthlyList(string $monthYear): StreamedResponse
+    {
+        $parts = explode('-', $monthYear);
+        $year  = !empty($parts[0]) && is_numeric($parts[0]) ? (int) $parts[0] : (int) date('Y');
+        $month = !empty($parts[1]) && is_numeric($parts[1]) ? (int) $parts[1] : (int) date('m');
+
+        $costings = Costing::with(['creator', 'vehicles'])
+            ->whereYear('created_at', $year)
+            ->whereMonth('created_at', $month)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $spreadsheet = new Spreadsheet();
+        $spreadsheet->getDefaultStyle()->getFont()->setName('Calibri')->setSize(11);
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Costing Report');
+
+        // Month Title in Indonesian
+        $bulanNames = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        $namaBulan = ($bulanNames[$month] ?? date('F')) . ' ' . $year;
+
+        // Title Block
+        $sheet->setCellValue('A1', 'LAPORAN DAFTAR COSTING BULANAN');
+        $sheet->setCellValue('A2', "Periode: {$namaBulan} | Dicetak: " . now()->format('d/m/Y H:i') . " | Total: " . $costings->count() . ' Costing');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14)->getColor()->setRGB('1E3A8A');
+        $sheet->getStyle('A2')->getFont()->setItalic(true)->setSize(10)->getColor()->setRGB('4B5563');
+
+        // Table Headers
+        $headers = [
+            'A4' => 'NO',
+            'B4' => 'COSTING NO',
+            'C4' => 'CUSTOMER / INSTANSI',
+            'D4' => 'FPH TYPE',
+            'E4' => 'VEHICLES COMPARED',
+            'F4' => 'TOTAL QTY UNIT',
+            'G4' => 'PRICE RANGE (UNIT + ACC)',
+            'H4' => 'CREATED BY',
+            'I4' => 'CREATED DATE',
+            'J4' => 'TANGGAL FPH',
+            'K4' => 'TANGGAL REVISI FPH',
+            'L4' => 'TANGGAL EMAIL KE SMD',
+            'M4' => 'STATUS',
+        ];
+
+        foreach ($headers as $cell => $val) {
+            $sheet->setCellValue($cell, $val);
+        }
+
+        // Header Styling
+        $sheet->getStyle('A4:M4')->getFont()->setBold(true)->setSize(10)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A4:M4')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('1E3A8A');
+        $sheet->getStyle('A4:M4')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getRowDimension(4)->setRowHeight(28);
+
+        $thinBorder = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D1D5DB'],
+                ],
+            ],
+        ];
+
+        $rowIdx = 5;
+        foreach ($costings as $idx => $costing) {
+            $minPrice = (float) ($costing->vehicles->min('grand_total') ?? 0);
+            $maxPrice = (float) ($costing->vehicles->max('grand_total') ?? 0);
+            $totalQty = (int) $costing->vehicles->sum('qty');
+            if ($totalQty <= 0) $totalQty = $costing->vehicles->count();
+
+            $priceRange = ($minPrice === $maxPrice)
+                ? 'Rp ' . number_format($minPrice, 0, ',', '.')
+                : 'Rp ' . number_format($minPrice, 0, ',', '.') . ' - Rp ' . number_format($maxPrice, 0, ',', '.');
+
+            $statusLabel = 'Saved';
+            if ($costing->isDraft()) {
+                $statusLabel = 'Draft';
+            } elseif ($costing->isTender()) {
+                if ($costing->isPendingApproval()) {
+                    $statusLabel = 'Pending Manager Approval';
+                } elseif ($costing->isApproved()) {
+                    $statusLabel = 'Approved (Manager)';
+                } elseif ($costing->isRejected()) {
+                    $statusLabel = 'Rejected (Manager)';
+                }
+            }
+
+            $sheet->setCellValue("A{$rowIdx}", $idx + 1);
+            $sheet->setCellValue("B{$rowIdx}", $costing->costing_number);
+            $sheet->setCellValue("C{$rowIdx}", $costing->customer_name);
+            $sheet->setCellValue("D{$rowIdx}", strtoupper($costing->fph_type ?? 'RETAIL'));
+            $sheet->setCellValue("E{$rowIdx}", $costing->vehicles->count() . ' vehicle(s)');
+            $sheet->setCellValue("F{$rowIdx}", $totalQty . ' unit(s)');
+            $sheet->setCellValue("G{$rowIdx}", $priceRange);
+            $sheet->setCellValue("H{$rowIdx}", $costing->creator->name ?? '—');
+            $sheet->setCellValue("I{$rowIdx}", $costing->created_at->format('d/m/Y H:i'));
+            $sheet->setCellValue("J{$rowIdx}", $costing->tanggal_fph ? $costing->tanggal_fph->format('d/m/Y') : '—');
+            $sheet->setCellValue("K{$rowIdx}", $costing->tanggal_revisi_fph ? $costing->tanggal_revisi_fph->format('d/m/Y') : '—');
+            $sheet->setCellValue("L{$rowIdx}", $costing->tanggal_email_smd ? $costing->tanggal_email_smd->format('d/m/Y') : '—');
+            $sheet->setCellValue("M{$rowIdx}", $statusLabel);
+
+            // Row alignment & formatting
+            $sheet->getStyle("A{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("B{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("B{$rowIdx}")->getFont()->setBold(true)->getColor()->setRGB('2563EB');
+            $sheet->getStyle("D{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("E{$rowIdx}:F{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("G{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("I{$rowIdx}:L{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("M{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+            // Zebra striping
+            if ($rowIdx % 2 === 0) {
+                $sheet->getStyle("A{$rowIdx}:M{$rowIdx}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F9FAFB');
+            }
+
+            $rowIdx++;
+        }
+
+        $lastRow = max(5, $rowIdx - 1);
+        $sheet->getStyle("A4:M{$lastRow}")->applyFromArray($thinBorder);
+
+        // Auto column widths
+        foreach (range('A', 'M') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $filename = "Costing_Report_{$year}_" . str_pad((string)$month, 2, '0', STR_PAD_LEFT) . ".xlsx";
+
+        return new StreamedResponse(function () use ($spreadsheet) {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        }, 200, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Cache-Control'       => 'max-age=0',
+        ]);
+    }
 }

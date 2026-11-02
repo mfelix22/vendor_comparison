@@ -14,6 +14,9 @@ class Costing extends Model
     protected $fillable = [
         'costing_number',
         'customer_name',
+        'tanggal_fph',
+        'tanggal_revisi_fph',
+        'tanggal_email_smd',
         'smd',
         'masa_sewa',
         'request_delivery_date',
@@ -33,6 +36,9 @@ class Costing extends Model
         return [
             'approved_at'           => 'datetime',
             'request_delivery_date' => 'date',
+            'tanggal_fph'           => 'date',
+            'tanggal_revisi_fph'    => 'date',
+            'tanggal_email_smd'     => 'date',
         ];
     }
 
