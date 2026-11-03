@@ -308,7 +308,14 @@ class CostingExportService
         $sheet->getStyle("A8")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setVertical(Alignment::VERTICAL_CENTER);
         $sheet->getStyle("A8:{$lastColLetter}8")->applyFromArray($thinBorder);
 
-        // Vehicle metadata columns (rows 5 to 8)
+        // Row 9: Qty Unit
+        $sheet->setCellValue('A9', 'Qty Unit :');
+        $sheet->getStyle("A9:{$lastColLetter}9")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('66FFFF');
+        $sheet->getStyle("A9:{$lastColLetter}9")->getFont()->setName('Times New Roman')->setBold(true);
+        $sheet->getStyle("A9")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getStyle("A9:{$lastColLetter}9")->applyFromArray($thinBorder);
+
+        // Vehicle metadata columns (rows 5 to 9)
         $cIdx = 2;
         foreach ($vehicles as $v) {
             $cLet = Coordinate::stringFromColumnIndex($cIdx);
@@ -316,21 +323,23 @@ class CostingExportService
             $sheet->setCellValue("{$cLet}6", $v->vehicle_type);
             $sheet->setCellValue("{$cLet}7", $v->bbn);
             $sheet->setCellValue("{$cLet}8", $v->pemakaian);
-            $sheet->getStyle("{$cLet}5:{$cLet}8")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+            $sheet->setCellValue("{$cLet}9", (int) ($v->qty ?: 1));
+            $sheet->getStyle("{$cLet}5:{$cLet}9")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+            $sheet->getStyle("{$cLet}9")->getFont()->setName('Times New Roman')->setBold(true);
             $sheet->getStyle("{$cLet}6")->getAlignment()->setWrapText(true);
             $cIdx++;
         }
 
-        // Row 9: Harga OTR
-        $sheet->setCellValue('A9', 'Harga OTR');
-        $sheet->getStyle('A9')->getFont()->setName('Times New Roman')->setBold(true);
-        $sheet->getStyle("A9:{$lastColLetter}9")->applyFromArray($thinBorder);
+        // Row 10: Harga OTR
+        $sheet->setCellValue('A10', 'Harga OTR');
+        $sheet->getStyle('A10')->getFont()->setName('Times New Roman')->setBold(true);
+        $sheet->getStyle("A10:{$lastColLetter}10")->applyFromArray($thinBorder);
         $cIdx = 2;
         foreach ($vehicles as $v) {
             $cLet = Coordinate::stringFromColumnIndex($cIdx);
-            $sheet->setCellValue("{$cLet}9", (float) $v->harga_otr);
-            $sheet->getStyle("{$cLet}9")->getFont()->setName('Times New Roman')->setBold(true);
-            $sheet->getStyle("{$cLet}9")->getNumberFormat()->setFormatCode($numFormat);
+            $sheet->setCellValue("{$cLet}10", (float) $v->harga_otr);
+            $sheet->getStyle("{$cLet}10")->getFont()->setName('Times New Roman')->setBold(true);
+            $sheet->getStyle("{$cLet}10")->getNumberFormat()->setFormatCode($numFormat);
             $cIdx++;
         }
 
@@ -338,122 +347,122 @@ class CostingExportService
             // ==========================================
             // BU AB SPECIFIC ROWS (Includes Diskon & Nett)
             // ==========================================
-            // Row 10: Diskon
-            $sheet->setCellValue('A10', 'Diskon');
-            $sheet->getStyle('A10')->getFont()->setName('Times New Roman');
-            $sheet->getStyle("A10:{$lastColLetter}10")->applyFromArray($thinBorder);
-            $cIdx = 2;
-            foreach ($vehicles as $v) {
-                $cLet = Coordinate::stringFromColumnIndex($cIdx);
-                $sheet->setCellValue("{$cLet}10", (float) $v->diskon);
-                $sheet->getStyle("{$cLet}10")->getFont()->setName('Calibri')->setBold(true);
-                $sheet->getStyle("{$cLet}10")->getNumberFormat()->setFormatCode($numFormat);
-                $cIdx++;
-            }
-
-            // Row 11: Harga Nett (= OTR - Diskon)
-            $sheet->setCellValue('A11', 'Harga Nett');
-            $sheet->getStyle('A11')->getFont()->setName('Times New Roman')->setBold(true);
+            // Row 11: Diskon
+            $sheet->setCellValue('A11', 'Diskon');
+            $sheet->getStyle('A11')->getFont()->setName('Times New Roman');
             $sheet->getStyle("A11:{$lastColLetter}11")->applyFromArray($thinBorder);
             $cIdx = 2;
             foreach ($vehicles as $v) {
                 $cLet = Coordinate::stringFromColumnIndex($cIdx);
-                $sheet->setCellValue("{$cLet}11", "={$cLet}9-{$cLet}10");
+                $sheet->setCellValue("{$cLet}11", (float) $v->diskon);
                 $sheet->getStyle("{$cLet}11")->getFont()->setName('Calibri')->setBold(true);
                 $sheet->getStyle("{$cLet}11")->getNumberFormat()->setFormatCode($numFormat);
                 $cIdx++;
             }
 
-            // Row 12: Blank
+            // Row 12: Harga Nett (= OTR - Diskon)
+            $sheet->setCellValue('A12', 'Harga Nett');
+            $sheet->getStyle('A12')->getFont()->setName('Times New Roman')->setBold(true);
             $sheet->getStyle("A12:{$lastColLetter}12")->applyFromArray($thinBorder);
+            $cIdx = 2;
+            foreach ($vehicles as $v) {
+                $cLet = Coordinate::stringFromColumnIndex($cIdx);
+                $sheet->setCellValue("{$cLet}12", "={$cLet}10-{$cLet}11");
+                $sheet->getStyle("{$cLet}12")->getFont()->setName('Calibri')->setBold(true);
+                $sheet->getStyle("{$cLet}12")->getNumberFormat()->setFormatCode($numFormat);
+                $cIdx++;
+            }
 
-            // Row 13: Estimasi kenaikan harga
-            $sheet->setCellValue('A13', 'Estimasi kenaikan harga');
-            $sheet->getStyle('A13')->getFont()->setName('Times New Roman')->setBold(true);
+            // Row 13: Blank
             $sheet->getStyle("A13:{$lastColLetter}13")->applyFromArray($thinBorder);
-            $cIdx = 2;
-            foreach ($vehicles as $v) {
-                $cLet = Coordinate::stringFromColumnIndex($cIdx);
-                $sheet->setCellValue("{$cLet}13", (float) $v->estimasi_kenaikan);
-                $sheet->getStyle("{$cLet}13")->getFont()->setName('Calibri')->setBold(true);
-                $sheet->getStyle("{$cLet}13")->getNumberFormat()->setFormatCode($numFormat);
-                $cIdx++;
-            }
 
-            // Row 14: Blank
+            // Row 14: Estimasi kenaikan harga
+            $sheet->setCellValue('A14', 'Estimasi kenaikan harga');
+            $sheet->getStyle('A14')->getFont()->setName('Times New Roman')->setBold(true);
             $sheet->getStyle("A14:{$lastColLetter}14")->applyFromArray($thinBorder);
-
-            // Row 15: Harga setelah estimasi kenaikan (= Nett + Estimasi)
-            $sheet->setCellValue('A15', 'Harga setelah estimasi kenaikan');
-            $sheet->getStyle('A15')->getFont()->setName('Times New Roman')->setBold(true);
-            $sheet->getStyle("A15:{$lastColLetter}15")->applyFromArray($thinBorder);
             $cIdx = 2;
             foreach ($vehicles as $v) {
                 $cLet = Coordinate::stringFromColumnIndex($cIdx);
-                $sheet->setCellValue("{$cLet}15", "={$cLet}11+{$cLet}13");
-                $sheet->getStyle("{$cLet}15")->getFont()->setName('Calibri')->setBold(true);
-                $sheet->getStyle("{$cLet}15")->getNumberFormat()->setFormatCode($numFormat);
+                $sheet->setCellValue("{$cLet}14", (float) $v->estimasi_kenaikan);
+                $sheet->getStyle("{$cLet}14")->getFont()->setName('Calibri')->setBold(true);
+                $sheet->getStyle("{$cLet}14")->getNumberFormat()->setFormatCode($numFormat);
                 $cIdx++;
             }
 
-            // Row 16: Blank
-            $sheet->getStyle("A16:{$lastColLetter}16")->applyFromArray($thinBorder);
+            // Row 15: Blank
+            $sheet->getStyle("A15:{$lastColLetter}15")->applyFromArray($thinBorder);
 
-            // Row 17: Tambahan :
-            $sheet->setCellValue('A17', 'Tambahan : ');
-            $sheet->getStyle('A17')->getFont()->setName('Calibri');
+            // Row 16: Harga setelah estimasi kenaikan (= Nett + Estimasi)
+            $sheet->setCellValue('A16', 'Harga setelah estimasi kenaikan');
+            $sheet->getStyle('A16')->getFont()->setName('Times New Roman')->setBold(true);
+            $sheet->getStyle("A16:{$lastColLetter}16")->applyFromArray($thinBorder);
+            $cIdx = 2;
+            foreach ($vehicles as $v) {
+                $cLet = Coordinate::stringFromColumnIndex($cIdx);
+                $sheet->setCellValue("{$cLet}16", "={$cLet}12+{$cLet}14");
+                $sheet->getStyle("{$cLet}16")->getFont()->setName('Calibri')->setBold(true);
+                $sheet->getStyle("{$cLet}16")->getNumberFormat()->setFormatCode($numFormat);
+                $cIdx++;
+            }
+
+            // Row 17: Blank
             $sheet->getStyle("A17:{$lastColLetter}17")->applyFromArray($thinBorder);
 
-            $currRow = 18;
-            $accStartRow = 18;
-            $hargaSetelahRow = 15;
+            // Row 18: Tambahan :
+            $sheet->setCellValue('A18', 'Tambahan : ');
+            $sheet->getStyle('A18')->getFont()->setName('Calibri');
+            $sheet->getStyle("A18:{$lastColLetter}18")->applyFromArray($thinBorder);
+
+            $currRow = 19;
+            $accStartRow = 19;
+            $hargaSetelahRow = 16;
         } else {
             // ==========================================
             // SMD SPECIFIC ROWS (NO Diskon, NO Nett)
             // ==========================================
-            // Row 10: Blank
-            $sheet->getStyle("A10:{$lastColLetter}10")->applyFromArray($thinBorder);
-
-            // Row 11: Estimasi kenaikan harga
-            $sheet->setCellValue('A11', 'Estimasi kenaikan harga');
-            $sheet->getStyle('A11')->getFont()->setName('Times New Roman')->setBold(true);
+            // Row 11: Blank
             $sheet->getStyle("A11:{$lastColLetter}11")->applyFromArray($thinBorder);
-            $cIdx = 2;
-            foreach ($vehicles as $v) {
-                $cLet = Coordinate::stringFromColumnIndex($cIdx);
-                $sheet->setCellValue("{$cLet}11", (float) $v->estimasi_kenaikan);
-                $sheet->getStyle("{$cLet}11")->getFont()->setName('Calibri')->setBold(true);
-                $sheet->getStyle("{$cLet}11")->getNumberFormat()->setFormatCode($numFormat);
-                $cIdx++;
-            }
 
-            // Row 12: Blank
+            // Row 12: Estimasi kenaikan harga
+            $sheet->setCellValue('A12', 'Estimasi kenaikan harga');
+            $sheet->getStyle('A12')->getFont()->setName('Times New Roman')->setBold(true);
             $sheet->getStyle("A12:{$lastColLetter}12")->applyFromArray($thinBorder);
-
-            // Row 13: Harga setelah estimasi kenaikan (= OTR + Estimasi, NO DISKON!)
-            $sheet->setCellValue('A13', 'Harga setelah estimasi kenaikan');
-            $sheet->getStyle('A13')->getFont()->setName('Times New Roman')->setBold(true);
-            $sheet->getStyle("A13:{$lastColLetter}13")->applyFromArray($thinBorder);
             $cIdx = 2;
             foreach ($vehicles as $v) {
                 $cLet = Coordinate::stringFromColumnIndex($cIdx);
-                $sheet->setCellValue("{$cLet}13", "={$cLet}9+{$cLet}11");
-                $sheet->getStyle("{$cLet}13")->getFont()->setName('Calibri')->setBold(true);
-                $sheet->getStyle("{$cLet}13")->getNumberFormat()->setFormatCode($numFormat);
+                $sheet->setCellValue("{$cLet}12", (float) $v->estimasi_kenaikan);
+                $sheet->getStyle("{$cLet}12")->getFont()->setName('Calibri')->setBold(true);
+                $sheet->getStyle("{$cLet}12")->getNumberFormat()->setFormatCode($numFormat);
                 $cIdx++;
             }
 
-            // Row 14: Blank
-            $sheet->getStyle("A14:{$lastColLetter}14")->applyFromArray($thinBorder);
+            // Row 13: Blank
+            $sheet->getStyle("A13:{$lastColLetter}13")->applyFromArray($thinBorder);
 
-            // Row 15: Tambahan :
-            $sheet->setCellValue('A15', 'Tambahan : ');
-            $sheet->getStyle('A15')->getFont()->setName('Calibri');
+            // Row 14: Harga setelah estimasi kenaikan (= OTR + Estimasi, NO DISKON!)
+            $sheet->setCellValue('A14', 'Harga setelah estimasi kenaikan');
+            $sheet->getStyle('A14')->getFont()->setName('Times New Roman')->setBold(true);
+            $sheet->getStyle("A14:{$lastColLetter}14")->applyFromArray($thinBorder);
+            $cIdx = 2;
+            foreach ($vehicles as $v) {
+                $cLet = Coordinate::stringFromColumnIndex($cIdx);
+                $sheet->setCellValue("{$cLet}14", "={$cLet}10+{$cLet}12");
+                $sheet->getStyle("{$cLet}14")->getFont()->setName('Calibri')->setBold(true);
+                $sheet->getStyle("{$cLet}14")->getNumberFormat()->setFormatCode($numFormat);
+                $cIdx++;
+            }
+
+            // Row 15: Blank
             $sheet->getStyle("A15:{$lastColLetter}15")->applyFromArray($thinBorder);
 
-            $currRow = 16;
-            $accStartRow = 16;
-            $hargaSetelahRow = 13;
+            // Row 16: Tambahan :
+            $sheet->setCellValue('A16', 'Tambahan : ');
+            $sheet->getStyle('A16')->getFont()->setName('Calibri');
+            $sheet->getStyle("A16:{$lastColLetter}16")->applyFromArray($thinBorder);
+
+            $currRow = 17;
+            $accStartRow = 17;
+            $hargaSetelahRow = 14;
         }
 
         // Accessories rows
