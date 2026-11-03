@@ -1026,52 +1026,52 @@
                         @endforeach
                     </tr>
 
-                    {{-- Row: Qty Unit --}}
+                    {{-- Row 9: Qty Unit --}}
                     <tr>
-                        <td class="excel-row-hdr" data-row="qty">#</td>
-                        <td class="excel-cell cell-cyan cell-left" data-val="Qty Unit :">
+                        <td class="excel-row-hdr" data-row="9">9</td>
+                        <td class="excel-cell cell-cyan cell-left" data-coord="A9" data-val="Qty Unit :">
                             Qty Unit :
                         </td>
                         @foreach ($vehicles as $idx => $v)
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell cell-cyan cell-center" data-val="{{ $v->qty ?: 1 }}">
+                            <td class="excel-cell cell-cyan cell-center" data-coord="{{ $colLet }}9" data-val="{{ $v->qty ?: 1 }}">
                                 {{ $v->qty ?: 1 }}
                             </td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 9: Harga OTR --}}
+                    {{-- Row 10: Harga OTR --}}
                     <tr>
-                        <td class="excel-row-hdr" data-row="9">9</td>
-                        <td class="excel-cell cell-times-bold cell-left" data-coord="A9" data-val="Harga OTR">
+                        <td class="excel-row-hdr" data-row="10">10</td>
+                        <td class="excel-cell cell-times-bold cell-left" data-coord="A10" data-val="Harga OTR">
                             Harga OTR
                         </td>
                         @foreach ($vehicles as $idx => $v)
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell cell-times-bold cell-right" data-coord="{{ $colLet }}9" data-val="{{ (float)$v->harga_otr }}">
+                            <td class="excel-cell cell-times-bold cell-right" data-coord="{{ $colLet }}10" data-val="{{ (float)$v->harga_otr }}">
                                 {{ number_format($v->harga_otr, 0, ',', '.') }}
                             </td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 10: Diskon --}}
+                    {{-- Row 11: Diskon --}}
                     <tr>
-                        <td class="excel-row-hdr" data-row="10">10</td>
-                        <td class="excel-cell cell-times cell-left" data-coord="A10" data-val="Diskon">
+                        <td class="excel-row-hdr" data-row="11">11</td>
+                        <td class="excel-cell cell-times cell-left" data-coord="A11" data-val="Diskon">
                             Diskon
                         </td>
                         @foreach ($vehicles as $idx => $v)
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell cell-calibri-bold cell-right {{ $v->diskon > 0 ? 'text-danger' : '' }}" data-coord="{{ $colLet }}10" data-val="{{ (float)$v->diskon }}">
+                            <td class="excel-cell cell-calibri-bold cell-right {{ $v->diskon > 0 ? 'text-danger' : '' }}" data-coord="{{ $colLet }}11" data-val="{{ (float)$v->diskon }}">
                                 {{ number_format($v->diskon, 0, ',', '.') }}
                             </td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 11: Harga Nett --}}
+                    {{-- Row 12: Harga Nett --}}
                     <tr style="background-color: #f0fdf4;">
-                        <td class="excel-row-hdr" data-row="11">11</td>
-                        <td class="excel-cell cell-times-bold cell-left text-success" data-coord="A11" data-val="Harga Nett">
+                        <td class="excel-row-hdr" data-row="12">12</td>
+                        <td class="excel-cell cell-times-bold cell-left text-success" data-coord="A12" data-val="Harga Nett">
                             Harga Nett
                         </td>
                         @foreach ($vehicles as $idx => $v)
@@ -1079,50 +1079,50 @@
                                 $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); 
                                 $nett = (float)$v->harga_otr - (float)$v->diskon;
                             @endphp
-                            <td class="excel-cell cell-calibri-bold cell-right text-success" data-coord="{{ $colLet }}11" data-formula="={{ $colLet }}9-{{ $colLet }}10" data-val="{{ $nett }}">
+                            <td class="excel-cell cell-calibri-bold cell-right text-success" data-coord="{{ $colLet }}12" data-formula="={{ $colLet }}10-{{ $colLet }}11" data-val="{{ $nett }}">
                                 {{ number_format($nett, 0, ',', '.') }}
                             </td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 12: Blank --}}
+                    {{-- Row 13: Blank --}}
                     <tr>
-                        <td class="excel-row-hdr" data-row="12">12</td>
-                        <td class="excel-cell" data-coord="A12" data-val=""></td>
+                        <td class="excel-row-hdr" data-row="13">13</td>
+                        <td class="excel-cell" data-coord="A13" data-val=""></td>
                         @foreach ($vehicles as $idx => $v)
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell" data-coord="{{ $colLet }}12" data-val=""></td>
+                            <td class="excel-cell" data-coord="{{ $colLet }}13" data-val=""></td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 13: Estimasi kenaikan harga --}}
+                    {{-- Row 14: Estimasi kenaikan harga --}}
                     <tr>
-                        <td class="excel-row-hdr" data-row="13">13</td>
-                        <td class="excel-cell cell-times-bold cell-left" data-coord="A13" data-val="Estimasi kenaikan harga">
+                        <td class="excel-row-hdr" data-row="14">14</td>
+                        <td class="excel-cell cell-times-bold cell-left" data-coord="A14" data-val="Estimasi kenaikan harga">
                             Estimasi kenaikan harga
                         </td>
                         @foreach ($vehicles as $idx => $v)
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell cell-calibri-bold cell-right" data-coord="{{ $colLet }}13" data-val="{{ (float)$v->estimasi_kenaikan }}">
+                            <td class="excel-cell cell-calibri-bold cell-right" data-coord="{{ $colLet }}14" data-val="{{ (float)$v->estimasi_kenaikan }}">
                                 {{ number_format($v->estimasi_kenaikan, 0, ',', '.') }}
                             </td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 14: Blank --}}
+                    {{-- Row 15: Blank --}}
                     <tr>
-                        <td class="excel-row-hdr" data-row="14">14</td>
-                        <td class="excel-cell" data-coord="A14" data-val=""></td>
+                        <td class="excel-row-hdr" data-row="15">15</td>
+                        <td class="excel-cell" data-coord="A15" data-val=""></td>
                         @foreach ($vehicles as $idx => $v)
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell" data-coord="{{ $colLet }}14" data-val=""></td>
+                            <td class="excel-cell" data-coord="{{ $colLet }}15" data-val=""></td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 15: Harga setelah estimasi kenaikan --}}
+                    {{-- Row 16: Harga setelah estimasi kenaikan --}}
                     <tr style="background-color: #fefce8;">
-                        <td class="excel-row-hdr" data-row="15">15</td>
-                        <td class="excel-cell cell-times-bold cell-left" data-coord="A15" data-val="Harga setelah estimasi kenaikan">
+                        <td class="excel-row-hdr" data-row="16">16</td>
+                        <td class="excel-cell cell-times-bold cell-left" data-coord="A16" data-val="Harga setelah estimasi kenaikan">
                             Harga setelah estimasi kenaikan
                         </td>
                         @foreach ($vehicles as $idx => $v)
@@ -1131,38 +1131,38 @@
                                 $nett = (float)$v->harga_otr - (float)$v->diskon;
                                 $afterIncrease = $nett + (float)$v->estimasi_kenaikan;
                             @endphp
-                            <td class="excel-cell cell-calibri-bold cell-right" data-coord="{{ $colLet }}15" data-formula="={{ $colLet }}11+{{ $colLet }}13" data-val="{{ $afterIncrease }}">
+                            <td class="excel-cell cell-calibri-bold cell-right" data-coord="{{ $colLet }}16" data-formula="={{ $colLet }}12+{{ $colLet }}14" data-val="{{ $afterIncrease }}">
                                 {{ number_format($afterIncrease, 0, ',', '.') }}
                             </td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 16: Blank --}}
-                    <tr>
-                        <td class="excel-row-hdr" data-row="16">16</td>
-                        <td class="excel-cell" data-coord="A16" data-val=""></td>
-                        @foreach ($vehicles as $idx => $v)
-                            @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell" data-coord="{{ $colLet }}16" data-val=""></td>
-                        @endforeach
-                    </tr>
-
-                    {{-- Row 17: Tambahan : --}}
+                    {{-- Row 17: Blank --}}
                     <tr>
                         <td class="excel-row-hdr" data-row="17">17</td>
-                        <td class="excel-cell cell-calibri cell-left fw-semibold text-primary" data-coord="A17" data-val="Tambahan : ">
-                            Tambahan : 
-                        </td>
+                        <td class="excel-cell" data-coord="A17" data-val=""></td>
                         @foreach ($vehicles as $idx => $v)
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
                             <td class="excel-cell" data-coord="{{ $colLet }}17" data-val=""></td>
                         @endforeach
                     </tr>
 
-                    {{-- Accessories Rows (Row 18 onwards) --}}
+                    {{-- Row 18: Tambahan : --}}
+                    <tr>
+                        <td class="excel-row-hdr" data-row="18">18</td>
+                        <td class="excel-cell cell-calibri cell-left fw-semibold text-primary" data-coord="A18" data-val="Tambahan : ">
+                            Tambahan : 
+                        </td>
+                        @foreach ($vehicles as $idx => $v)
+                            @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
+                            <td class="excel-cell" data-coord="{{ $colLet }}18" data-val=""></td>
+                        @endforeach
+                    </tr>
+
+                    {{-- Accessories Rows (Row 19 onwards) --}}
                     @php 
-                        $curRowBu = 18;
-                        $accStartBu = 18;
+                        $curRowBu = 19;
+                        $accStartBu = 19;
                     @endphp
                     @foreach ($accNames as $accName)
                         <tr>
@@ -1248,7 +1248,7 @@
                                 }
                                 $grandTotal = $afterIncrease + $accSum;
                             @endphp
-                            <td class="excel-cell cell-calibri-bold cell-right text-primary" data-coord="{{ $colLet }}{{ $grandTotalRowBu }}" data-formula="={{ $colLet }}15+{{ $colLet }}{{ $totalAccRowBu }}" data-val="{{ $grandTotal }}">
+                            <td class="excel-cell cell-calibri-bold cell-right text-primary" data-coord="{{ $colLet }}{{ $grandTotalRowBu }}" data-formula="={{ $colLet }}16+{{ $colLet }}{{ $totalAccRowBu }}" data-val="{{ $grandTotal }}">
                                 {{ number_format($grandTotal, 0, ',', '.') }}
                             </td>
                         @endforeach
@@ -1428,72 +1428,72 @@
                         @endforeach
                     </tr>
 
-                    {{-- Row: Qty Unit --}}
+                    {{-- Row 9: Qty Unit --}}
                     <tr>
-                        <td class="excel-row-hdr" data-row="qty">#</td>
-                        <td class="excel-cell cell-cyan cell-left" data-val="Qty Unit :">
+                        <td class="excel-row-hdr" data-row="9">9</td>
+                        <td class="excel-cell cell-cyan cell-left" data-coord="A9" data-val="Qty Unit :">
                             Qty Unit :
                         </td>
                         @foreach ($vehicles as $idx => $v)
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell cell-cyan cell-center" data-val="{{ $v->qty ?: 1 }}">
+                            <td class="excel-cell cell-cyan cell-center" data-coord="{{ $colLet }}9" data-val="{{ $v->qty ?: 1 }}">
                                 {{ $v->qty ?: 1 }}
                             </td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 9: Harga OTR --}}
+                    {{-- Row 10: Harga OTR --}}
                     <tr>
-                        <td class="excel-row-hdr" data-row="9">9</td>
-                        <td class="excel-cell cell-times-bold cell-left" data-coord="A9" data-val="Harga OTR">
+                        <td class="excel-row-hdr" data-row="10">10</td>
+                        <td class="excel-cell cell-times-bold cell-left" data-coord="A10" data-val="Harga OTR">
                             Harga OTR
                         </td>
                         @foreach ($vehicles as $idx => $v)
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell cell-times-bold cell-right" data-coord="{{ $colLet }}9" data-val="{{ (float)$v->harga_otr }}">
+                            <td class="excel-cell cell-times-bold cell-right" data-coord="{{ $colLet }}10" data-val="{{ (float)$v->harga_otr }}">
                                 {{ number_format($v->harga_otr, 0, ',', '.') }}
                             </td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 10: Blank (NO DISKON!) --}}
+                    {{-- Row 11: Blank (NO DISKON!) --}}
                     <tr>
-                        <td class="excel-row-hdr" data-row="10">10</td>
-                        <td class="excel-cell" data-coord="A10" data-val=""></td>
+                        <td class="excel-row-hdr" data-row="11">11</td>
+                        <td class="excel-cell" data-coord="A11" data-val=""></td>
                         @foreach ($vehicles as $idx => $v)
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell" data-coord="{{ $colLet }}10" data-val=""></td>
+                            <td class="excel-cell" data-coord="{{ $colLet }}11" data-val=""></td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 11: Estimasi kenaikan harga --}}
+                    {{-- Row 12: Estimasi kenaikan harga --}}
                     <tr>
-                        <td class="excel-row-hdr" data-row="11">11</td>
-                        <td class="excel-cell cell-times-bold cell-left" data-coord="A11" data-val="Estimasi kenaikan harga">
+                        <td class="excel-row-hdr" data-row="12">12</td>
+                        <td class="excel-cell cell-times-bold cell-left" data-coord="A12" data-val="Estimasi kenaikan harga">
                             Estimasi kenaikan harga
                         </td>
                         @foreach ($vehicles as $idx => $v)
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell cell-calibri-bold cell-right" data-coord="{{ $colLet }}11" data-val="{{ (float)$v->estimasi_kenaikan }}">
+                            <td class="excel-cell cell-calibri-bold cell-right" data-coord="{{ $colLet }}12" data-val="{{ (float)$v->estimasi_kenaikan }}">
                                 {{ number_format($v->estimasi_kenaikan, 0, ',', '.') }}
                             </td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 12: Blank --}}
+                    {{-- Row 13: Blank --}}
                     <tr>
-                        <td class="excel-row-hdr" data-row="12">12</td>
-                        <td class="excel-cell" data-coord="A12" data-val=""></td>
+                        <td class="excel-row-hdr" data-row="13">13</td>
+                        <td class="excel-cell" data-coord="A13" data-val=""></td>
                         @foreach ($vehicles as $idx => $v)
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell" data-coord="{{ $colLet }}12" data-val=""></td>
+                            <td class="excel-cell" data-coord="{{ $colLet }}13" data-val=""></td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 13: Harga setelah estimasi kenaikan (= OTR + Estimasi, NO DISKON!) --}}
+                    {{-- Row 14: Harga setelah estimasi kenaikan (= OTR + Estimasi, NO DISKON!) --}}
                     <tr style="background-color: #fefce8;">
-                        <td class="excel-row-hdr" data-row="13">13</td>
-                        <td class="excel-cell cell-times-bold cell-left" data-coord="A13" data-val="Harga setelah estimasi kenaikan">
+                        <td class="excel-row-hdr" data-row="14">14</td>
+                        <td class="excel-cell cell-times-bold cell-left" data-coord="A14" data-val="Harga setelah estimasi kenaikan">
                             Harga setelah estimasi kenaikan
                         </td>
                         @foreach ($vehicles as $idx => $v)
@@ -1501,38 +1501,38 @@
                                 $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); 
                                 $afterIncreaseSmd = (float)$v->harga_otr + (float)$v->estimasi_kenaikan;
                             @endphp
-                            <td class="excel-cell cell-calibri-bold cell-right" data-coord="{{ $colLet }}13" data-formula="={{ $colLet }}9+{{ $colLet }}11" data-val="{{ $afterIncreaseSmd }}">
+                            <td class="excel-cell cell-calibri-bold cell-right" data-coord="{{ $colLet }}14" data-formula="={{ $colLet }}10+{{ $colLet }}12" data-val="{{ $afterIncreaseSmd }}">
                                 {{ number_format($afterIncreaseSmd, 0, ',', '.') }}
                             </td>
                         @endforeach
                     </tr>
 
-                    {{-- Row 14: Blank --}}
-                    <tr>
-                        <td class="excel-row-hdr" data-row="14">14</td>
-                        <td class="excel-cell" data-coord="A14" data-val=""></td>
-                        @foreach ($vehicles as $idx => $v)
-                            @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
-                            <td class="excel-cell" data-coord="{{ $colLet }}14" data-val=""></td>
-                        @endforeach
-                    </tr>
-
-                    {{-- Row 15: Tambahan : --}}
+                    {{-- Row 15: Blank --}}
                     <tr>
                         <td class="excel-row-hdr" data-row="15">15</td>
-                        <td class="excel-cell cell-calibri cell-left fw-semibold text-primary" data-coord="A15" data-val="Tambahan : ">
-                            Tambahan : 
-                        </td>
+                        <td class="excel-cell" data-coord="A15" data-val=""></td>
                         @foreach ($vehicles as $idx => $v)
                             @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
                             <td class="excel-cell" data-coord="{{ $colLet }}15" data-val=""></td>
                         @endforeach
                     </tr>
 
-                    {{-- Accessories Rows (Row 16 onwards) --}}
+                    {{-- Row 16: Tambahan : --}}
+                    <tr>
+                        <td class="excel-row-hdr" data-row="16">16</td>
+                        <td class="excel-cell cell-calibri cell-left fw-semibold text-primary" data-coord="A16" data-val="Tambahan : ">
+                            Tambahan : 
+                        </td>
+                        @foreach ($vehicles as $idx => $v)
+                            @php $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 2); @endphp
+                            <td class="excel-cell" data-coord="{{ $colLet }}16" data-val=""></td>
+                        @endforeach
+                    </tr>
+
+                    {{-- Accessories Rows (Row 17 onwards) --}}
                     @php 
-                        $curRowSmd = 16;
-                        $accStartSmd = 16;
+                        $curRowSmd = 17;
+                        $accStartSmd = 17;
                     @endphp
                     @foreach ($accNames as $accName)
                         <tr>
@@ -1617,7 +1617,7 @@
                                 }
                                 $grandTotalSmd = $afterIncreaseSmd + $accSum;
                             @endphp
-                            <td class="excel-cell cell-calibri-bold cell-right text-primary" data-coord="{{ $colLet }}{{ $grandTotalRowSmd }}" data-formula="={{ $colLet }}13+{{ $colLet }}{{ $totalAccRowSmd }}" data-val="{{ $grandTotalSmd }}">
+                            <td class="excel-cell cell-calibri-bold cell-right text-primary" data-coord="{{ $colLet }}{{ $grandTotalRowSmd }}" data-formula="={{ $colLet }}14+{{ $colLet }}{{ $totalAccRowSmd }}" data-val="{{ $grandTotalSmd }}">
                                 {{ number_format($grandTotalSmd, 0, ',', '.') }}
                             </td>
                         @endforeach
