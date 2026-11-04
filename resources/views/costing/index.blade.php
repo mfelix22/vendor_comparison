@@ -1,6 +1,27 @@
 @extends('layouts.app')
 
 @section('title', 'Costing Portal')
+@section('main_container_class', 'container-fluid px-3 px-xl-4')
+
+@push('styles')
+<style>
+    #costingTable th {
+        font-size: 0.72rem;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        vertical-align: middle;
+        padding-top: 0.55rem;
+        padding-bottom: 0.55rem;
+        line-height: 1.25;
+    }
+    #costingTable td {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+        vertical-align: middle;
+        font-size: 0.8125rem;
+    }
+</style>
+@endpush
 
 @section('content')
 
@@ -63,17 +84,29 @@
                     <table class="table table-hover align-middle mb-0" id="costingTable">
                         <thead class="table-light">
                             <tr>
-                                <th class="ps-3 py-3">Costing No</th>
-                                <th>Customer / Instansi</th>
-                                <th class="text-center">FPH Type</th>
-                                <th class="text-center">Vehicles Compared</th>
-                                <th class="text-end">Price Range (Unit + Acc)</th>
-                                <th>Created By</th>
-                                <th>Created Date</th>
-                                <th class="text-center">Tanggal FPH</th>
-                                <th class="text-center">Tanggal Revisi FPH</th>
-                                <th class="text-center">Tanggal Email ke SMD</th>
-                                <th class="text-center pe-3" style="width: 110px;">Actions</th>
+                                <th class="ps-3 py-2 text-nowrap">Costing No</th>
+                                <th class="py-2">Customer / Instansi</th>
+                                <th class="text-center py-2 text-nowrap">FPH Type</th>
+                                <th class="text-center py-2 text-nowrap">
+                                    <div>VEHICLES</div>
+                                    <div class="text-muted fw-semibold" style="font-size: 0.68rem; letter-spacing: 0.02em;">COMPARED</div>
+                                </th>
+                                <th class="text-end py-2 text-nowrap">
+                                    <div>PRICE RANGE</div>
+                                    <div class="text-muted fw-semibold" style="font-size: 0.68rem; letter-spacing: 0.02em;">(UNIT+ACC)</div>
+                                </th>
+                                <th class="py-2 text-nowrap">Created By</th>
+                                <th class="py-2 text-nowrap">Created Date</th>
+                                <th class="text-center py-2 text-nowrap">Tanggal FPH</th>
+                                <th class="text-center py-2 text-nowrap">
+                                    <div>TANGGAL REVISI</div>
+                                    <div class="text-muted fw-semibold" style="font-size: 0.68rem; letter-spacing: 0.02em;">FPH</div>
+                                </th>
+                                <th class="text-center py-2 text-nowrap">
+                                    <div>TANGGAL EMAIL</div>
+                                    <div class="text-muted fw-semibold" style="font-size: 0.68rem; letter-spacing: 0.02em;">KE SMD</div>
+                                </th>
+                                <th class="text-center pe-3 py-2 text-nowrap" style="width: 105px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -85,20 +118,20 @@
                                     $totalQty = (int) $costing->vehicles->sum('qty');
                                 @endphp
                                 <tr data-href="{{ route('costing.show', $costing) }}" style="cursor: pointer;">
-                                    <td class="ps-3 fw-bold text-primary">
+                                    <td class="ps-3 fw-bold text-primary text-nowrap">
                                         <a href="{{ route('costing.show', $costing) }}" class="text-decoration-none">
                                             {{ $costing->costing_number }}
                                         </a>
                                     </td>
                                     <td>
-                                        <div class="fw-semibold">{{ $costing->customer_name }}</div>
+                                        <div class="fw-semibold text-truncate" style="max-width: 220px;" title="{{ $costing->customer_name }}">{{ $costing->customer_name }}</div>
                                         @if ($costing->notes)
-                                            <div class="text-muted small text-truncate" style="max-width: 320px;">
+                                            <div class="text-muted small text-truncate" style="max-width: 220px;" title="{{ $costing->notes }}">
                                                 {{ $costing->notes }}
                                             </div>
                                         @endif
                                     </td>
-                                    <td class="text-center">
+                                    <td class="text-center text-nowrap">
                                         @if ($costing->isDraft())
                                             <div>
                                                 <span class="badge bg-secondary text-white border px-2 py-1">
@@ -132,38 +165,42 @@
                                             </span>
                                         @endif
                                     </td>
-                                    <td class="text-center">
-                                        <span class="badge bg-light text-dark border">
-                                            <i class="bi bi-car-front me-1"></i>{{ $vCount }} vehicle(s)
-                                            @if ($totalQty > $vCount)
-                                                <span class="text-primary fw-semibold ms-1">({{ $totalQty }} units)</span>
-                                            @endif
+                                    <td class="text-center text-nowrap">
+                                        <span class="badge bg-light text-dark border px-2 py-1">
+                                            <i class="bi bi-car-front me-1 text-secondary"></i>{{ $vCount }} {{ $vCount === 1 ? 'vehicle' : 'vehicles' }}
                                         </span>
-                                    </td>
-                                    <td class="text-end fw-semibold">
-                                        @if ($minPrice === $maxPrice)
-                                            Rp {{ number_format($minPrice, 0, ',', '.') }}
-                                        @else
-                                            <div class="small text-muted">Rp {{ number_format($minPrice, 0, ',', '.') }}</div>
-                                            <div class="text-dark">Rp {{ number_format($maxPrice, 0, ',', '.') }}</div>
+                                        @if ($totalQty > $vCount)
+                                            <div class="mt-1">
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0" style="font-size: 0.72rem;">
+                                                    {{ $totalQty }} Units
+                                                </span>
+                                            </div>
                                         @endif
                                     </td>
-                                    <td>
+                                    <td class="text-end text-nowrap">
+                                        @if ($minPrice === $maxPrice)
+                                            <span class="fw-semibold text-nowrap">Rp&nbsp;{{ number_format($minPrice, 0, ',', '.') }}</span>
+                                        @else
+                                            <div class="small text-muted text-nowrap" style="font-size: 0.75rem;">Rp&nbsp;{{ number_format($minPrice, 0, ',', '.') }}</div>
+                                            <div class="text-dark fw-semibold text-nowrap">Rp&nbsp;{{ number_format($maxPrice, 0, ',', '.') }}</div>
+                                        @endif
+                                    </td>
+                                    <td class="text-nowrap">
                                         <span class="small">{{ $costing->creator->name ?? '—' }}</span>
                                     </td>
-                                    <td class="text-muted small">
-                                        {{ $costing->created_at->format('d M Y, H:i') }}
+                                    <td class="text-muted small text-nowrap">
+                                        {{ $costing->created_at->format('d M Y') }}
                                     </td>
-                                    <td class="text-center small">
+                                    <td class="text-center small text-nowrap">
                                         {{ $costing->tanggal_fph ? $costing->tanggal_fph->format('d M Y') : '—' }}
                                     </td>
-                                    <td class="text-center small">
+                                    <td class="text-center small text-nowrap">
                                         {{ $costing->tanggal_revisi_fph ? $costing->tanggal_revisi_fph->format('d M Y') : '—' }}
                                     </td>
-                                    <td class="text-center small">
+                                    <td class="text-center small text-nowrap">
                                         {{ $costing->tanggal_email_smd ? $costing->tanggal_email_smd->format('d M Y') : '—' }}
                                     </td>
-                                    <td class="text-center pe-3">
+                                    <td class="text-center pe-3 text-nowrap">
                                         <div class="btn-group btn-group-sm">
                                             {{-- Excel Export Button (Locked if Pending or Rejected) --}}
                                             @if (!$costing->isPendingApproval() && !$costing->isRejected())
