@@ -120,6 +120,14 @@
             font-weight: 700;
             font-size: 0.875rem;
         }
+        .province-qty-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 8px;
+            max-height: 140px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
     </style>
 @endpush
 
@@ -208,52 +216,75 @@
                         </div>
                     </div>
 
-                    {{-- Section 2: Contract Details - SMD, Masa Sewa, Delivery Date (Middle) --}}
-                    <div class="col-lg-5 col-md-7 ps-lg-4" style="border-left: 1px solid #e9ecef;">
-                        <div class="row g-2">
-                            <div class="col-12">
-                                <label class="form-label small fw-semibold mb-1">SMD</label>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                                    <select name="smd" class="form-select form-select-sm">
-                                        <option value="">Select SMD</option>
-                                        @foreach ($smdList as $smd)
-                                            <option value="{{ $smd }}" {{ old('smd') === $smd ? 'selected' : '' }}>{{ $smd }}</option>
-                                        @endforeach
-                                    </select>
+                    {{-- Section 2 & 3: Contract Details, Notes, and Province Qty Summary (Right, col-lg-8) --}}
+                    <div class="col-lg-8 col-md-7 ps-lg-4" style="border-left: 1px solid #e9ecef;">
+                        <div class="row g-3">
+                            {{-- Contract Details (SMD, Masa Sewa, Delivery Date) --}}
+                            <div class="col-lg-7 col-md-12">
+                                <div class="row g-2">
+                                    <div class="col-12">
+                                        <label class="form-label small fw-semibold mb-1">SMD</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                                            <select name="smd" class="form-select form-select-sm">
+                                                <option value="">Select SMD</option>
+                                                @foreach ($smdList as $smd)
+                                                    <option value="{{ $smd }}" {{ old('smd') === $smd ? 'selected' : '' }}>{{ $smd }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label small fw-semibold mb-1">Masa Sewa</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text"><i class="bi bi-calendar3-range"></i></span>
+                                            <input type="text" name="masa_sewa" list="masaSewaOptions" class="form-control form-control-sm"
+                                                placeholder="e.g. 12 Bulan" value="{{ old('masa_sewa') }}">
+                                            <datalist id="masaSewaOptions">
+                                                <option value="12 Bulan">
+                                                <option value="24 Bulan">
+                                                <option value="36 Bulan">
+                                                <option value="48 Bulan">
+                                                <option value="60 Bulan">
+                                            </datalist>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label small fw-semibold mb-1">Request Delivery Date</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+                                            <input type="date" name="request_delivery_date" class="form-control form-control-sm"
+                                                value="{{ old('request_delivery_date') }}">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="col-sm-6">
-                                <label class="form-label small fw-semibold mb-1">Masa Sewa</label>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text"><i class="bi bi-calendar3-range"></i></span>
-                                    <input type="text" name="masa_sewa" list="masaSewaOptions" class="form-control form-control-sm"
-                                        placeholder="e.g. 12 Bulan" value="{{ old('masa_sewa') }}">
-                                    <datalist id="masaSewaOptions">
-                                        <option value="12 Bulan">
-                                        <option value="24 Bulan">
-                                        <option value="36 Bulan">
-                                        <option value="48 Bulan">
-                                        <option value="60 Bulan">
-                                    </datalist>
-                                </div>
+
+                            {{-- Internal Notes / Reference (Right side of row 1) --}}
+                            <div class="col-lg-5 col-md-12 ps-lg-3" style="border-left: 1px solid #f1f5f9;">
+                                <label class="form-label small fw-semibold mb-1">Internal Notes / Reference</label>
+                                <textarea name="notes" rows="4" class="form-control form-control-sm" style="resize: vertical; min-height: 86px;"
+                                    placeholder="Optional remarks or procurement notes...">{{ old('notes') }}</textarea>
                             </div>
-                            <div class="col-sm-6">
-                                <label class="form-label small fw-semibold mb-1">Request Delivery Date</label>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
-                                    <input type="date" name="request_delivery_date" class="form-control form-control-sm"
-                                        value="{{ old('request_delivery_date') }}">
+
+                            {{-- Total Quantity per Provinsi Live Summary Box (Extends across FULL width under SMD & Notes) --}}
+                            <div class="col-12 mt-2">
+                                <div class="p-2 px-3 rounded border" id="provinceQtySummaryBox" style="background-color: #f8fafc; border-color: #e2e8f0;">
+                                    <div class="d-flex align-items-center justify-content-between mb-2 pb-1 border-bottom">
+                                        <span class="fw-bold small text-dark d-flex align-items-center gap-1" style="font-size: 0.8rem;">
+                                            <i class="bi bi-geo-alt-fill text-primary"></i>TOTAL QUANTITY Per Provinsi
+                                            <span class="badge bg-secondary-subtle text-secondary border ms-1" id="badgeProvCount" style="font-size: 0.7rem; display: none;"></span>
+                                        </span>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle fw-bold px-2 py-1" id="badgeGrandTotalQty" style="font-size: 0.78rem;">
+                                            Total: 0 Unit
+                                        </span>
+                                    </div>
+                                    <div id="provinceQtyList" class="province-qty-grid">
+                                        <span class="text-muted small fst-italic" style="font-size: 0.75rem;">Belum ada unit kendaraan ditambahkan.</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    {{-- Section 3: Internal Notes / Reference (Right) --}}
-                    <div class="col-lg-3 col-md-12 ps-lg-4" style="border-left: 1px solid #e9ecef;">
-                        <label class="form-label small fw-semibold mb-1">Internal Notes / Reference</label>
-                        <textarea name="notes" rows="4" class="form-control form-control-sm"
-                            placeholder="Optional remarks or procurement notes...">{{ old('notes') }}</textarea>
                     </div>
                 </div>
             </div>
@@ -644,6 +675,7 @@
                     if (prInp) prInp.value = firstProvinsi;
                 }
             });
+            updateProvinceQtySummary();
         }
 
         function syncBbnToAll() {
@@ -709,7 +741,97 @@
 
             if (vIndex === firstIdx && document.getElementById('syncSamePemakaian')?.checked) {
                 syncPemakaianToAll();
+            } else {
+                updateProvinceQtySummary();
             }
+        }
+
+        function onQtyChanged(vIndex) {
+            updateProvinceQtySummary();
+        }
+
+        function updateProvinceQtySummary() {
+            const summaryContainer = document.getElementById('provinceQtyList');
+            const badgeGrandTotal = document.getElementById('badgeGrandTotalQty');
+            if (!summaryContainer || !badgeGrandTotal) return;
+
+            const indices = getAllVehicleIndices();
+            const provMap = {};
+            let grandTotalQty = 0;
+
+            indices.forEach(idx => {
+                const qtyInp = document.getElementById(`inputQty_${idx}`);
+                const qty = qtyInp ? (parseInt(qtyInp.value, 10) || 1) : 1;
+
+                const provInp = document.getElementById(`inputProvinsi_${idx}`);
+                let prov = provInp ? provInp.value.trim().toUpperCase() : '';
+
+                const pemInp = document.getElementById(`inputPemakaian_${idx}`);
+                let pem = pemInp ? pemInp.value.trim() : '';
+
+                if (!prov && pem) {
+                    const match = lookupRegion(pem);
+                    if (match && match.provinsi) {
+                        prov = match.provinsi.trim().toUpperCase();
+                    }
+                }
+                if (!prov) prov = 'UNSPECIFIED';
+
+                if (!provMap[prov]) {
+                    provMap[prov] = { totalQty: 0, locations: {} };
+                }
+                provMap[prov].totalQty += qty;
+                grandTotalQty += qty;
+
+                const locKey = pem || 'Standard';
+                provMap[prov].locations[locKey] = (provMap[prov].locations[locKey] || 0) + qty;
+            });
+
+            badgeGrandTotal.textContent = `Total: ${Number(grandTotalQty).toLocaleString('id-ID')} Unit`;
+
+            const badgeCount = document.getElementById('badgeProvCount');
+            if (badgeCount) {
+                if (provKeys.length > 0 && grandTotalQty > 0) {
+                    badgeCount.textContent = `${provKeys.length} Provinsi`;
+                    badgeCount.style.display = 'inline-block';
+                } else {
+                    badgeCount.style.display = 'none';
+                }
+            }
+
+            if (provKeys.length === 0 || grandTotalQty === 0) {
+                summaryContainer.innerHTML = '<span class="text-muted small fst-italic" style="font-size: 0.75rem;">Belum ada unit kendaraan ditambahkan.</span>';
+                return;
+            }
+
+            // Compact scaling when there are many provinces (> 8)
+            const isMany = provKeys.length > 8;
+            if (isMany) {
+                summaryContainer.style.gridTemplateColumns = 'repeat(auto-fill, minmax(160px, 1fr))';
+                summaryContainer.style.gap = '5px';
+                summaryContainer.style.maxHeight = '180px';
+            } else {
+                summaryContainer.style.gridTemplateColumns = 'repeat(auto-fill, minmax(200px, 1fr))';
+                summaryContainer.style.gap = '8px';
+                summaryContainer.style.maxHeight = '140px';
+            }
+
+            let html = '';
+            provKeys.forEach(p => {
+                const item = provMap[p];
+                const cardPad = isMany ? 'py-1 px-2' : 'p-2';
+                const provFont = isMany ? '0.72rem' : '0.78rem';
+                const badgeFont = isMany ? '0.69rem' : '0.75rem';
+                const badgePad = isMany ? 'padding: 2px 6px;' : '';
+
+                html += `
+                    <div class="${cardPad} rounded border bg-white shadow-sm d-flex align-items-center justify-content-between gap-1" title="${p}: ${Number(item.totalQty).toLocaleString('id-ID')} Unit">
+                        <span class="fw-bold text-dark text-truncate" style="font-size: ${provFont}; line-height: 1.25;">${p}</span>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-bold text-nowrap ms-auto" style="font-size: ${badgeFont}; ${badgePad}">${Number(item.totalQty).toLocaleString('id-ID')} Unit</span>
+                    </div>
+                `;
+            });
+            summaryContainer.innerHTML = html;
         }
 
         // Add Vehicle Column
@@ -889,7 +1011,8 @@
             tdQty.id = `cellQty_${vIndex}`;
             tdQty.innerHTML = `
                 <input type="number" min="1" step="1" name="vehicles[${vIndex}][qty]" id="inputQty_${vIndex}"
-                    class="form-control form-control-sm text-center num-input fw-semibold" value="${qty}" placeholder="1" title="Quantity Unit">
+                    class="form-control form-control-sm text-center num-input fw-semibold" value="${qty}" placeholder="1" title="Quantity Unit"
+                    oninput="onQtyChanged(${vIndex})" onchange="onQtyChanged(${vIndex})">
             `;
             document.getElementById('rowQty').appendChild(tdQty);
 
@@ -978,6 +1101,7 @@
             renumberVehicleColumns();
             updateAccHeaderColspan();
             calculateColumn(vIndex);
+            updateProvinceQtySummary();
         }
 
         // Auto-resize textarea to expand height downward when text wraps
@@ -1202,6 +1326,7 @@
             updateRemoveColButtonsState();
             renumberVehicleColumns();
             updateAccHeaderColspan();
+            updateProvinceQtySummary();
         }
 
         function updateAccHeaderColspan() {

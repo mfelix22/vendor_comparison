@@ -13,6 +13,97 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CostingExportService
 {
+    public const REGIONAL_THEME = [
+        'JAWA' => [
+            'main' => 'C5E0B4', // Soft Forest Mint Green
+            'provinces' => [
+                'DKI JAKARTA'                => 'E2EFDA', // Light Mint
+                'JAWA BARAT'                 => 'D5E8D4', // Pale Celadon
+                'JAWA TENGAH'                => 'E2F0CB', // Lime Pasture
+                'JAWA TIMUR'                 => 'D0EAD4', // Pale Mint Sage
+                'BANTEN'                     => 'CDECCD', // Light Meadow
+                'DAERAH ISTIMEWA YOGYAKARTA' => 'E5EED0', // Light Tea Green
+            ],
+        ],
+        'SUMATERA' => [
+            'main' => 'F8CBAD', // Soft Amber Peach
+            'provinces' => [
+                'ACEH'             => 'FCE4D6', // Pale Peach
+                'SUMATERA UTARA'   => 'FCE8D5', // Soft Apricot
+                'SUMATERA BARAT'   => 'FBE5C8', // Warm Bisque
+                'RIAU'             => 'FDEBD0', // Creamy Sand
+                'KEPULAUAN RIAU'   => 'FCE1C9', // Light Coral Peach
+                'JAMBI'            => 'F8E0C8', // Muted Apricot
+                'SUMATERA SELATAN' => 'FADBD8', // Soft Blush Peach
+                'BANGKA BELITUNG'  => 'FDEBD2', // Warm Gold Cream
+                'BENGKULU'         => 'FBE8DA', // Light Bisque
+                'LAMPUNG'          => 'F5D8C3', // Light Terracotta
+            ],
+        ],
+        'KALIMANTAN' => [
+            'main' => 'BDD7EE', // Soft Sky Blue
+            'provinces' => [
+                'KALIMANTAN BARAT'   => 'DDEBF7', // Light Ice Blue
+                'KALIMANTAN TENGAH'  => 'D2E5F5', // Soft Sky
+                'KALIMANTAN SELATAN' => 'E1EDF8', // Pale Azure
+                'KALIMANTAN TIMUR'   => 'C9E0F2', // Powder Blue
+                'KALIMANTAN UTARA'   => 'D6E8F7', // Breeze Blue
+            ],
+        ],
+        'SULAWESI' => [
+            'main' => 'CCC0DA', // Soft Lavender Violet
+            'provinces' => [
+                'SULAWESI UTARA'    => 'E6DFEC', // Pale Lavender
+                'GORONTALO'         => 'E1D5EA', // Lilac Mist
+                'SULAWESI TENGAH'   => 'EDE5F3', // Soft Violet
+                'SULAWESI BARAT'    => 'DFD3EB', // Heather
+                'SULAWESI SELATAN'  => 'E4DAEE', // Light Orchid
+                'SULAWESI TENGGARA' => 'EBE2F5', // Pastel Lilac
+            ],
+        ],
+        'BALI & NUSA TENGGARA' => [
+            'main' => 'F4B084', // Soft Coral Rose
+            'provinces' => [
+                'BALI'                => 'FCE4D6', // Soft Coral
+                'NUSA TENGGARA BARAT' => 'FADBD8', // Pale Rose
+                'NUSA TENGGARA TIMUR' => 'F8D7DA', // Pastel Salmon
+            ],
+        ],
+        'PAPUA & MALUKU' => [
+            'main' => 'A2D9CE', // Soft Seafoam Teal
+            'provinces' => [
+                'MALUKU'            => 'D1F2EB', // Light Mint Aqua
+                'MALUKU UTARA'      => 'E8F8F5', // Pale Aqua
+                'PAPUA'             => 'D4EFDF', // Soft Seafoam
+                'PAPUA BARAT'       => 'E5F9E0', // Pale Sage Aqua
+                'PAPUA BARAT DAYA'  => 'D0ECE7', // Light Aqua Breeze
+                'PAPUA PEGUNUNGAN'  => 'E1F5FE', // Crisp Aqua
+                'PAPUA SELATAN'     => 'E0F2F1', // Pale Teal
+                'PAPUA TENGAH'      => 'DCECC9', // Pastel Aqua Grass
+            ],
+        ],
+    ];
+
+    public static function getPulauRgb(?string $pulau): string
+    {
+        $p = strtoupper(trim($pulau ?? ''));
+        return self::REGIONAL_THEME[$p]['main'] ?? 'EFEFEF';
+    }
+
+    public static function getProvRgb(?string $pulau, ?string $provinsi): string
+    {
+        $p = strtoupper(trim($pulau ?? ''));
+        $pr = strtoupper(trim($provinsi ?? ''));
+        if (isset(self::REGIONAL_THEME[$p]['provinces'][$pr])) {
+            return self::REGIONAL_THEME[$p]['provinces'][$pr];
+        }
+        foreach (self::REGIONAL_THEME as $islandData) {
+            if (isset($islandData['provinces'][$pr])) {
+                return $islandData['provinces'][$pr];
+            }
+        }
+        return self::REGIONAL_THEME[$p]['main'] ?? 'F8F8F8';
+    }
     public function export(Costing $costing): StreamedResponse
     {
         $costing->load(['vehicles.accessories']);
@@ -27,6 +118,10 @@ class CostingExportService
         // Sheet 2: SMD
         $sheetSmd = $spreadsheet->createSheet();
         $this->buildSheet($sheetSmd, $costing, true);
+
+        // Sheet 3: Alokasi Unit (Summary Qty per Provinsi & Lokasi)
+        $sheetAlokasi = $spreadsheet->createSheet();
+        $this->buildAlokasiSheet($sheetAlokasi, $costing);
 
         // Make BU AB the default active sheet
         $spreadsheet->setActiveSheetIndex(0);
@@ -78,88 +173,8 @@ class CostingExportService
         $colCount = count($vehicles);
         $lastColLetter = Coordinate::stringFromColumnIndex(max(2, 1 + $colCount));
 
-        // Regional theme with per-province color inheritance
-        $regionalTheme = [
-            'JAWA' => [
-                'main' => 'C5E0B4', // Soft Forest Mint Green
-                'provinces' => [
-                    'DKI JAKARTA'                => 'E2EFDA', // Light Mint
-                    'JAWA BARAT'                 => 'D5E8D4', // Pale Celadon
-                    'JAWA TENGAH'                => 'E2F0CB', // Lime Pasture
-                    'JAWA TIMUR'                 => 'D0EAD4', // Pale Mint Sage
-                    'BANTEN'                     => 'CDECCD', // Light Meadow
-                    'DAERAH ISTIMEWA YOGYAKARTA' => 'E5EED0', // Light Tea Green
-                ],
-            ],
-            'SUMATERA' => [
-                'main' => 'F8CBAD', // Soft Amber Peach
-                'provinces' => [
-                    'ACEH'             => 'FCE4D6', // Pale Peach
-                    'SUMATERA UTARA'   => 'FCE8D5', // Soft Apricot
-                    'SUMATERA BARAT'   => 'FBE5C8', // Warm Bisque
-                    'RIAU'             => 'FDEBD0', // Creamy Sand
-                    'KEPULAUAN RIAU'   => 'FCE1C9', // Light Coral Peach
-                    'JAMBI'            => 'F8E0C8', // Muted Apricot
-                    'SUMATERA SELATAN' => 'FADBD8', // Soft Blush Peach
-                    'BANGKA BELITUNG'  => 'FDEBD2', // Warm Gold Cream
-                    'BENGKULU'         => 'FBE8DA', // Light Bisque
-                    'LAMPUNG'          => 'F5D8C3', // Light Terracotta
-                ],
-            ],
-            'KALIMANTAN' => [
-                'main' => 'BDD7EE', // Soft Sky Blue
-                'provinces' => [
-                    'KALIMANTAN BARAT'   => 'DDEBF7', // Light Ice Blue
-                    'KALIMANTAN TENGAH'  => 'D2E5F5', // Soft Sky
-                    'KALIMANTAN SELATAN' => 'E1EDF8', // Pale Azure
-                    'KALIMANTAN TIMUR'   => 'C9E0F2', // Powder Blue
-                    'KALIMANTAN UTARA'   => 'D6E8F7', // Breeze Blue
-                ],
-            ],
-            'SULAWESI' => [
-                'main' => 'CCC0DA', // Soft Lavender Violet
-                'provinces' => [
-                    'SULAWESI UTARA'    => 'E6DFEC', // Pale Lavender
-                    'GORONTALO'         => 'E1D5EA', // Lilac Mist
-                    'SULAWESI TENGAH'   => 'EDE5F3', // Soft Violet
-                    'SULAWESI BARAT'    => 'DFD3EB', // Heather
-                    'SULAWESI SELATAN'  => 'E4DAEE', // Light Orchid
-                    'SULAWESI TENGGARA' => 'EBE2F5', // Pastel Lilac
-                ],
-            ],
-            'BALI & NUSA TENGGARA' => [
-                'main' => 'F4B084', // Soft Coral Rose
-                'provinces' => [
-                    'BALI'                => 'FCE4D6', // Soft Coral
-                    'NUSA TENGGARA BARAT' => 'FADBD8', // Pale Rose
-                    'NUSA TENGGARA TIMUR' => 'F8D7DA', // Pastel Salmon
-                ],
-            ],
-            'PAPUA & MALUKU' => [
-                'main' => 'A2D9CE', // Soft Seafoam Teal
-                'provinces' => [
-                    'MALUKU'            => 'D1F2EB', // Light Mint Aqua
-                    'MALUKU UTARA'      => 'E8F8F5', // Pale Aqua
-                    'PAPUA'             => 'D4EFDF', // Soft Seafoam
-                    'PAPUA BARAT'       => 'E5F9E0', // Pale Sage Aqua
-                    'PAPUA BARAT DAYA'  => 'D0ECE7', // Light Aqua Breeze
-                    'PAPUA PEGUNUNGAN'  => 'E1F5FE', // Crisp Aqua
-                    'PAPUA SELATAN'     => 'E0F2F1', // Pale Teal
-                    'PAPUA TENGAH'      => 'DCECC9', // Pastel Aqua Grass
-                ],
-            ],
-        ];
-
-        $getPulauRgb = function ($pulau) use ($regionalTheme) {
-            $p = strtoupper(trim($pulau ?? ''));
-            return $regionalTheme[$p]['main'] ?? 'EFEFEF';
-        };
-
-        $getProvRgb = function ($pulau, $provinsi) use ($regionalTheme) {
-            $p = strtoupper(trim($pulau ?? ''));
-            $pr = strtoupper(trim($provinsi ?? ''));
-            return $regionalTheme[$p]['provinces'][$pr] ?? ($regionalTheme[$p]['main'] ?? 'F8F8F8');
-        };
+        $getPulauRgb = fn($pulau) => self::getPulauRgb($pulau);
+        $getProvRgb = fn($pulau, $provinsi) => self::getProvRgb($pulau, $provinsi);
 
         // Row 1: Customer Name (Merged Across Full Table Width)
         $sheet->setCellValue('A1', $costing->customer_name);
@@ -584,6 +599,179 @@ class CostingExportService
         }
 
         // Page setup for printing in Excel (Landscape, fit to page width)
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
+        $sheet->getPageSetup()->setFitToWidth(1);
+        $sheet->getPageSetup()->setFitToHeight(0);
+    }
+
+    /**
+     * Build the Alokasi Unit sheet (Summary Qty per Provinsi & Lokasi Pemakaian).
+     */
+    private function buildAlokasiSheet(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet, Costing $costing): void
+    {
+        $sheet->setTitle('Alokasi Unit');
+
+        $thinBorder = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D1D5DB'],
+                ],
+            ],
+        ];
+
+        $boldBorder = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => '000000'],
+                ],
+            ],
+        ];
+
+        // Header Title Block
+        $sheet->setCellValue('A1', 'REKAPITULASI ALOKASI QUANTITY UNIT KENDARAAN');
+        $sheet->getStyle('A1')->getFont()->setName('Calibri')->setBold(true)->setSize(14)->getColor()->setRGB('1E3A8A');
+
+        $dateFormatted = $costing->created_at ? $costing->created_at->format('d/m/Y') : now()->format('d/m/Y');
+        $sheet->setCellValue('A2', "Customer / Project: {$costing->customer_name} | Costing No: {$costing->costing_number} | Tanggal: {$dateFormatted}");
+        $sheet->getStyle('A2')->getFont()->setName('Calibri')->setItalic(true)->setSize(10)->getColor()->setRGB('4B5563');
+
+        // Aggregate vehicles by Provinsi and Lokasi Pemakaian
+        $sortedVehicles = $costing->vehicles->sortBy([
+            ['pulau', 'asc'],
+            ['provinsi', 'asc'],
+            ['pemakaian', 'asc'],
+            ['sort_order', 'asc'],
+        ]);
+
+        $summary = [];
+        foreach ($sortedVehicles as $v) {
+            $prov = strtoupper(trim($v->provinsi ?: 'UNSPECIFIED'));
+            $loc = trim($v->pemakaian ?: 'Standard');
+            $qty = (int) ($v->qty ?: 1);
+
+            if (!isset($summary[$prov])) {
+                $summary[$prov] = [
+                    'pulau' => strtoupper(trim($v->pulau ?: '')),
+                    'locations' => [],
+                    'subtotal' => 0,
+                ];
+            }
+            if (!isset($summary[$prov]['locations'][$loc])) {
+                $summary[$prov]['locations'][$loc] = 0;
+            }
+            $summary[$prov]['locations'][$loc] += $qty;
+            $summary[$prov]['subtotal'] += $qty;
+        }
+
+        // Table 1: Detailed Breakdown Table (Columns A - D)
+        // A: NO, B: PROVINSI, C: LOKASI PEMAKAIAN, D: QUANTITY
+        $sheet->setCellValue('A4', 'NO');
+        $sheet->setCellValue('B4', 'PROVINSI');
+        $sheet->setCellValue('C4', 'LOKASI PEMAKAIAN');
+        $sheet->setCellValue('D4', 'QUANTITY');
+
+        $sheet->getStyle('A4:D4')->getFont()->setName('Calibri')->setBold(true)->setSize(11)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A4:D4')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('1E3A8A');
+        $sheet->getStyle('A4:D4')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getRowDimension(4)->setRowHeight(28);
+        $sheet->getStyle('A4:D4')->applyFromArray($boldBorder);
+
+        $rowIdx = 5;
+        $no = 1;
+        $startDataRow = 5;
+
+        foreach ($summary as $provName => $pData) {
+            foreach ($pData['locations'] as $locName => $qtyVal) {
+                $sheet->setCellValue("A{$rowIdx}", $no++);
+                $sheet->setCellValue("B{$rowIdx}", $provName);
+                $sheet->setCellValue("C{$rowIdx}", $locName);
+                $sheet->setCellValue("D{$rowIdx}", $qtyVal);
+
+                $sheet->getStyle("A{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("B{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                $sheet->getStyle("C{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                $sheet->getStyle("D{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+                $sheet->getStyle("D{$rowIdx}")->getNumberFormat()->setFormatCode('_(* #,##0_);_(* (#,##0);_(* "-"??_);_(@_)');
+                $sheet->getStyle("A{$rowIdx}:D{$rowIdx}")->applyFromArray($thinBorder);
+                $rowIdx++;
+            }
+        }
+
+        $endDataRow = max($startDataRow, $rowIdx - 1);
+
+        // Bottom Total Row for Table 1
+        $sheet->mergeCells("A{$rowIdx}:C{$rowIdx}");
+        $sheet->setCellValue("A{$rowIdx}", 'TOTAL QUANTITY');
+        if ($endDataRow >= $startDataRow) {
+            $sheet->setCellValue("D{$rowIdx}", "=SUM(D{$startDataRow}:D{$endDataRow})");
+        } else {
+            $sheet->setCellValue("D{$rowIdx}", 0);
+        }
+
+        $sheet->getStyle("A{$rowIdx}:D{$rowIdx}")->getFont()->setName('Calibri')->setBold(true)->setSize(11);
+        $sheet->getStyle("A{$rowIdx}:D{$rowIdx}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EDE9FE');
+        $sheet->getStyle("A{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getStyle("D{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getStyle("D{$rowIdx}")->getNumberFormat()->setFormatCode('_(* #,##0_);_(* (#,##0);_(* "-"??_);_(@_)');
+        $sheet->getStyle("A{$rowIdx}:D{$rowIdx}")->applyFromArray($boldBorder);
+        $sheet->getRowDimension($rowIdx)->setRowHeight(24);
+
+        // Table 2: Province Rollup Summary Table (Columns F - G)
+        // F: PROVINSI, G: TOTAL QTY
+        $sheet->setCellValue('F4', 'PROVINSI');
+        $sheet->setCellValue('G4', 'TOTAL QTY');
+
+        $sheet->getStyle('F4:G4')->getFont()->setName('Calibri')->setBold(true)->setSize(11)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('F4:G4')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('1E3A8A');
+        $sheet->getStyle('F4:G4')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('F4:G4')->applyFromArray($boldBorder);
+
+        $pRowIdx = 5;
+        $startPRow = 5;
+        foreach ($summary as $provName => $pData) {
+            $sheet->setCellValue("F{$pRowIdx}", $provName);
+            $sheet->setCellValue("G{$pRowIdx}", $pData['subtotal']);
+
+            $sheet->getStyle("F{$pRowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+            $sheet->getStyle("G{$pRowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("G{$pRowIdx}")->getFont()->setName('Calibri')->setBold(true);
+            $sheet->getStyle("G{$pRowIdx}")->getNumberFormat()->setFormatCode('_(* #,##0_);_(* (#,##0);_(* "-"??_);_(@_)');
+            $sheet->getStyle("F{$pRowIdx}:G{$pRowIdx}")->applyFromArray($thinBorder);
+            $pRowIdx++;
+        }
+
+        $endPRow = max($startPRow, $pRowIdx - 1);
+
+        // Bottom Total Row for Table 2
+        $sheet->setCellValue("F{$pRowIdx}", 'TOTAL');
+        if ($endPRow >= $startPRow) {
+            $sheet->setCellValue("G{$pRowIdx}", "=SUM(G{$startPRow}:G{$endPRow})");
+        } else {
+            $sheet->setCellValue("G{$pRowIdx}", 0);
+        }
+
+        $sheet->getStyle("F{$pRowIdx}:G{$pRowIdx}")->getFont()->setName('Calibri')->setBold(true)->setSize(11);
+        $sheet->getStyle("F{$pRowIdx}:G{$pRowIdx}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EDE9FE');
+        $sheet->getStyle("F{$pRowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getStyle("G{$pRowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getStyle("G{$pRowIdx}")->getNumberFormat()->setFormatCode('_(* #,##0_);_(* (#,##0);_(* "-"??_);_(@_)');
+        $sheet->getStyle("F{$pRowIdx}:G{$pRowIdx}")->applyFromArray($boldBorder);
+        $sheet->getRowDimension($pRowIdx)->setRowHeight(24);
+
+        // Column widths
+        $sheet->getColumnDimension('A')->setWidth(8);
+        $sheet->getColumnDimension('B')->setWidth(26);
+        $sheet->getColumnDimension('C')->setWidth(34);
+        $sheet->getColumnDimension('D')->setWidth(18);
+        $sheet->getColumnDimension('E')->setWidth(6);
+        $sheet->getColumnDimension('F')->setWidth(26);
+        $sheet->getColumnDimension('G')->setWidth(18);
+
+        // Page setup
         $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
         $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
         $sheet->getPageSetup()->setFitToWidth(1);

@@ -855,7 +855,61 @@
             $hex = $regionalTheme[$p]['provinces'][$pr] ?? ($regionalTheme[$p]['main'] ?? 'f8f8f8');
             return '#' . $hex;
         };
+
+        // Summary of Quantities per Province and Location
+        $provSummary = [];
+        $totalCostingQty = 0;
+        foreach ($vehicles as $v) {
+            $p = strtoupper(trim($v->provinsi ?: 'UNSPECIFIED'));
+            $loc = trim($v->pemakaian ?: 'Standard');
+            $q = (int) ($v->qty ?: 1);
+            if (!isset($provSummary[$p])) {
+                $provSummary[$p] = [
+                    'pulau' => strtoupper(trim($v->pulau ?: '')),
+                    'locations' => [],
+                    'totalQty' => 0,
+                ];
+            }
+            if (!isset($provSummary[$p]['locations'][$loc])) {
+                $provSummary[$p]['locations'][$loc] = 0;
+            }
+            $provSummary[$p]['locations'][$loc] += $q;
+            $provSummary[$p]['totalQty'] += $q;
+            $totalCostingQty += $q;
+        }
+        ksort($provSummary);
     @endphp
+
+    {{-- Total Quantity per Provinsi Live Summary Banner --}}
+    @php
+        $provCount = count($provSummary);
+        $isManyProv = $provCount > 8;
+    @endphp
+    <div class="card border-0 shadow-sm mb-3 no-print" style="background-color: #f8fafc;">
+        <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div class="d-flex align-items-start gap-2 flex-grow-1">
+                <span class="fw-bold small text-dark d-flex align-items-center gap-1 text-nowrap pt-1">
+                    <i class="bi bi-geo-alt-fill text-primary"></i>TOTAL QUANTITY Per Provinsi:
+                    @if ($isManyProv)
+                        <span class="badge bg-secondary text-white ms-1" style="font-size: 0.7rem;">{{ $provCount }} Provinsi</span>
+                    @endif
+                </span>
+                <div class="d-flex align-items-center {{ $isManyProv ? 'gap-1' : 'gap-2' }} flex-wrap" style="max-height: {{ $isManyProv ? '150px' : 'none' }}; overflow-y: auto; scrollbar-width: thin;">
+                    @foreach ($provSummary as $pName => $pData)
+                        <div class="badge bg-white text-dark border px-2 py-1 d-flex align-items-center {{ $isManyProv ? 'gap-1' : 'gap-2' }} shadow-sm" style="font-size: {{ $isManyProv ? '0.73rem' : '0.78rem' }};" title="{{ $pName }}: {{ number_format($pData['totalQty'], 0, ',', '.') }} Unit">
+                            <span class="fw-bold text-dark">{{ $pName }}</span>
+                            <span class="badge bg-primary text-white" style="{{ $isManyProv ? 'font-size: 0.69rem; padding: 2px 5px;' : '' }}">{{ number_format($pData['totalQty'], 0, ',', '.') }} Unit</span>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+            <div class="text-nowrap align-self-start pt-1">
+                <span class="badge bg-success fw-bold px-3 py-2 shadow-sm" style="font-size: 0.82rem;">
+                    Total Costing: {{ number_format($totalCostingQty, 0, ',', '.') }} Unit
+                </span>
+            </div>
+        </div>
+    </div>
 
     {{-- Excel Workbook Container --}}
     <div class="excel-window mb-4">
@@ -875,7 +929,7 @@
             </div>
         </div>
 
-        {{-- Excel Sheet Tabs (BU AB vs SMD) --}}
+        {{-- Excel Sheet Tabs (BU AB vs SMD vs Alokasi Unit) --}}
         <div class="excel-tabs-bar no-print">
             <button type="button" class="excel-tab-btn active" id="tabBtnBuAb" onclick="switchSheet('BU_AB')">
                 <i class="bi bi-file-earmark-spreadsheet me-1"></i>BU AB
@@ -884,6 +938,10 @@
             <button type="button" class="excel-tab-btn" id="tabBtnSmd" onclick="switchSheet('SMD')">
                 <i class="bi bi-file-earmark-spreadsheet me-1"></i>SMD
                 <span class="excel-tab-badge">OTR + Estimasi (No Diskon)</span>
+            </button>
+            <button type="button" class="excel-tab-btn" id="tabBtnAlokasi" onclick="switchSheet('ALOKASI')">
+                <i class="bi bi-geo-alt me-1"></i>Alokasi Unit
+                <span class="excel-tab-badge">{{ $totalCostingQty }} Unit</span>
             </button>
         </div>
 
@@ -1658,6 +1716,112 @@
             </table>
         </div>
 
+        {{-- ======================================================== --}}
+        {{-- SHEET 3: ALOKASI UNIT (SUMMARY QTY PER PROVINSI & LOKASI) --}}
+        {{-- ======================================================== --}}
+        <div class="excel-grid-container d-none p-4" id="gridAlokasi" style="background-color: #ffffff;">
+            <div class="d-flex align-items-center justify-content-between mb-4 border-bottom pb-3">
+                <div>
+                    <h5 class="fw-bold text-primary mb-1"><i class="bi bi-geo-alt-fill me-2"></i>REKAPITULASI ALOKASI QUANTITY UNIT KENDARAAN</h5>
+                    <div class="text-muted small">
+                        Customer / Project: <strong>{{ $costing->customer_name }}</strong> &middot; 
+                        Costing No: <strong>{{ $costing->costing_number }}</strong> &middot; 
+                        Tanggal: <strong>{{ $costing->created_at ? $costing->created_at->format('d/m/Y') : now()->format('d/m/Y') }}</strong>
+                    </div>
+                </div>
+                <div>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fs-6">
+                        Grand Total: <strong>{{ $totalCostingQty }} Unit</strong>
+                    </span>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                {{-- Table 1: Detailed Locations Breakdown (Picture 3 Reference with Provinsi Grouping) --}}
+                <div class="col-lg-7">
+                    <div class="card border shadow-sm">
+                        <div class="card-header bg-light py-2 fw-bold small text-dark d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-list-ol me-1 text-primary"></i>Rincian Alokasi per Lokasi Pemakaian</span>
+                            <span class="text-muted fw-normal small">Berdasarkan Lokasi & Provinsi</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm mb-0 align-middle" style="font-size: 0.85rem;">
+                                <thead>
+                                    <tr style="background-color: #1E3A8A; color: #ffffff;" class="text-center">
+                                        <th style="width: 50px;" class="py-2">NO</th>
+                                        <th class="py-2 text-start ps-3">PROVINSI</th>
+                                        <th class="py-2 text-start ps-3">LOKASI PEMAKAIAN</th>
+                                        <th style="width: 120px;" class="py-2 text-end pe-3">QUANTITY</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @php $no = 1; @endphp
+                                    @forelse ($provSummary as $pName => $pData)
+                                        @foreach ($pData['locations'] as $locName => $qtyVal)
+                                            <tr>
+                                                <td class="text-center fw-semibold text-muted">{{ $no++ }}</td>
+                                                <td class="fw-bold text-dark ps-3">{{ $pName }}</td>
+                                                <td class="ps-3">{{ $locName }}</td>
+                                                <td class="text-end pe-3 fw-bold">{{ number_format($qtyVal, 0, ',', '.') }}</td>
+                                            </tr>
+                                        @endforeach
+                                    @empty
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted py-3">Belum ada unit kendaraan.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                                <tfoot>
+                                    <tr style="background-color: #EDE9FE; font-weight: bold;">
+                                        <td colspan="3" class="text-end pe-3 text-uppercase text-dark">TOTAL QUANTITY</td>
+                                        <td class="text-end pe-3 text-primary fs-6">{{ number_format($totalCostingQty, 0, ',', '.') }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Table 2: Province Rollup Summary (Per Provinsi) --}}
+                <div class="col-lg-5">
+                    <div class="card border shadow-sm">
+                        <div class="card-header bg-light py-2 fw-bold small text-dark d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-pie-chart-fill me-1 text-primary"></i>Total Quantity Per Provinsi</span>
+                            <span class="badge bg-secondary text-white">{{ count($provSummary) }} Provinsi</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm mb-0 align-middle" style="font-size: 0.85rem;">
+                                <thead>
+                                    <tr style="background-color: #1E3A8A; color: #ffffff;" class="text-center">
+                                        <th class="py-2 text-start ps-3">PROVINSI</th>
+                                        <th style="width: 120px;" class="py-2 text-end pe-3">TOTAL QTY</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse ($provSummary as $pName => $pData)
+                                        <tr>
+                                            <td class="fw-bold text-dark ps-3">{{ $pName }}</td>
+                                            <td class="text-end pe-3 fw-bold text-primary">{{ number_format($pData['totalQty'], 0, ',', '.') }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="2" class="text-center text-muted py-3">Belum ada provinsi.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                                <tfoot>
+                                    <tr style="background-color: #EDE9FE; font-weight: bold;">
+                                        <td class="text-end pe-3 text-uppercase text-dark">TOTAL</td>
+                                        <td class="text-end pe-3 text-primary fs-6">{{ number_format($totalCostingQty, 0, ',', '.') }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- Excel Status Bar --}}
         <div class="excel-statusbar no-print">
             <div class="d-flex align-items-center gap-3">
@@ -1723,22 +1887,32 @@
     function switchSheet(sheet) {
         const gridBuAb = document.getElementById('gridBuAb');
         const gridSmd = document.getElementById('gridSmd');
+        const gridAlokasi = document.getElementById('gridAlokasi');
         const tabBuAb = document.getElementById('tabBtnBuAb');
         const tabSmd = document.getElementById('tabBtnSmd');
+        const tabAlokasi = document.getElementById('tabBtnAlokasi');
         const activeSheetNameLabel = document.getElementById('activeSheetNameLabel');
 
+        if (gridBuAb) gridBuAb.classList.add('d-none');
+        if (gridSmd) gridSmd.classList.add('d-none');
+        if (gridAlokasi) gridAlokasi.classList.add('d-none');
+
+        if (tabBuAb) tabBuAb.classList.remove('active');
+        if (tabSmd) tabSmd.classList.remove('active');
+        if (tabAlokasi) tabAlokasi.classList.remove('active');
+
         if (sheet === 'BU_AB') {
-            gridBuAb.classList.remove('d-none');
-            gridSmd.classList.add('d-none');
-            tabBuAb.classList.add('active');
-            tabSmd.classList.remove('active');
-            activeSheetNameLabel.textContent = 'Sheet: BU AB';
-        } else {
-            gridBuAb.classList.add('d-none');
-            gridSmd.classList.remove('d-none');
-            tabSmd.classList.add('active');
-            tabBuAb.classList.remove('active');
-            activeSheetNameLabel.textContent = 'Sheet: SMD';
+            if (gridBuAb) gridBuAb.classList.remove('d-none');
+            if (tabBuAb) tabBuAb.classList.add('active');
+            if (activeSheetNameLabel) activeSheetNameLabel.textContent = 'Sheet: BU AB';
+        } else if (sheet === 'SMD') {
+            if (gridSmd) gridSmd.classList.remove('d-none');
+            if (tabSmd) tabSmd.classList.add('active');
+            if (activeSheetNameLabel) activeSheetNameLabel.textContent = 'Sheet: SMD';
+        } else if (sheet === 'ALOKASI') {
+            if (gridAlokasi) gridAlokasi.classList.remove('d-none');
+            if (tabAlokasi) tabAlokasi.classList.add('active');
+            if (activeSheetNameLabel) activeSheetNameLabel.textContent = 'Sheet: Alokasi Unit';
         }
 
         // Reset active cell
