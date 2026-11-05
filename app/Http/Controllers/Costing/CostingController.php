@@ -217,11 +217,6 @@ class CostingController extends Controller
      */
     public function show(Costing $costing)
     {
-        $user = Auth::user();
-        if (!$user->isAdmin() && !$user->isManager() && $costing->created_by !== $user->id) {
-            abort(403, 'Unauthorized. You can only view costings that you created.');
-        }
-
         $costing->load(['creator', 'vehicles.accessories']);
 
         // Auto-sort vehicles by Pulau -> Provinsi -> Pemakaian -> sort_order so grouping & horizontal cell merging are cohesive
@@ -258,11 +253,6 @@ class CostingController extends Controller
      */
     public function edit(Costing $costing)
     {
-        $user = Auth::user();
-        if (!$user->isAdmin() && $costing->created_by !== $user->id) {
-            abort(403, 'Unauthorized. You can only edit costings that you created.');
-        }
-
         if ($costing->isTender()) {
             if ($costing->isPendingApproval()) {
                 return redirect()->route('costing.show', $costing)
@@ -318,11 +308,6 @@ class CostingController extends Controller
      */
     public function update(Request $request, Costing $costing)
     {
-        $user = Auth::user();
-        if (!$user->isAdmin() && $costing->created_by !== $user->id) {
-            abort(403, 'Unauthorized. You can only edit costings that you created.');
-        }
-
         if ($costing->isTender()) {
             if ($costing->isPendingApproval()) {
                 return redirect()->route('costing.show', $costing)
@@ -497,11 +482,6 @@ class CostingController extends Controller
 
     public function export(Costing $costing, \App\Services\CostingExportService $exportService)
     {
-        $user = Auth::user();
-        if (!$user->isAdmin() && !$user->isManager() && $costing->created_by !== $user->id) {
-            abort(403, 'Unauthorized. You can only export costings that you created.');
-        }
-
         if ($costing->isTender()) {
             if ($costing->isPendingApproval()) {
                 return redirect()->route('costing.show', $costing)
