@@ -250,6 +250,11 @@ class OdooService
                     'product_uom',
                     'discount',
                     'fix_discount',
+                    'display_type',
+                    'warna_kendaraan',
+                    'vin_code',
+                    'bbn_id',
+                    'pilnop',
                 ],
             ]
         );
@@ -403,13 +408,64 @@ class OdooService
                 'search_read',
                 [[['supplier_rank', '>', 0], ['active', '=', true]]],
                 [
-                    'fields' => ['id', 'name', 'street', 'street2', 'city', 'phone', 'mobile', 'email'],
+                    'fields' => ['id', 'name', 'street', 'street2', 'city', 'phone', 'mobile', 'email', 'child_ids'],
                     'order'  => 'name asc',
                     'limit'  => 0,
                 ]
             );
 
-            return $vendors ?? [];
+            if (empty($vendors)) {
+                return [];
+            }
+
+            // Gather all child contact IDs
+            $allChildIds = [];
+            foreach ($vendors as $v) {
+                if (!empty($v['child_ids']) && is_array($v['child_ids'])) {
+                    foreach ($v['child_ids'] as $cid) {
+                        $allChildIds[] = $cid;
+                    }
+                }
+            }
+
+            $contactsByParent = [];
+            if (!empty($allChildIds)) {
+                try {
+                    $children = $this->call(
+                        'res.partner',
+                        'read',
+                        [array_values(array_unique($allChildIds))],
+                        [
+                            'fields' => ['id', 'parent_id', 'name', 'phone', 'mobile', 'type', 'function']
+                        ]
+                    );
+
+                    foreach ($children ?? [] as $child) {
+                        $pid = is_array($child['parent_id']) ? $child['parent_id'][0] : $child['parent_id'];
+                        if ($pid && !isset($contactsByParent[$pid])) {
+                            if (($child['type'] ?? '') === 'contact') {
+                                $contactsByParent[$pid] = $child;
+                            }
+                        }
+                    }
+                    foreach ($children ?? [] as $child) {
+                        $pid = is_array($child['parent_id']) ? $child['parent_id'][0] : $child['parent_id'];
+                        if ($pid && !isset($contactsByParent[$pid])) {
+                            $contactsByParent[$pid] = $child;
+                        }
+                    }
+                } catch (\Throwable) {}
+            }
+
+            foreach ($vendors as &$v) {
+                $c = $contactsByParent[$v['id']] ?? null;
+                $v['contact_name'] = $c['name'] ?? '';
+                $childPhone = (!empty($c['phone']) ? $c['phone'] : (!empty($c['mobile']) ? $c['mobile'] : ''));
+                $v['contact_phone'] = $childPhone ?: ($v['phone'] ?: ($v['mobile'] ?: ''));
+            }
+            unset($v);
+
+            return $vendors;
         });
     }
 
@@ -422,6 +478,156 @@ class OdooService
         Cache::forget('odoo_vendors');
         // Per-RFQ and per-product caches use dynamic keys; flush by tag not available
         // in file/database drivers — they will expire naturally on their TTL.
+    }
+
+    /**
+     * Get Car RFQs (purchase_type = 'car' or name contains /POU/).
+     * Cached for 300 seconds.
+     */
+    public function getCarRfqs(): array
+    {
+        return Cache::remember('odoo_car_rfqs', 300, function () {
+            $orders = $this->call(
+                'purchase.order',
+                'search_read',
+                [[
+                    '|',
+                    ['purchase_type', '=', 'car'],
+                    ['name', 'like', '/POU/'],
+                ]],
+                [
+                    'fields' => [
+                        'id',
+                        'name',
+                        'state',
+                        'partner_id',
+                        'order_line',
+                        'date_order',
+                        'amount_total',
+                        'origin',
+                        'currency_id',
+                        'user_id',
+                        'purchase_type',
+                        'purchase_spv_id',
+                        'purchase_manager_id',
+                        'notes',
+                    ],
+                    'order'  => 'id desc',
+                    'limit'  => 200,
+                ]
+            );
+
+            Cache::put('odoo_car_rfqs_cached_at', now(), 300);
+
+            return $orders ?? [];
+        });
+    }
+
+    /**
+     * Get a single Car RFQ with product details and parsed specifications.
+     * Cached for 600 seconds.
+     */
+    public function getCarRfq(int $id): ?array
+    {
+        return Cache::remember("odoo_car_rfq_{$id}", 600, function () use ($id) {
+            $order = $this->fetchRfq($id);
+            if (!$order) {
+                return null;
+            }
+
+            // Parse car lines
+            $carLine  = null;
+            $noteText = '';
+
+            foreach ($order['lines'] ?? [] as $line) {
+                if (!empty($line['display_type']) && $line['display_type'] === 'line_note') {
+                    $noteText .= "\n" . ($line['name'] ?? '');
+                } elseif (empty($line['display_type'])) {
+                    if (!$carLine) {
+                        $carLine = $line;
+                    }
+                }
+            }
+
+            if ($carLine) {
+                $rawProductName = is_array($carLine['product_id'] ?? null) ? $carLine['product_id'][1] : ($carLine['name'] ?? '');
+                $cleanProductName = preg_replace('/^\[[^\]]*\]\s*/', '', $rawProductName);
+                if (!empty($carLine['product_clean_name'])) {
+                    $cleanProductName = preg_replace('/^\[[^\]]*\]\s*/', '', $carLine['product_clean_name']);
+                }
+                $carLine['clean_product_name'] = $cleanProductName;
+            }
+
+            $order['car_line']  = $carLine;
+            $order['note_text'] = trim($noteText);
+
+            // Specifications from direct line fields or fallback to note parsing
+            $warna = !empty($carLine['warna_kendaraan']) ? trim($carLine['warna_kendaraan']) : '';
+            $vinCode = !empty($carLine['vin_code']) ? trim($carLine['vin_code']) : '';
+            $bbn = '';
+            if (!empty($carLine['bbn_id'])) {
+                $bbn = is_array($carLine['bbn_id']) ? ($carLine['bbn_id'][1] ?? '') : $carLine['bbn_id'];
+            }
+
+            if (empty($warna) && preg_match('/Warna\s*:\s*([^,\n\r]+)/i', $noteText, $m)) {
+                $warna = trim($m[1]);
+            }
+            if (empty($bbn) && preg_match('/BBN\s*:\s*([^,\n\r]+)/i', $noteText, $m)) {
+                $bbn = trim($m[1]);
+            }
+            if (empty($vinCode) && preg_match('/(?:Vin\s*Code|VC)\s*:\s*([^,\n\r]+)/i', $noteText, $m)) {
+                $vinCode = trim($m[1]);
+            }
+
+            $order['parsed_warna']    = $warna;
+            $order['parsed_bbn']      = $bbn;
+            $order['parsed_vin_code'] = $vinCode;
+
+            // Resolve RFQ Vendor Primary Contact & Phone from Odoo
+            $vendorContactName = '';
+            $vendorPhone = '';
+            if (!empty($order['partner_id']) && is_array($order['partner_id'])) {
+                $partnerId = $order['partner_id'][0];
+                try {
+                    $partnerData = $this->call(
+                        'res.partner',
+                        'read',
+                        [[$partnerId]],
+                        ['fields' => ['name', 'phone', 'mobile', 'child_ids']]
+                    );
+                    if (!empty($partnerData[0])) {
+                        $p = $partnerData[0];
+                        $vendorPhone = $p['phone'] ?: ($p['mobile'] ?: '');
+                        if (!empty($p['child_ids'])) {
+                            $childContacts = $this->call(
+                                'res.partner',
+                                'read',
+                                [$p['child_ids']],
+                                ['fields' => ['id', 'name', 'phone', 'mobile', 'type', 'function']]
+                            );
+                            $primaryContact = collect($childContacts)->firstWhere('type', 'contact') ?? ($childContacts[0] ?? null);
+                            if ($primaryContact) {
+                                $vendorContactName = $primaryContact['name'] ?? '';
+                                if (!empty($primaryContact['phone']) || !empty($primaryContact['mobile'])) {
+                                    $vendorPhone = $primaryContact['phone'] ?: $primaryContact['mobile'];
+                                }
+                            }
+                        }
+                    }
+                } catch (\Throwable) {}
+            }
+
+            $order['vendor_contact_name'] = $vendorContactName;
+            $order['vendor_phone']        = $vendorPhone;
+
+            return $order;
+        });
+    }
+
+    public function flushCarCache(): void
+    {
+        Cache::forget('odoo_car_rfqs');
+        Cache::forget('odoo_vendors');
     }
 
     /**
