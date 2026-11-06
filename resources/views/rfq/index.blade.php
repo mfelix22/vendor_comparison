@@ -75,16 +75,16 @@
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0" id="rfqTable">
-                        <thead>
+                        <thead class="align-middle">
                             <tr>
-                                <th class="ps-3" style="width:160px">PO Reference</th>
+                                <th class="ps-3" style="width:160px; white-space:nowrap;">PO Reference</th>
                                 <th>Vendor</th>
-                                <th>Source Document</th>
+                                <th style="white-space:nowrap;">Source Document</th>
                                 <th>Buyer</th>
-                                <th>Purchase SPV</th>
+                                <th style="white-space:nowrap;">Purchase SPV</th>
                                 <th class="text-center">Lines</th>
-                                <th>Order Deadline</th>
-                                <th class="text-end">Amount Total</th>
+                                <th style="white-space:nowrap;">Order Deadline</th>
+                                <th class="text-end" style="white-space:nowrap;">Amount Total</th>
                                 <th class="text-center" style="width:80px">Status</th>
                                 <th class="text-center" style="width:130px">CLVP</th>
                                 <th class="text-center" style="width:100px">Action</th>

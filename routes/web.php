@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CarComparisonController;
+use App\Http\Controllers\CarRfqController;
 use App\Http\Controllers\ComparisonController;
 use App\Http\Controllers\MasterSupplierController;
 use App\Http\Controllers\RfqController;
@@ -36,6 +38,23 @@ Route::middleware('auth')->group(function () {
     Route::post('/comparisons/{comparison}/odoo-post', [ComparisonController::class, 'odooPost'])->name('comparisons.odoo-post');
     Route::post('/comparisons/{comparison}/acknowledge', [ComparisonController::class, 'acknowledge'])->name('comparisons.acknowledge');
     Route::get('/karoseri', [ComparisonController::class, 'karoseriIndex'])->name('comparisons.karoseri');
+
+    // ── RFQ Car (Unit Baru - Isolated) ────────────────────
+    Route::get('/car-rfq', [CarRfqController::class, 'index'])->name('car_rfq.index');
+    Route::post('/car-rfq/refresh', [CarRfqController::class, 'refresh'])->name('car_rfq.refresh');
+    Route::get('/car-rfq/{id}', [CarRfqController::class, 'show'])->name('car_rfq.show')->where('id', '[0-9]+');
+
+    // Car Comparisons
+    Route::get('/car-comparisons', [CarComparisonController::class, 'index'])->name('car_comparisons.index');
+    Route::post('/car-comparisons', [CarComparisonController::class, 'store'])->name('car_comparisons.store');
+    Route::get('/car-comparisons/{comparison}', [CarComparisonController::class, 'show'])->name('car_comparisons.show');
+    Route::get('/car-comparisons/{comparison}/edit', [CarComparisonController::class, 'edit'])->name('car_comparisons.edit');
+    Route::put('/car-comparisons/{comparison}', [CarComparisonController::class, 'update'])->name('car_comparisons.update');
+    Route::post('/car-comparisons/{comparison}/approve', [CarComparisonController::class, 'approve'])->name('car_comparisons.approve');
+    Route::post('/car-comparisons/{comparison}/reject', [CarComparisonController::class, 'reject'])->name('car_comparisons.reject');
+    Route::post('/car-comparisons/{comparison}/cancel', [CarComparisonController::class, 'cancel'])->name('car_comparisons.cancel');
+    Route::get('/car-comparisons/{comparison}/pdf', [CarComparisonController::class, 'pdf'])->name('car_comparisons.pdf');
+    Route::post('/car-comparisons/{comparison}/odoo-post', [CarComparisonController::class, 'odooPost'])->name('car_comparisons.odoo-post');
 
     // Master Suppliers (local vendors not in Odoo)
     Route::get('/master-suppliers', [MasterSupplierController::class, 'index'])->name('master-suppliers.index');

@@ -62,11 +62,13 @@
         }
 
         /* Tables */
-        .table th {
+        .table th,
+        .table thead th {
             font-size: .75rem;
             text-transform: uppercase;
             letter-spacing: .05em;
             background: #f3f4f6;
+            vertical-align: middle !important;
         }
 
         .table-hover tbody tr:hover td {
@@ -163,45 +165,56 @@
         <div class="container-xl">
             @php
                 $isCostingModule = request()->is('costing*');
+                $isCarModule = request()->is('car*');
                 $hasCostingAccess = Auth::check() && Auth::user()->canAccessCosting();
             @endphp
 
-            @if ($hasCostingAccess)
-                <div class="dropdown me-3">
-                    <button class="btn btn-link text-white text-decoration-none dropdown-toggle fw-bold p-0 fs-6 d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        @if ($isCostingModule)
-                            <i class="bi bi-calculator me-2 fs-5"></i>Costing
-                        @else
-                            <i class="bi bi-bar-chart-steps me-2 fs-5"></i>Vendor Comparison
-                        @endif
-                    </button>
-                    <ul class="dropdown-menu shadow">
+            <div class="dropdown me-3">
+                <button class="btn btn-link text-white text-decoration-none dropdown-toggle fw-bold p-0 fs-6 d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    @if ($isCostingModule)
+                        <i class="bi bi-calculator me-2 fs-5"></i>Costing
+                    @elseif ($isCarModule)
+                        <i class="bi bi-car-front-fill me-2 fs-5"></i>Car Comparison
+                    @else
+                        <i class="bi bi-bar-chart-steps me-2 fs-5"></i>Vendor Comparison
+                    @endif
+                </button>
+                <ul class="dropdown-menu shadow">
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center gap-2 {{ (!$isCostingModule && !$isCarModule) ? 'active' : '' }}" href="{{ Auth::check() && Auth::user()->isViewer() ? route('rfq.list') : route('rfq.index') }}">
+                            <i class="bi bi-bar-chart-steps {{ (!$isCostingModule && !$isCarModule) ? '' : 'text-primary' }}"></i>
+                            <div>
+                                <div class="fw-semibold">Vendor Comparison</div>
+                                <div class="small {{ (!$isCostingModule && !$isCarModule) ? 'text-white-50' : 'text-muted' }}">General RFQ &amp; Approvals (/POO/)</div>
+                            </div>
+                        </a>
+                    </li>
+                    @if (Auth::check() && (Auth::user()->isSupervisor() || Auth::user()->isManager() || Auth::user()->isAdmin()))
+                        <li><hr class="dropdown-divider my-1"></li>
                         <li>
-                            <a class="dropdown-item d-flex align-items-center gap-2 {{ !$isCostingModule ? 'active' : '' }}" href="{{ Auth::check() && Auth::user()->isViewer() ? route('rfq.list') : route('rfq.index') }}">
-                                <i class="bi bi-bar-chart-steps {{ !$isCostingModule ? '' : 'text-primary' }}"></i>
+                            <a class="dropdown-item d-flex align-items-center gap-2 {{ $isCarModule ? 'active' : '' }}" href="{{ route('car_rfq.index') }}">
+                                <i class="bi bi-car-front-fill {{ $isCarModule ? '' : 'text-info' }}"></i>
                                 <div>
-                                    <div class="fw-semibold">Vendor Comparison</div>
-                                    <div class="small {{ !$isCostingModule ? 'text-white-50' : 'text-muted' }}">RFQ & Approvals</div>
+                                    <div class="fw-semibold">Car Comparison</div>
+                                    <div class="small {{ $isCarModule ? 'text-white-50' : 'text-muted' }}">Vehicle RFQ &amp; Approvals (/POU/)</div>
                                 </div>
                             </a>
                         </li>
+                    @endif
+                    @if ($hasCostingAccess)
                         <li><hr class="dropdown-divider my-1"></li>
                         <li>
                             <a class="dropdown-item d-flex align-items-center gap-2 {{ $isCostingModule ? 'active' : '' }}" href="{{ route('costing.index') }}">
                                 <i class="bi bi-calculator {{ $isCostingModule ? '' : 'text-success' }}"></i>
                                 <div>
                                     <div class="fw-semibold">Costing</div>
-                                    <div class="small {{ $isCostingModule ? 'text-white-50' : 'text-muted' }}">Vehicle Costing & Estimation</div>
+                                    <div class="small {{ $isCostingModule ? 'text-white-50' : 'text-muted' }}">Vehicle Costing &amp; Estimation</div>
                                 </div>
                             </a>
                         </li>
-                    </ul>
-                </div>
-            @else
-                <a class="navbar-brand" href="{{ Auth::check() && Auth::user()->isViewer() ? route('rfq.list') : route('rfq.index') }}">
-                    <i class="bi bi-bar-chart-steps me-2"></i>Vendor Comparison
-                </a>
-            @endif
+                    @endif
+                </ul>
+            </div>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
                 <span class="navbar-toggler-icon"></span>
@@ -260,41 +273,68 @@
                                 </a>
                             </li>
                         @endif
+                    @elseif ($isCarModule)
+                        {{-- Dedicated Car Comparison Navigation (Supervisor & Manager Only) --}}
+                        @if (Auth::check() && (Auth::user()->isSupervisor() || Auth::user()->isManager() || Auth::user()->isAdmin()))
+                            @php
+                                $carPendingCount = \App\Models\CarVendorComparison::where('status', 'pending_manager')->count();
+                            @endphp
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('car_rfq.*') ? 'active fw-bold' : '' }}" href="{{ route('car_rfq.index') }}">
+                                    <i class="bi bi-list-ul me-1"></i>Car RFQ List
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center gap-1 {{ request()->routeIs('car_comparisons.*') ? 'active fw-bold' : '' }}" href="{{ route('car_comparisons.index') }}">
+                                    <i class="bi bi-check2-square me-1"></i>Approvals
+                                    @if ($carPendingCount > 0)
+                                        <span class="badge bg-danger rounded-pill px-2 py-1" style="font-size: 0.7rem;">{{ $carPendingCount }}</span>
+                                    @endif
+                                </a>
+                            </li>
+                            @if (Auth::user()->isAdmin())
+                                <li class="nav-item">
+                                    <a class="nav-link {{ request()->routeIs('admin.users') ? 'active fw-bold' : '' }}" href="{{ route('admin.users') }}">
+                                        <i class="bi bi-people me-1"></i>Users
+                                    </a>
+                                </li>
+                            @endif
+                        @endif
                     @else
-                        {{-- Vendor Comparison Module Navigation (100% Unchanged) --}}
+                        {{-- Vendor Comparison Module Navigation (100% Unchanged as before!) --}}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ route('rfq.list') }}">
+                            <a class="nav-link {{ request()->routeIs('rfq.list') ? 'active fw-bold' : '' }}" href="{{ route('rfq.list') }}">
                                 <i class="bi bi-file-earmark-text me-1"></i>RFQ List
                             </a>
                         </li>
                         @auth
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ route('rfq.index') }}">
+                                <a class="nav-link {{ request()->routeIs('rfq.index') ? 'active fw-bold' : '' }}" href="{{ route('rfq.index') }}">
                                     <i class="bi bi-list-ul me-1"></i>Comparison List
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ route('comparisons.index') }}">
+                                <a class="nav-link {{ request()->routeIs('comparisons.index') ? 'active fw-bold' : '' }}" href="{{ route('comparisons.index') }}">
                                     <i class="bi bi-check2-square me-1"></i>Approvals
                                 </a>
                             </li>
                             @if (!Auth::user()->isController() && !Auth::user()->isViewer())
                                 <li class="nav-item">
-                                    <a class="nav-link" href="{{ route('master-suppliers.index') }}">
+                                    <a class="nav-link {{ request()->routeIs('master-suppliers.*') ? 'active fw-bold' : '' }}" href="{{ route('master-suppliers.index') }}">
                                         <i class="bi bi-building me-1"></i>Master Supplier
                                     </a>
                                 </li>
                             @endif
                             @if (Auth::user()->isController() || Auth::user()->isManager() || Auth::user()->isAdmin())
                                 <li class="nav-item">
-                                    <a class="nav-link d-flex align-items-center gap-1" href="{{ route('comparisons.karoseri') }}">
+                                    <a class="nav-link d-flex align-items-center gap-1 {{ request()->routeIs('comparisons.karoseri') ? 'active fw-bold' : '' }}" href="{{ route('comparisons.karoseri') }}">
                                         <i class="bi bi-eye-fill me-1"></i>Karoseri Ack.
                                     </a>
                                 </li>
                             @endif
                             @if (Auth::user()->isAdmin())
                                 <li class="nav-item">
-                                    <a class="nav-link" href="{{ route('admin.users') }}">
+                                    <a class="nav-link {{ request()->routeIs('admin.users') ? 'active fw-bold' : '' }}" href="{{ route('admin.users') }}">
                                         <i class="bi bi-people me-1"></i>Users
                                     </a>
                                 </li>
