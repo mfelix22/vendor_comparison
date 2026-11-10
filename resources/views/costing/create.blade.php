@@ -789,6 +789,7 @@
 
             badgeGrandTotal.textContent = `Total: ${Number(grandTotalQty).toLocaleString('id-ID')} Unit`;
 
+            const provKeys = Object.keys(provMap).sort();
             const badgeCount = document.getElementById('badgeProvCount');
             if (badgeCount) {
                 if (provKeys.length > 0 && grandTotalQty > 0) {
