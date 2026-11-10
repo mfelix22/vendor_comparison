@@ -205,7 +205,13 @@
             </button>
             <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm">
                 <i class="bi bi-send-check me-1"></i>
-                {{ $isEdit ? 'Update Comparison' : 'Submit for Manager Approval' }}
+                @if ($isEdit)
+                    Update Comparison
+                @elseif (Auth::user()->isSupervisor() || Auth::user()->isManager() || Auth::user()->isAdmin())
+                    Submit for Manager Approval
+                @else
+                    Submit for Supervisor Approval
+                @endif
             </button>
         </div>
     </div>
@@ -611,10 +617,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const vin = (document.getElementById('carVinInput')?.value || '').trim() || '—';
         const warna = (document.getElementById('carWarnaInput')?.value || '').trim() || '—';
         const selectedVendor = (document.getElementById('selectedVendorSelect')?.value || '').trim();
-        const notes = (document.getElementById('comparisonNotes')?.value || '').trim();
+        const notes = ((document.getElementById('notesInput') || document.getElementById('comparisonNotes'))?.value || '').trim();
         const poName = @json($poName);
         const dateStr = @json(now()->format('d/m/y'));
-        const supervisorName = @json(Auth::user()->isSupervisor() ? Auth::user()->name : 'Purchasing Supervisor');
+        const supervisorName = @json($isEdit ? $comparison->prepared_by_name : Auth::user()->name);
 
         const cards = document.querySelectorAll('.vendor-card');
         const vendors = [];
