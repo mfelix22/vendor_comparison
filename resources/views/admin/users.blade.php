@@ -61,6 +61,10 @@
                         <input class="form-check-input" type="checkbox" name="has_costing_access" id="hasCostingAccessCreate" value="1" {{ old('has_costing_access') ? 'checked' : '' }}>
                         <label class="form-check-label small fw-semibold" for="hasCostingAccessCreate">Costing Access</label>
                     </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" name="has_car_access" id="hasCarAccessCreate" value="1" {{ old('has_car_access') ? 'checked' : '' }}>
+                        <label class="form-check-label small fw-semibold" for="hasCarAccessCreate">Car Access</label>
+                    </div>
                     <button type="submit" class="btn btn-primary btn-sm w-100">
                         <i class="bi bi-plus-circle me-1"></i>Add User
                     </button>
@@ -79,6 +83,7 @@
                         <th>Email</th>
                         <th class="text-center">Role</th>
                         <th class="text-center">Costing Access</th>
+                        <th class="text-center">Car Access</th>
                         <th class="text-center">Comparisons Created</th>
                         <th class="text-center">Joined</th>
                         <th class="text-center" style="width:100px">Actions</th>
@@ -108,6 +113,15 @@
                             </td>
                             <td class="text-center">
                                 @if ($u->canAccessCosting())
+                                    <span class="badge bg-success text-white"><i class="bi bi-check-circle me-1"></i>Allowed</span>
+                                @else
+                                    <span class="badge bg-light text-muted border">No</span>
+                                @endif
+                            </td>
+                            <td class="text-center">
+                                @if ($u->isSupervisor() || $u->isManager() || $u->isAdmin())
+                                    <span class="badge bg-info text-dark"><i class="bi bi-check-circle me-1"></i>Allowed (Role)</span>
+                                @elseif ($u->has_car_access)
                                     <span class="badge bg-success text-white"><i class="bi bi-check-circle me-1"></i>Allowed</span>
                                 @else
                                     <span class="badge bg-light text-muted border">No</span>
@@ -172,12 +186,19 @@
                                                 </select>
                                             </div>
                                             <div class="mb-3">
-                                                <div class="form-check form-switch">
+                                                <div class="form-check form-switch mb-2">
                                                     <input class="form-check-input" type="checkbox" name="has_costing_access"
                                                         id="hasCostingAccessEdit{{ $u->id }}" value="1"
                                                         {{ $u->has_costing_access ? 'checked' : '' }}>
                                                     <label class="form-check-label fw-semibold"
                                                         for="hasCostingAccessEdit{{ $u->id }}">Grant Costing Access</label>
+                                                </div>
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" name="has_car_access"
+                                                        id="hasCarAccessEdit{{ $u->id }}" value="1"
+                                                        {{ $u->has_car_access ? 'checked' : '' }}>
+                                                    <label class="form-check-label fw-semibold"
+                                                        for="hasCarAccessEdit{{ $u->id }}">Grant Car Comparison Access</label>
                                                 </div>
                                             </div>
                                             <div class="mb-3">

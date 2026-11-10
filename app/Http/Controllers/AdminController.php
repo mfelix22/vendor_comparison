@@ -36,6 +36,7 @@ class AdminController extends Controller implements HasMiddleware
             'role'               => ['required', 'in:creator,supervisor,procurement,manager,viewer,admin,controller'],
             'password'           => ['required', 'string', 'min:8'],
             'has_costing_access' => ['nullable', 'boolean'],
+            'has_car_access'     => ['nullable', 'boolean'],
         ]);
 
         User::create([
@@ -44,6 +45,7 @@ class AdminController extends Controller implements HasMiddleware
             'role'               => $data['role'],
             'password'           => Hash::make($data['password']),
             'has_costing_access' => $request->boolean('has_costing_access'),
+            'has_car_access'     => $request->boolean('has_car_access'),
         ]);
 
         return back()->with('success', "User {$data['name']} created.");
@@ -56,11 +58,13 @@ class AdminController extends Controller implements HasMiddleware
             'role'               => ['required', 'in:creator,supervisor,procurement,manager,viewer,admin,controller'],
             'password'           => ['nullable', 'string', 'min:8'],
             'has_costing_access' => ['nullable', 'boolean'],
+            'has_car_access'     => ['nullable', 'boolean'],
         ]);
 
         $user->name = $data['name'];
         $user->role = $data['role'];
         $user->has_costing_access = $request->boolean('has_costing_access');
+        $user->has_car_access = $request->boolean('has_car_access');
         if (!empty($data['password'])) {
             $user->password = Hash::make($data['password']);
         }

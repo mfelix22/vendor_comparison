@@ -16,14 +16,14 @@ class CarComparisonController extends Controller
     public function __construct(private OdooService $odoo) {}
 
     /**
-     * Ensure only Supervisor, Manager, and Admin can access Car Comparisons.
+     * Ensure only authorized users (Supervisor, Manager, Admin, or users granted Car Access) can access Car Comparisons.
      */
     protected function authorizeCarAccess(): void
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        if (!$user || (!$user->isSupervisor() && !$user->isManager() && !$user->isAdmin())) {
-            abort(403, 'Unauthorized. Car Comparison is restricted to Supervisors and Managers.');
+        if (!$user || !$user->canAccessCar()) {
+            abort(403, 'Unauthorized. You do not have access to Car Comparison.');
         }
     }
 
@@ -37,7 +37,7 @@ class CarComparisonController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        $query = CarVendorComparison::with(['creator', 'supervisor', 'manager'])
+        $query = CarVendorComparison::with(['creator', 'supervisor', 'manager', 'bypassedBy'])
             ->orderByDesc('created_at');
 
         if ($user->isSupervisor()) {
@@ -46,15 +46,18 @@ class CarComparisonController extends Controller
                     ->orWhere('created_by', $user->id)
                     ->orWhereNull('supervisor_id');
             });
+        } elseif (!$user->isManager() && !$user->isAdmin()) {
+            $query->where('created_by', $user->id);
         }
 
         $comparisons = $query->get();
 
         $stats = [
-            'pending_manager' => $comparisons->where('status', 'pending_manager')->count(),
-            'approved'        => $comparisons->where('status', 'approved')->count(),
-            'rejected'        => $comparisons->where('status', 'rejected')->count(),
-            'cancelled'       => $comparisons->where('status', 'cancelled')->count(),
+            'pending_supervisor' => $comparisons->where('status', 'pending_supervisor')->count(),
+            'pending_manager'    => $comparisons->where('status', 'pending_manager')->count(),
+            'approved'           => $comparisons->where('status', 'approved')->count(),
+            'rejected'           => $comparisons->where('status', 'rejected')->count(),
+            'cancelled'          => $comparisons->where('status', 'cancelled')->count(),
         ];
 
         return view('car_comparisons.index', compact('comparisons', 'stats'));
@@ -93,7 +96,7 @@ class CarComparisonController extends Controller
             return back()->with('error', 'A comparison for this Car RFQ is already active. Please view it in Car Approvals.');
         }
 
-        // Auto-assign supervisor based on Odoo purchase_spv_id or auth user
+        // Auto-assign supervisor based on Odoo purchase_spv_id (if Staff) or auth user (if Supervisor)
         $assignedSupervisorId = null;
         if ($authUser->isSupervisor()) {
             $assignedSupervisorId = $authUser->id;
@@ -114,10 +117,6 @@ class CarComparisonController extends Controller
                     }
                 }
             } catch (\Throwable) {}
-
-            if (!$assignedSupervisorId) {
-                $assignedSupervisorId = User::where('role', 'supervisor')->value('id') ?: $authUser->id;
-            }
         }
 
         // Generate comparison code: YYYY/CP-CAR/NNNNN
@@ -127,6 +126,9 @@ class CarComparisonController extends Controller
             ->value('comparison_code');
         $seq      = $lastCode ? ((int) substr($lastCode, -5)) + 1 : 1;
         $comparisonCode = $year . '/CP-CAR/' . str_pad($seq, 5, '0', STR_PAD_LEFT);
+
+        $isStaffSubmission = !$authUser->isSupervisor() && !$authUser->isManager() && !$authUser->isAdmin();
+        $initialStatus = $isStaffSubmission ? 'pending_supervisor' : 'pending_manager';
 
         $comparison = CarVendorComparison::create([
             'comparison_code'         => $comparisonCode,
@@ -143,23 +145,27 @@ class CarComparisonController extends Controller
             'vendors'                 => $request->vendors,
             'selected_vendor'         => $request->selected_vendor,
             'notes'                   => $request->notes,
-            'status'                  => 'pending_manager', // Directly pending manager
-            'supervisor_id'           => $assignedSupervisorId ?: $authUser->id,
-            'supervisor_submitted_at' => now(),
+            'status'                  => $initialStatus,
+            'supervisor_id'           => $assignedSupervisorId ?: ($isStaffSubmission ? null : $authUser->id),
+            'supervisor_submitted_at' => $isStaffSubmission ? null : now(),
             'created_by'              => $authUser->id,
         ]);
 
         CarComparisonLog::create([
             'car_comparison_id' => $comparison->id,
             'user_id'           => $authUser->id,
-            'action'            => 'submitted_supervisor',
+            'action'            => $isStaffSubmission ? 'submitted' : 'submitted_supervisor',
             'notes'             => $request->notes,
         ]);
 
         session()->flash('clear_draft_key', "car_clvp_draft_{$request->po_id}");
 
+        $msg = $isStaffSubmission
+            ? "Car Comparison for {$request->po_name} submitted for Supervisor approval."
+            : "Car Comparison for {$request->po_name} submitted successfully and is now pending Manager approval.";
+
         return redirect()->route('car_comparisons.index')
-            ->with('success', "Car Comparison for {$request->po_name} submitted successfully and is now pending Manager approval.");
+            ->with('success', $msg);
     }
 
     /**
@@ -276,7 +282,7 @@ class CarComparisonController extends Controller
     {
         $this->authorizeCarAccess();
 
-        $comparison->load(['creator', 'supervisor', 'manager', 'rejectedBy', 'cancelledBy', 'logs.user']);
+        $comparison->load(['creator', 'supervisor', 'manager', 'bypassedBy', 'rejectedBy', 'cancelledBy', 'logs.user']);
 
         $rfq = null;
         $history = [];
@@ -294,8 +300,11 @@ class CarComparisonController extends Controller
         if (Auth::user()->isSupervisor()) {
             $query->where(function ($q) {
                 $q->where('supervisor_id', Auth::id())
-                    ->orWhere('created_by', Auth::id());
+                    ->orWhere('created_by', Auth::id())
+                    ->orWhereNull('supervisor_id');
             });
+        } elseif (!Auth::user()->isManager() && !Auth::user()->isAdmin()) {
+            $query->where('created_by', Auth::id());
         }
         if ($statusFilter) {
             $query->where('status', $statusFilter);
@@ -338,38 +347,94 @@ class CarComparisonController extends Controller
     }
 
     /**
-     * Manager approves the Car comparison.
+     * Supervisor or Manager approves the Car comparison.
      */
     public function approve(Request $request, CarVendorComparison $comparison)
     {
+        $this->authorizeCarAccess();
+
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        if (!$user->isManager() && !$user->isAdmin()) {
-            return back()->with('error', 'Only the Manager or Admin may approve car comparisons.');
-        }
-
-        if (!$comparison->isPendingManager()) {
-            return back()->with('error', 'This comparison is not pending manager approval.');
-        }
-
         $request->validate(['notes' => ['nullable', 'string', 'max:2000']]);
+
+        // Tier 1 (when submitted by Staff): Supervisor approves -> moves to pending_manager
+        if ($user->isSupervisor() && $comparison->isPendingSupervisor()) {
+            $comparison->update([
+                'status'                 => 'pending_manager',
+                'supervisor_id'          => $user->id,
+                'supervisor_approved_at' => now(),
+                'supervisor_notes'       => $request->notes,
+            ]);
+
+            CarComparisonLog::create([
+                'car_comparison_id' => $comparison->id,
+                'user_id'           => $user->id,
+                'action'            => 'approved_supervisor',
+                'notes'             => $request->notes,
+            ]);
+
+            return back()->with('success', 'Car comparison approved by Supervisor. Now pending Manager approval.');
+        }
+
+        // Tier 2 (or direct SPV submission): Manager/Admin gives final approval
+        if (($user->isManager() || $user->isAdmin()) && $comparison->isPendingManager()) {
+            $comparison->update([
+                'status'              => 'approved',
+                'manager_id'          => $user->id,
+                'manager_approved_at' => now(),
+                'manager_notes'       => $request->notes,
+            ]);
+
+            CarComparisonLog::create([
+                'car_comparison_id' => $comparison->id,
+                'user_id'           => $user->id,
+                'action'            => 'approved_manager',
+                'notes'             => $request->notes,
+            ]);
+
+            return back()->with('success', 'Car comparison fully approved!');
+        }
+
+        return back()->with('error', 'You are not authorized to approve this comparison at its current stage.');
+    }
+
+    /**
+     * Manager bypass: approve a Car comparison that is still pending Supervisor approval.
+     */
+    public function bypassApprove(Request $request, CarVendorComparison $comparison)
+    {
+        $this->authorizeCarAccess();
+
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        $request->validate([
+            'bypass_reason' => ['required', 'string', 'max:2000'],
+        ]);
+
+        if (!$comparison->canBypassApprove($user)) {
+            return back()->with('error', 'Only the Manager or Admin can bypass Supervisor approval for this comparison.');
+        }
 
         $comparison->update([
             'status'              => 'approved',
             'manager_id'          => $user->id,
             'manager_approved_at' => now(),
-            'manager_notes'       => $request->notes,
+            'manager_notes'       => $request->bypass_reason,
+            'bypassed_by'         => $user->id,
+            'bypassed_at'         => now(),
+            'bypass_reason'       => $request->bypass_reason,
         ]);
 
         CarComparisonLog::create([
             'car_comparison_id' => $comparison->id,
             'user_id'           => $user->id,
-            'action'            => 'approved_manager',
-            'notes'             => $request->notes,
+            'action'            => 'approved_manager_bypass',
+            'notes'             => $request->bypass_reason,
         ]);
 
-        return back()->with('success', 'Car comparison fully approved!');
+        return back()->with('success', 'Car comparison approved via Manager bypass. Supervisor step was skipped.');
     }
 
     /**
@@ -377,16 +442,22 @@ class CarComparisonController extends Controller
      */
     public function reject(Request $request, CarVendorComparison $comparison)
     {
+        $this->authorizeCarAccess();
+
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
         $request->validate(['rejection_reason' => ['required', 'string', 'max:2000']]);
 
-        if (!$user->isManager() && !$user->isAdmin()) {
-            return back()->with('error', 'Only managers or admins can reject car comparisons.');
+        if (!$user->isSupervisor() && !$user->isManager() && !$user->isAdmin()) {
+            return back()->with('error', 'Only supervisors, managers, or admins can reject car comparisons.');
         }
 
-        if ($comparison->isApproved() || $comparison->isRejected()) {
+        if ($user->isSupervisor() && !$comparison->isPendingSupervisor()) {
+            return back()->with('error', 'Supervisor can only reject car comparisons pending their review.');
+        }
+
+        if ($comparison->isApproved() || $comparison->isRejected() || $comparison->isCancelled()) {
             return back()->with('error', 'This comparison cannot be rejected in its current state.');
         }
 
@@ -408,10 +479,12 @@ class CarComparisonController extends Controller
     }
 
     /**
-     * Cancel an approved car comparison.
+     * Cancel a car comparison.
      */
     public function cancel(Request $request, CarVendorComparison $comparison)
     {
+        $this->authorizeCarAccess();
+
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
@@ -461,11 +534,13 @@ class CarComparisonController extends Controller
      */
     public function odooPost(CarVendorComparison $comparison)
     {
+        $this->authorizeCarAccess();
+
         if (!$comparison->isApproved()) {
             return back()->with('error', 'Only approved comparisons can be posted to Odoo.');
         }
 
-        $comparison->load(['creator', 'supervisor', 'manager']);
+        $comparison->load(['creator', 'supervisor', 'manager', 'bypassedBy']);
 
         try {
             $pdf = Pdf::loadView('car_comparisons.pdf', compact('comparison'))
@@ -483,9 +558,16 @@ class CarComparisonController extends Controller
             $vendors = collect($comparison->vendors ?? []);
             $vendorList = $vendors->map(fn($v) => htmlspecialchars($v['name'] ?? '—'))->implode(', ');
             $recommended = htmlspecialchars($comparison->selected_vendor ?? '—');
+            $preparedBy  = htmlspecialchars($comparison->prepared_by_name);
             $approvedBy  = htmlspecialchars($comparison->manager->name ?? '—');
             $approvedOn  = $comparison->manager_approved_at?->format('d M Y H:i') ?? '—';
             $supervisor  = htmlspecialchars($comparison->supervisor->name ?? '—');
+            $spvLine = '';
+            if ($comparison->isBypassed()) {
+                $spvLine = "<li><strong>Supervisor Approval:</strong> <em>Skipped (Manager bypass)</em></li>";
+            } elseif ($comparison->supervisor_approved_at) {
+                $spvLine = "<li><strong>Approved by Supervisor:</strong> {$supervisor} on " . $comparison->supervisor_approved_at->format('d M Y H:i') . "</li>";
+            }
 
             $customNote = trim(request('note', ''));
             $comparisonUrl = url(route('car_comparisons.show', $comparison, false));
@@ -497,7 +579,8 @@ class CarComparisonController extends Controller
   <li><strong>Color / BBN / Vin:</strong> {$comparison->warna} / {$comparison->bbn} / {$comparison->vin_code}</li>
   <li><strong>Recommended Dealer:</strong> {$recommended}</li>
   <li><strong>Dealers Compared:</strong> {$vendorList}</li>
-  <li><strong>Prepared by Supervisor:</strong> {$supervisor}</li>
+  <li><strong>Prepared by:</strong> {$preparedBy}</li>
+  {$spvLine}
   <li><strong>Approved by Manager:</strong> {$approvedBy} on {$approvedOn}</li>
 </ul>
 <p>📎 <em>The CLVP Car document has been attached as a PDF file.</em></p>

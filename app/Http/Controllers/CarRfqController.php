@@ -14,14 +14,14 @@ class CarRfqController extends Controller
     public function __construct(private OdooService $odoo) {}
 
     /**
-     * Ensure only Supervisor, Manager, and Admin can access Car RFQs.
+     * Ensure only authorized users (Supervisor, Manager, Admin, or users granted Car Access) can access Car RFQs.
      */
     protected function authorizeCarAccess(): void
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        if (!$user || (!$user->isSupervisor() && !$user->isManager() && !$user->isAdmin())) {
-            abort(403, 'Unauthorized. Car Comparison is restricted to Supervisors and Managers.');
+        if (!$user || !$user->canAccessCar()) {
+            abort(403, 'Unauthorized. You do not have access to Car Comparison.');
         }
     }
 

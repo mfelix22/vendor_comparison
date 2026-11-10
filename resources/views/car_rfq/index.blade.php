@@ -101,7 +101,7 @@
                                     $vendorName = is_array($rfq['partner_id']) ? $rfq['partner_id'][1] : '';
                                     $currency = is_array($rfq['currency_id']) ? $rfq['currency_id'][1] : 'IDR';
                                 @endphp
-                                <tr data-href="{{ $clvp ? route('car_comparisons.show', $clvp->id) : route('car_rfq.show', $rfq['id']) }}"
+                                <tr data-href="{{ ($clvp && !in_array($clvp->status, ['rejected', 'cancelled'])) ? route('car_comparisons.show', $clvp->id) : route('car_rfq.show', $rfq['id']) }}"
                                     data-rfq-name="{{ strtolower($rfq['name']) }}"
                                     data-vendor="{{ strtolower($vendorName) }}"
                                     data-origin="{{ strtolower($rfq['origin'] ?? '') }}"
@@ -149,7 +149,7 @@
                                         @endif
                                     </td>
                                     <td class="text-center">
-                                        @if ($clvp)
+                                        @if ($clvp && !in_array($clvp->status, ['rejected', 'cancelled']))
                                             <a href="{{ route('car_comparisons.show', $clvp->id) }}"
                                                 class="btn btn-sm btn-outline-secondary">
                                                 <i class="bi bi-eye me-1"></i>View

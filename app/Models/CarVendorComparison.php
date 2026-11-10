@@ -24,10 +24,14 @@ class CarVendorComparison extends Model
         'status',
         'supervisor_id',
         'supervisor_submitted_at',
+        'supervisor_approved_at',
         'supervisor_notes',
         'manager_id',
         'manager_approved_at',
         'manager_notes',
+        'bypassed_by',
+        'bypassed_at',
+        'bypass_reason',
         'rejected_by',
         'rejected_at',
         'rejection_reason',
@@ -42,7 +46,9 @@ class CarVendorComparison extends Model
         'vendors'                 => 'array',
         'pricelist_ori'           => 'float',
         'supervisor_submitted_at' => 'datetime',
+        'supervisor_approved_at'  => 'datetime',
         'manager_approved_at'     => 'datetime',
+        'bypassed_at'             => 'datetime',
         'rejected_at'             => 'datetime',
         'cancelled_at'            => 'datetime',
         'odoo_synced_at'          => 'datetime',
@@ -75,12 +81,22 @@ class CarVendorComparison extends Model
         return $this->belongsTo(User::class, 'cancelled_by');
     }
 
+    public function bypassedBy()
+    {
+        return $this->belongsTo(User::class, 'bypassed_by');
+    }
+
     public function logs()
     {
         return $this->hasMany(CarComparisonLog::class, 'car_comparison_id')->orderBy('created_at');
     }
 
     // ── Status Helpers ─────────────────────────────────────
+
+    public function isPendingSupervisor(): bool
+    {
+        return $this->status === 'pending_supervisor';
+    }
 
     public function isPendingManager(): bool
     {
@@ -102,16 +118,49 @@ class CarVendorComparison extends Model
         return $this->status === 'cancelled';
     }
 
+    public function isBypassed(): bool
+    {
+        return $this->bypassed_by !== null;
+    }
+
+    public function requiresSupervisorApproval(): bool
+    {
+        if ($this->isPendingSupervisor() || $this->supervisor_approved_at !== null) {
+            return true;
+        }
+        if ($this->isBypassed() && $this->supervisor_submitted_at === null) {
+            return true;
+        }
+        if ($this->creator && !$this->creator->isSupervisor() && !$this->creator->isManager() && !$this->creator->isAdmin()) {
+            return true;
+        }
+        return false;
+    }
+
     public function isEditableBy(?User $user): bool
     {
         if (!$user) return false;
+        if ($this->isPendingSupervisor()) {
+            return $user->id === $this->created_by || $user->isAdmin();
+        }
         return $this->isPendingManager()
+            && $this->supervisor_approved_at === null
             && ($user->id === $this->created_by || $user->id === $this->supervisor_id || $user->isAdmin());
+    }
+
+    public function canBypassApprove(?User $user): bool
+    {
+        if (!$user) return false;
+        return ($user->isManager() || $user->isAdmin()) && $this->isPendingSupervisor();
     }
 
     public function isCancellableBy(?User $user): bool
     {
         if (!$user) return false;
+        // Creator can cancel while waiting for supervisor review
+        if ($this->isPendingSupervisor() && ($user->id === $this->created_by || $user->isAdmin())) {
+            return true;
+        }
         // Supervisor can cancel while waiting for manager
         if ($user->isSupervisor() && $this->isPendingManager()) {
             return true;
@@ -126,34 +175,36 @@ class CarVendorComparison extends Model
     public function statusLabel(): string
     {
         return match ($this->status) {
-            'pending_manager' => 'Pending Manager',
-            'approved'        => 'Approved',
-            'rejected'        => 'Rejected',
-            'cancelled'       => 'Cancelled',
-            default           => 'Draft',
+            'pending_supervisor' => 'Pending Supervisor',
+            'pending_manager'    => 'Pending Manager',
+            'approved'           => 'Approved',
+            'rejected'           => 'Rejected',
+            'cancelled'          => 'Cancelled',
+            default              => 'Draft',
         };
     }
 
     public function statusBadgeClass(): string
     {
         return match ($this->status) {
-            'pending_manager' => 'bg-info text-dark',
-            'approved'        => 'bg-success',
-            'rejected'        => 'bg-danger',
-            'cancelled'       => 'bg-secondary',
-            default           => 'bg-secondary',
+            'pending_supervisor' => 'bg-warning text-dark',
+            'pending_manager'    => 'bg-info text-dark',
+            'approved'           => 'bg-success',
+            'rejected'           => 'bg-danger',
+            'cancelled'          => 'bg-secondary',
+            default              => 'bg-secondary',
         };
     }
 
     public function getPreparedByNameAttribute(): string
     {
-        if ($this->supervisor && $this->supervisor->isSupervisor()) {
-            return $this->supervisor->name;
-        }
-        if ($this->creator && ($this->creator->isSupervisor() || $this->creator->isAdmin())) {
+        if ($this->creator) {
             return $this->creator->name;
         }
-        return $this->supervisor->name ?? $this->creator->name ?? 'Purchasing Supervisor';
+        if ($this->supervisor) {
+            return $this->supervisor->name;
+        }
+        return 'Purchasing';
     }
 }
 

@@ -24,6 +24,7 @@ class User extends Authenticatable
         'email',
         'password',
         'has_costing_access',
+        'has_car_access',
     ];
 
     public function isCreator(): bool
@@ -78,6 +79,11 @@ class User extends Authenticatable
         return $this->isAdmin() || (bool) $this->has_costing_access;
     }
 
+    public function canAccessCar(): bool
+    {
+        return $this->isSupervisor() || $this->isManager() || $this->isAdmin() || (bool) $this->has_car_access;
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -99,6 +105,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'has_costing_access' => 'boolean',
+            'has_car_access' => 'boolean',
         ];
     }
 }

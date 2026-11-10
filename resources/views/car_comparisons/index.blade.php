@@ -14,8 +14,16 @@
     </div>
 
     {{-- Stats cards --}}
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-md-3">
+    <div class="row row-cols-2 row-cols-md-5 g-3 mb-4">
+        <div class="col">
+            <div class="card text-center border-warning shadow-sm h-100 stat-filter-card" data-filter="pending_supervisor" role="button" title="Filter by Pending Supervisor">
+                <div class="card-body py-3">
+                    <div class="display-6 fw-bold text-warning">{{ $stats['pending_supervisor'] }}</div>
+                    <div class="small text-muted mt-1 fw-semibold">Pending Supervisor</div>
+                </div>
+            </div>
+        </div>
+        <div class="col">
             <div class="card text-center border-info shadow-sm h-100 stat-filter-card" data-filter="pending_manager" role="button" title="Filter by Pending Manager">
                 <div class="card-body py-3">
                     <div class="display-6 fw-bold text-info">{{ $stats['pending_manager'] }}</div>
@@ -23,7 +31,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col">
             <div class="card text-center border-success shadow-sm h-100 stat-filter-card" data-filter="approved" role="button" title="Filter by Approved">
                 <div class="card-body py-3">
                     <div class="display-6 fw-bold text-success">{{ $stats['approved'] }}</div>
@@ -31,7 +39,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col">
             <div class="card text-center border-danger shadow-sm h-100 stat-filter-card" data-filter="rejected" role="button" title="Filter by Rejected">
                 <div class="card-body py-3">
                     <div class="display-6 fw-bold text-danger">{{ $stats['rejected'] }}</div>
@@ -39,7 +47,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col">
             <div class="card text-center border-secondary shadow-sm h-100 stat-filter-card" data-filter="cancelled" role="button" title="Filter by Cancelled">
                 <div class="card-body py-3">
                     <div class="display-6 fw-bold text-secondary">{{ $stats['cancelled'] }}</div>
@@ -66,6 +74,7 @@
                 <span class="input-group-text"><i class="bi bi-funnel"></i></span>
                 <select id="cmpStatus" class="form-select">
                     <option value="">All Statuses</option>
+                    <option value="pending_supervisor">Pending Supervisor</option>
                     <option value="pending_manager">Pending Manager</option>
                     <option value="approved">Approved</option>
                     <option value="rejected">Rejected</option>
@@ -84,10 +93,10 @@
                                 <th style="min-width:240px;">Vehicle Model</th>
                                 <th class="text-center text-nowrap" style="width:80px;">Qty</th>
                                 <th style="min-width:200px;">Recommended Dealer</th>
-                                <th class="text-nowrap" style="min-width:130px;">Prepared By (SPV)</th>
+                                <th class="text-nowrap" style="min-width:130px;">Prepared By</th>
                                 <th class="text-nowrap" style="min-width:130px;">Prepared At</th>
                                 <th class="text-center text-nowrap" style="width:130px;">Status</th>
-                                <th class="text-center text-nowrap" style="width:140px;">Manager Approval</th>
+                                <th class="text-center text-nowrap" style="width:140px;">Approvals</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -134,8 +143,17 @@
                                     <td class="text-center text-nowrap">
                                         @if ($c->manager_approved_at)
                                             <span class="text-success small fw-semibold">
-                                                <i class="bi bi-check-circle-fill me-1"></i>{{ $c->manager->name ?? 'Manager' }}<br>
+                                                <i class="bi bi-check-circle-fill me-1"></i>{{ $c->manager->name ?? 'Manager' }}
+                                                @if ($c->isBypassed())
+                                                    <span class="badge bg-warning text-dark ms-1" title="Supervisor step bypassed">Bypass</span>
+                                                @endif
+                                                <br>
                                                 <span class="text-muted fw-normal">{{ $c->manager_approved_at->format('d M Y') }}</span>
+                                            </span>
+                                        @elseif ($c->supervisor_approved_at)
+                                            <span class="text-info small fw-semibold">
+                                                <i class="bi bi-check-circle me-1"></i>SPV: {{ $c->supervisor->name ?? 'Supervisor' }}<br>
+                                                <span class="text-muted fw-normal">{{ $c->supervisor_approved_at->format('d M Y') }}</span>
                                             </span>
                                         @elseif ($c->isRejected() && $c->rejectedBy)
                                             <span class="text-danger small"><i class="bi bi-x-circle-fill me-1"></i>Rejected</span>

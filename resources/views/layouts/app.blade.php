@@ -189,7 +189,7 @@
                             </div>
                         </a>
                     </li>
-                    @if (Auth::check() && (Auth::user()->isSupervisor() || Auth::user()->isManager() || Auth::user()->isAdmin()))
+                    @if (Auth::check() && Auth::user()->canAccessCar())
                         <li><hr class="dropdown-divider my-1"></li>
                         <li>
                             <a class="dropdown-item d-flex align-items-center gap-2 {{ $isCarModule ? 'active' : '' }}" href="{{ route('car_rfq.index') }}">
@@ -274,10 +274,18 @@
                             </li>
                         @endif
                     @elseif ($isCarModule)
-                        {{-- Dedicated Car Comparison Navigation (Supervisor & Manager Only) --}}
-                        @if (Auth::check() && (Auth::user()->isSupervisor() || Auth::user()->isManager() || Auth::user()->isAdmin()))
+                        {{-- Dedicated Car Comparison Navigation --}}
+                        @if (Auth::check() && Auth::user()->canAccessCar())
                             @php
-                                $carPendingCount = \App\Models\CarVendorComparison::where('status', 'pending_manager')->count();
+                                $carPendingCount = 0;
+                                if (Auth::user()->isManager() || Auth::user()->isAdmin()) {
+                                    $carPendingCount = \App\Models\CarVendorComparison::where('status', 'pending_manager')->count();
+                                } elseif (Auth::user()->isSupervisor()) {
+                                    $carPendingCount = \App\Models\CarVendorComparison::where('status', 'pending_supervisor')
+                                        ->where(function ($q) {
+                                            $q->where('supervisor_id', Auth::id())->orWhereNull('supervisor_id');
+                                        })->count();
+                                }
                             @endphp
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->routeIs('car_rfq.*') ? 'active fw-bold' : '' }}" href="{{ route('car_rfq.index') }}">

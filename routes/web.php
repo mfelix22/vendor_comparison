@@ -51,6 +51,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/car-comparisons/{comparison}/edit', [CarComparisonController::class, 'edit'])->name('car_comparisons.edit');
     Route::put('/car-comparisons/{comparison}', [CarComparisonController::class, 'update'])->name('car_comparisons.update');
     Route::post('/car-comparisons/{comparison}/approve', [CarComparisonController::class, 'approve'])->name('car_comparisons.approve');
+    Route::post('/car-comparisons/{comparison}/bypass-approve', [CarComparisonController::class, 'bypassApprove'])->name('car_comparisons.bypass-approve');
     Route::post('/car-comparisons/{comparison}/reject', [CarComparisonController::class, 'reject'])->name('car_comparisons.reject');
     Route::post('/car-comparisons/{comparison}/cancel', [CarComparisonController::class, 'cancel'])->name('car_comparisons.cancel');
     Route::get('/car-comparisons/{comparison}/pdf', [CarComparisonController::class, 'pdf'])->name('car_comparisons.pdf');
