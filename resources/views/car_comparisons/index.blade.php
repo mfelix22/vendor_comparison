@@ -96,7 +96,8 @@
                                 <th class="text-nowrap" style="min-width:130px;">Prepared By</th>
                                 <th class="text-nowrap" style="min-width:130px;">Prepared At</th>
                                 <th class="text-center text-nowrap" style="width:130px;">Status</th>
-                                <th class="text-center text-nowrap" style="width:140px;">Approvals</th>
+                                <th class="text-center text-nowrap" style="min-width:130px;">Supervisor</th>
+                                <th class="text-center text-nowrap" style="min-width:130px;">Manager</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -141,22 +142,37 @@
                                         @endif
                                     </td>
                                     <td class="text-center text-nowrap">
+                                        @if ($c->supervisor_approved_at)
+                                            <span class="text-success small">
+                                                <i class="bi bi-check-circle-fill me-1"></i>
+                                                {{ $c->supervisor->name ?? '—' }}<br>
+                                                <span class="text-muted">{{ $c->supervisor_approved_at->format('d M Y') }}</span>
+                                            </span>
+                                        @elseif ($c->isBypassed())
+                                            <span class="badge bg-warning text-dark" title="Skipped — Manager bypass">Bypassed</span>
+                                        @elseif ($c->isRejected() && $c->rejectedBy && $c->rejectedBy->isSupervisor())
+                                            <span class="text-danger small"><i class="bi bi-x-circle-fill me-1"></i>Rejected</span>
+                                        @elseif ($c->isPendingSupervisor())
+                                            <span class="text-warning small fw-semibold">Pending</span>
+                                        @else
+                                            <span class="text-muted small">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center text-nowrap">
                                         @if ($c->manager_approved_at)
-                                            <span class="text-success small fw-semibold">
-                                                <i class="bi bi-check-circle-fill me-1"></i>{{ $c->manager->name ?? 'Manager' }}
+                                            <span class="text-success small">
+                                                <i class="bi bi-check-circle-fill me-1"></i>
+                                                {{ $c->manager->name ?? '—' }}
                                                 @if ($c->isBypassed())
                                                     <span class="badge bg-warning text-dark ms-1" title="Supervisor step bypassed">Bypass</span>
                                                 @endif
                                                 <br>
-                                                <span class="text-muted fw-normal">{{ $c->manager_approved_at->format('d M Y') }}</span>
+                                                <span class="text-muted">{{ $c->manager_approved_at->format('d M Y') }}</span>
                                             </span>
-                                        @elseif ($c->supervisor_approved_at)
-                                            <span class="text-info small fw-semibold">
-                                                <i class="bi bi-check-circle me-1"></i>SPV: {{ $c->supervisor->name ?? 'Supervisor' }}<br>
-                                                <span class="text-muted fw-normal">{{ $c->supervisor_approved_at->format('d M Y') }}</span>
-                                            </span>
-                                        @elseif ($c->isRejected() && $c->rejectedBy)
+                                        @elseif ($c->isRejected() && $c->rejectedBy && (!$c->requiresSupervisorApproval() || !$c->rejectedBy->isSupervisor()))
                                             <span class="text-danger small"><i class="bi bi-x-circle-fill me-1"></i>Rejected</span>
+                                        @elseif ($c->isPendingManager())
+                                            <span class="text-info small fw-semibold">Pending</span>
                                         @else
                                             <span class="text-muted small">—</span>
                                         @endif

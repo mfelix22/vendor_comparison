@@ -957,7 +957,7 @@
                 <div class="d-flex align-items-start mb-3 gap-4">
                     {{-- Logo area --}}
                     <div style="min-width:90px;">
-                        <img src="{{ asset('logo.png') }}" style="height:55px; max-width:140px; object-fit:contain;">
+                        <img src="{{ asset('logo.png') }}" style="width:140px; height:auto;">
                     </div>
 
                     {{-- Category checkboxes --}}
