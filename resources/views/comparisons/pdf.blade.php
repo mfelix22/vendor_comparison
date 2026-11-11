@@ -178,7 +178,7 @@
         <tr>
             <td class="logo-cell">
                 @if ($logoSrc)
-                    <img src="{{ $logoSrc }}" style="height:55px; max-width:140px; object-fit:contain;">
+                    <img src="{{ $logoSrc }}" style="width:140px; height:auto;">
                 @endif
             </td>
             <td class="cat-cell">

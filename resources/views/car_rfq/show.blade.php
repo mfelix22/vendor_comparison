@@ -857,7 +857,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 <div class="d-flex align-items-center mb-3 gap-4">
                     <div style="min-width:140px;">
-                        <img src="/logo.png" style="height:46px; max-width:140px; object-fit:contain;" alt="HARENT">
+                        <img src="/logo.png" style="width:140px; height:auto;" alt="HARENT">
                     </div>
                     <div class="d-flex gap-4 align-items-center flex-wrap" style="font-size:11px;">
                         <span style="display:inline-flex; align-items:center; gap:4px;">

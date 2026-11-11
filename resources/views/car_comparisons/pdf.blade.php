@@ -151,7 +151,7 @@
         <tr>
             <td style="width:20%; vertical-align:middle;">
                 @if ($logoSrc)
-                    <img src="{{ $logoSrc }}" style="height:38px; max-width:130px; object-fit:contain;" alt="HARENT">
+                    <img src="{{ $logoSrc }}" style="width:130px; height:auto;" alt="HARENT">
                 @else
                     <div style="font-size:14px; font-weight:bold; color:#1a4f8b;">HARENT</div>
                     <div style="font-size:8px; color:#444;">hartono rent car</div>

@@ -661,7 +661,7 @@
                 <div class="d-flex align-items-center mb-3 gap-4">
                     {{-- Logo --}}
                     <div style="min-width:140px;">
-                        <img src="{{ asset('logo.png') }}" style="height:46px; max-width:140px; object-fit:contain;" alt="HARENT">
+                        <img src="{{ asset('logo.png') }}" style="width:140px; height:auto;" alt="HARENT">
                     </div>
 
                     {{-- Category checkboxes matching standard form --}}
