@@ -12,6 +12,16 @@
         </ol>
     </nav>
 
+    @php
+        $hasActiveReplacement = ($comparison->isRejected() || $comparison->isCancelled())
+            && \App\Models\CarVendorComparison::where('po_id', $comparison->po_id)
+                ->whereNotIn('status', ['rejected', 'cancelled'])
+                ->exists();
+        $canResubmit = Auth::user()?->canAccessCar()
+            && (Auth::id() === $comparison->created_by || Auth::user()?->isSupervisor() || Auth::user()?->isAdmin())
+            && !$hasActiveReplacement;
+    @endphp
+
     {{-- Prominent Rejection Notice (Matching RFQ General) --}}
     @if ($comparison->isRejected())
         <div class="alert alert-danger d-flex gap-3 align-items-start mb-4">
@@ -23,10 +33,10 @@
                     on <strong>{{ $comparison->rejected_at?->format('d M Y H:i') }}</strong>
                 </div>
                 <div class="fst-italic">"{{ $comparison->rejection_reason }}"</div>
-                @if ($comparison->isEditableBy(Auth::user()))
+                @if ($canResubmit)
                     <div class="mt-2">
-                        <a href="{{ route('car_comparisons.edit', $comparison) }}" class="btn btn-sm btn-danger">
-                            <i class="bi bi-pencil me-1"></i>Edit & Resubmit Car Comparison
+                        <a href="{{ route('car_rfq.show', $comparison->po_id) }}" class="btn btn-sm btn-danger">
+                            <i class="bi bi-pencil me-1"></i>Submit New Car Comparison for this RFQ
                         </a>
                     </div>
                 @endif
@@ -46,6 +56,13 @@
                 </div>
                 @if ($comparison->cancel_reason)
                     <div class="fst-italic">"{{ $comparison->cancel_reason }}"</div>
+                @endif
+                @if ($canResubmit)
+                    <div class="mt-2">
+                        <a href="{{ route('car_rfq.show', $comparison->po_id) }}" class="btn btn-sm btn-warning">
+                            <i class="bi bi-pencil me-1"></i>Submit New Car Comparison for this RFQ
+                        </a>
+                    </div>
                 @endif
             </div>
         </div>
@@ -359,15 +376,13 @@
                             return $prefix . ' Rp ' . number_format($val, 0, ',', '.');
                         };
 
-                        // Calculate system best vendor (cheapest net price)
+                        // Calculate system best vendor (cheapest net price: Harga OTR - Discount; Cashback is informational)
                         $systemBestName = null;
                         $lowestNet = PHP_FLOAT_MAX;
                         foreach ($vendors as $v) {
                             $offered = (float)($v['unit_price'] ?? $v['offered_price'] ?? $v['net_price'] ?? $comparison->pricelist_ori ?? 0);
                             $disc = (float)($v['discount'] ?? 0);
-                            $cb = (float)($v['cashback'] ?? 0);
-                            $totBen = (float)($v['total_benefit'] ?? ($disc + $cb));
-                            $net = (float)($v['net_price'] ?? ($offered > 0 ? $offered - $totBen : 0));
+                            $net = (float)($v['net_price'] ?? ($offered > 0 ? max(0, $offered - $disc) : 0));
                             if ($net > 0 && $net < $lowestNet) {
                                 $lowestNet = $net;
                                 $systemBestName = $v['name'] ?? null;
@@ -381,9 +396,7 @@
                             if (($v['name'] ?? '') === $comparison->selected_vendor) {
                                 $offered = (float)($v['unit_price'] ?? $v['offered_price'] ?? $v['net_price'] ?? $comparison->pricelist_ori ?? 0);
                                 $disc = (float)($v['discount'] ?? 0);
-                                $cb = (float)($v['cashback'] ?? 0);
-                                $totBen = (float)($v['total_benefit'] ?? ($disc + $cb));
-                                $net = (float)($v['net_price'] ?? ($offered > 0 ? $offered - $totBen : 0));
+                                $net = (float)($v['net_price'] ?? ($offered > 0 ? max(0, $offered - $disc) : 0));
                                 $selectedSubtotal = (float)($v['subtotal'] ?? ($net * $comparison->qty));
                                 break;
                             }
@@ -530,7 +543,7 @@
                                     <thead class="table-light text-center">
                                         <tr>
                                             <th style="width:26%">Dealer / Vendor</th>
-                                            <th style="width:14%">Offered Price</th>
+                                            <th style="width:14%">Harga OTR</th>
                                             <th style="width:10%">Discount</th>
                                             <th style="width:10%">Cashback</th>
                                             <th style="width:11%">Total Benefit</th>
@@ -549,7 +562,7 @@
                                                 $disc = (float)($v['discount'] ?? 0);
                                                 $cb = (float)($v['cashback'] ?? 0);
                                                 $totBen = (float)($v['total_benefit'] ?? ($disc + $cb));
-                                                $net = (float)($v['net_price'] ?? ($offered > 0 ? $offered - $totBen : 0));
+                                                $net = (float)($v['net_price'] ?? ($offered > 0 ? max(0, $offered - $disc) : 0));
                                                 $subtotal = (float)($v['subtotal'] ?? ($net * $comparison->qty));
                                                 $avail = strtolower($v['availability'] ?? $v['ready_indent'] ?? '');
                                                 $isReady = ($avail === 'ready' || !empty($v['ready']));
@@ -572,9 +585,13 @@
                                                             {{ $vPic ?: '' }} {{ $vPhone ? '('.$vPhone.')' : '' }}
                                                         </div>
                                                     @endif
-                                                    @if (!empty($v['bonus']))
-                                                        <div class="text-primary" style="font-size:9px;">
-                                                            <i class="bi bi-gift me-1"></i>{{ $v['bonus'] }}
+                                                    @php
+                                                        $vNote = trim($v['notes'] ?? $v['bonus'] ?? '');
+                                                    @endphp
+                                                    @if ($vNote !== '')
+                                                        <div class="text-primary d-flex align-items-start gap-1" style="font-size:10px;">
+                                                            <i class="bi bi-gift flex-shrink-0"></i>
+                                                            <span>{!! nl2br(e($vNote)) !!}</span>
                                                         </div>
                                                     @endif
                                                 </td>
@@ -582,7 +599,7 @@
                                                     IDR {{ number_format($offered, 0, ',', '.') }}
                                                 </td>
                                                 <td class="text-center text-danger">
-                                                    {{ $fmtJuta($disc, 'Dis.') }}
+                                                    {{ $fmtJuta($disc, 'Disc.') }}
                                                 </td>
                                                 <td class="text-center text-info">
                                                     {{ $fmtJuta($cb, 'CB') }}
@@ -673,6 +690,15 @@
                     $vendorCount = count($vendors);
                     $hasFourthCol = ($vendorCount <= 3); // Pre-printed forms have 4 vendor columns ending with PIC:TELP
                     $totalCols = $vendorCount + ($hasFourthCol ? 1 : 0);
+                    $hasAnyDealerNotes = collect($vendors)->contains(fn($v) => trim($v['notes'] ?? $v['bonus'] ?? '') !== '');
+                    $clvpSpacerVendorTds = '';
+                    foreach ($vendors as $v) {
+                        $isRec = ($v['name'] ?? '') === $comparison->selected_vendor;
+                        $clvpSpacerVendorTds .= '<td style="border:1px solid #000; ' . ($isRec ? 'background:#f0fff4;' : '') . '"></td>';
+                    }
+                    if ($hasFourthCol) {
+                        $clvpSpacerVendorTds .= '<td style="border:1px solid #000;"></td>';
+                    }
                 @endphp
 
                 <table style="width:100%; table-layout:fixed; border-collapse:collapse; font-size:11px; border:1px solid #000;">
@@ -682,12 +708,11 @@
                         <col style="width:48px;">
                         <col style="width:38px;">
                         <col style="width:38px;">
-                        <col style="width:124px;">
                         @foreach ($vendors as $v)
-                            <col style="width: calc((100% - 540px) / {{ max(1, $totalCols) }});">
+                            <col style="width: calc((100% - 416px) / {{ max(1, $totalCols) }});">
                         @endforeach
                         @if ($hasFourthCol)
-                            <col style="width: calc((100% - 540px) / {{ max(1, $totalCols) }});">
+                            <col style="width: calc((100% - 416px) / {{ max(1, $totalCols) }});">
                         @endif
                     </colgroup>
                     <thead>
@@ -698,7 +723,6 @@
                             <th rowspan="2" style="border:1px solid #000; padding:6px 4px; text-align:center; vertical-align:middle;">Kode Barang</th>
                             <th rowspan="2" style="border:1px solid #000; padding:6px 4px; text-align:center; vertical-align:middle;">QTY</th>
                             <th rowspan="2" style="border:1px solid #000; padding:6px 4px; text-align:center; vertical-align:middle;">UoM</th>
-                            <th rowspan="2" style="border:1px solid #000; padding:6px 4px; text-align:center; vertical-align:middle;">PricelistOriginal</th>
                             @if ($totalCols > 0)
                                 <th colspan="{{ $totalCols }}" style="border:1px solid #000; padding:6px 4px; text-align:center; vertical-align:middle; background:#f0f0f0;">
                                     Supplier / Vendor
@@ -742,9 +766,6 @@
                             <td style="border:1px solid #000; padding:6px 4px; text-align:center; vertical-align:middle;">
                                 {{ $comparison->uom }}
                             </td>
-                            <td style="border:1px solid #000; padding:6px 6px; text-align:center; vertical-align:middle; font-weight:bold; white-space:nowrap;">
-                                Rp. {{ number_format($comparison->pricelist_ori, 0, ',', '.') }}/unit
-                            </td>
                             @foreach ($vendors as $v)
                                 @php
                                     $isRec = ($v['name'] ?? '') === $comparison->selected_vendor;
@@ -766,14 +787,7 @@
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
-                            <td style="border:1px solid #000;"></td>
-                            @foreach ($vendors as $v)
-                                @php $isRec = ($v['name'] ?? '') === $comparison->selected_vendor; @endphp
-                                <td style="border:1px solid #000; {{ $isRec ? 'background:#f0fff4;' : '' }}"></td>
-                            @endforeach
-                            @if ($hasFourthCol)
-                                <td style="border:1px solid #000;"></td>
-                            @endif
+                            {!! $clvpSpacerVendorTds !!}
                         </tr>
 
                         {{-- Row 2: BBN (Vendor cells are completely BLANK like user's scan!) --}}
@@ -785,14 +799,7 @@
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
-                            <td style="border:1px solid #000;"></td>
-                            @foreach ($vendors as $v)
-                                @php $isRec = ($v['name'] ?? '') === $comparison->selected_vendor; @endphp
-                                <td style="border:1px solid #000; {{ $isRec ? 'background:#f0fff4;' : '' }}"></td>
-                            @endforeach
-                            @if ($hasFourthCol)
-                                <td style="border:1px solid #000;"></td>
-                            @endif
+                            {!! $clvpSpacerVendorTds !!}
                         </tr>
 
                         {{-- Row 3: VC (Vendor cells are completely BLANK like user's scan!) --}}
@@ -804,23 +811,15 @@
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
-                            <td style="border:1px solid #000;"></td>
-                            @foreach ($vendors as $v)
-                                @php $isRec = ($v['name'] ?? '') === $comparison->selected_vendor; @endphp
-                                <td style="border:1px solid #000; {{ $isRec ? 'background:#f0fff4;' : '' }}"></td>
-                            @endforeach
-                            @if ($hasFourthCol)
-                                <td style="border:1px solid #000;"></td>
-                            @endif
+                            {!! $clvpSpacerVendorTds !!}
                         </tr>
 
-                        {{-- Row 4: Warna & Dis. (Dis sits on Row 4, aligned with Warna!) --}}
+                        {{-- Row 4: Warna & Disc. (Disc sits on Row 4, aligned with Warna!) --}}
                         <tr style="height:28px;">
                             <td style="border:1px solid #000; padding:5px 4px; text-align:center; vertical-align:middle;"></td>
                             <td style="border:1px solid #000; padding:5px 10px; vertical-align:middle; font-size:11px;">
                                 Warna : {{ $comparison->warna ?: '—' }}
                             </td>
-                            <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
@@ -830,7 +829,7 @@
                                     $disc = (float)($v['discount'] ?? 0);
                                 @endphp
                                 <td style="border:1px solid #000; padding:5px 6px; text-align:center; vertical-align:middle; font-size:11px; font-weight:normal; color:#000; white-space:nowrap; {{ $isRec ? 'background:#f0fff4;' : '' }}">
-                                    {{ $fmtJuta($disc, 'Dis.') }}
+                                    {{ $fmtJuta($disc, 'Disc.') }}
                                 </td>
                             @endforeach
                             @if ($hasFourthCol)
@@ -841,7 +840,6 @@
                         {{-- Row 5: Cashback --}}
                         <tr style="height:28px;">
                             <td style="border:1px solid #000; padding:5px 4px; text-align:center; vertical-align:middle;"></td>
-                            <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
@@ -860,10 +858,9 @@
                             @endif
                         </tr>
 
-                        {{-- Row 6: Total Benefit --}}
+                        {{-- Row 6: Total Disc + Cashback --}}
                         <tr style="height:28px;">
                             <td style="border:1px solid #000; padding:5px 4px; text-align:center; vertical-align:middle;"></td>
-                            <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
@@ -875,8 +872,8 @@
                                     $cb = (float)($v['cashback'] ?? 0);
                                     $totBen = (float)($v['total_benefit'] ?? ($disc + $cb));
                                 @endphp
-                                <td style="border:1px solid #000; padding:5px 6px; text-align:center; vertical-align:middle; font-size:11px; font-weight:bold; color:#000; white-space:nowrap; {{ $isRec ? 'background:#f0fff4;' : '' }}">
-                                    {{ $fmtJuta($totBen, 'Total') }}
+                                <td style="border:1px solid #000; padding:5px 6px; text-align:center; vertical-align:middle; font-size:10.5px; font-weight:bold; color:#000; white-space:normal; line-height:1.25; {{ $isRec ? 'background:#f0fff4;' : '' }}">
+                                    {{ $fmtJuta($totBen, 'Total Disc+Cashback') }}
                                 </td>
                             @endforeach
                             @if ($hasFourthCol)
@@ -884,27 +881,84 @@
                             @endif
                         </tr>
 
-                        {{-- Row 7: BLANK SPACER ROW (Between Total Benefit and Ready/Indent!) --}}
+                        {{-- Spacer Row (1 box) between Total Disc+Cashback and TOTAL --}}
                         <tr style="height:26px;">
                             <td style="border:1px solid #000; padding:4px 4px;">&nbsp;</td>
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
-                            <td style="border:1px solid #000;"></td>
+                            {!! $clvpSpacerVendorTds !!}
+                        </tr>
+
+                        {{-- Row 7: TOTAL (Net Price * Qty matching General Comparison CLVP) --}}
+                        <tr style="height:28px; font-weight:bold; background:#f9f9f9;">
+                            <td colspan="5" style="border:1px solid #000; padding:5px 8px; text-align:right; vertical-align:middle; font-weight:bold; color:#000;">TOTAL</td>
                             @foreach ($vendors as $v)
-                                @php $isRec = ($v['name'] ?? '') === $comparison->selected_vendor; @endphp
-                                <td style="border:1px solid #000; {{ $isRec ? 'background:#f0fff4;' : '' }}"></td>
+                                @php
+                                    $isRec = ($v['name'] ?? '') === $comparison->selected_vendor;
+                                    $offered = (float)($v['unit_price'] ?? $v['offered_price'] ?? $v['net_price'] ?? $comparison->pricelist_ori ?? 0);
+                                    $disc = (float)($v['discount'] ?? 0);
+                                    $netUnit = $offered > 0 ? max(0, $offered - $disc) : 0;
+                                    $netTotal = $netUnit * $comparison->qty;
+                                @endphp
+                                <td style="border:1px solid #000; padding:5px 6px; text-align:center; vertical-align:middle; font-weight:bold; color:#000; white-space:nowrap; {{ $isRec ? 'background:#f0fff4;' : '' }}">
+                                    {{ $netTotal > 0 ? 'Rp. ' . number_format($netTotal, 0, ',', '.') : '—' }}
+                                </td>
                             @endforeach
                             @if ($hasFourthCol)
                                 <td style="border:1px solid #000;"></td>
                             @endif
                         </tr>
 
+                        {{-- Spacer Row (1 box) between TOTAL and Bonus / Notes (or Ready) --}}
+                        <tr style="height:26px;">
+                            <td style="border:1px solid #000; padding:4px 4px;">&nbsp;</td>
+                            <td style="border:1px solid #000;"></td>
+                            <td style="border:1px solid #000;"></td>
+                            <td style="border:1px solid #000;"></td>
+                            <td style="border:1px solid #000;"></td>
+                            {!! $clvpSpacerVendorTds !!}
+                        </tr>
+
+                        {{-- Bonus / Notes Row per Dealer (before Ready / Indent) --}}
+                        @if ($hasAnyDealerNotes)
+                            <tr style="height:26px;">
+                                <td style="border:1px solid #000; padding:4px 4px;"></td>
+                                <td style="border:1px solid #000; padding:4px 10px; font-size:10px; font-style:italic; color:#333; vertical-align:middle;">
+                                    Bonus / Notes :
+                                </td>
+                                <td style="border:1px solid #000;"></td>
+                                <td style="border:1px solid #000;"></td>
+                                <td style="border:1px solid #000;"></td>
+                                @foreach ($vendors as $v)
+                                    @php
+                                        $isRec = ($v['name'] ?? '') === $comparison->selected_vendor;
+                                        $dNote = trim($v['notes'] ?? $v['bonus'] ?? '');
+                                    @endphp
+                                    <td style="border:1px solid #000; padding:4px 6px; text-align:center; vertical-align:middle; font-size:9.5px; color:#000; white-space:normal; word-break:break-word; line-height:1.35; {{ $isRec ? 'background:#f0fff4;' : '' }}">
+                                        {!! nl2br(e($dNote)) !!}
+                                    </td>
+                                @endforeach
+                                @if ($hasFourthCol)
+                                    <td style="border:1px solid #000;"></td>
+                                @endif
+                            </tr>
+
+                            {{-- Spacer Row (1 box) between Bonus / Notes and Ready --}}
+                            <tr style="height:26px;">
+                                <td style="border:1px solid #000; padding:4px 4px;">&nbsp;</td>
+                                <td style="border:1px solid #000;"></td>
+                                <td style="border:1px solid #000;"></td>
+                                <td style="border:1px solid #000;"></td>
+                                <td style="border:1px solid #000;"></td>
+                                {!! $clvpSpacerVendorTds !!}
+                            </tr>
+                        @endif
+
                         {{-- Row 8: Dedicated READY ROW with Square Box --}}
                         <tr style="height:28px;">
                             <td style="border:1px solid #000; padding:4px 4px;"></td>
-                            <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
@@ -936,7 +990,6 @@
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
                             <td style="border:1px solid #000;"></td>
-                            <td style="border:1px solid #000;"></td>
                             @foreach ($vendors as $v)
                                 @php
                                     $isRec = ($v['name'] ?? '') === $comparison->selected_vendor;
@@ -959,25 +1012,6 @@
                                 <td style="border:1px solid #000;"></td>
                             @endif
                         </tr>
-
-                        {{-- Rows 10 to 12: Standard Empty Grid Rows below --}}
-                        @for ($i = 0; $i < 3; $i++)
-                            <tr style="height:26px;">
-                                <td style="border:1px solid #000; padding:4px 4px;">&nbsp;</td>
-                                <td style="border:1px solid #000;"></td>
-                                <td style="border:1px solid #000;"></td>
-                                <td style="border:1px solid #000;"></td>
-                                <td style="border:1px solid #000;"></td>
-                                <td style="border:1px solid #000;"></td>
-                                @foreach ($vendors as $v)
-                                    @php $isRec = ($v['name'] ?? '') === $comparison->selected_vendor; @endphp
-                                    <td style="border:1px solid #000; {{ $isRec ? 'background:#f0fff4;' : '' }}"></td>
-                                @endforeach
-                                @if ($hasFourthCol)
-                                    <td style="border:1px solid #000;"></td>
-                                @endif
-                            </tr>
-                        @endfor
                     </tbody>
                 </table>
 

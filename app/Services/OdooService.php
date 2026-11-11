@@ -525,10 +525,14 @@ class OdooService
 
     /**
      * Get a single Car RFQ with product details and parsed specifications.
-     * Cached for 600 seconds.
+     * Cached for 600 seconds (unless $forceRefresh is true).
      */
-    public function getCarRfq(int $id): ?array
+    public function getCarRfq(int $id, bool $forceRefresh = false): ?array
     {
+        if ($forceRefresh) {
+            Cache::forget("odoo_car_rfq_{$id}");
+        }
+
         return Cache::remember("odoo_car_rfq_{$id}", 600, function () use ($id) {
             $order = $this->fetchRfq($id);
             if (!$order) {
@@ -626,7 +630,16 @@ class OdooService
 
     public function flushCarCache(): void
     {
+        $cachedOrders = Cache::get('odoo_car_rfqs', []);
+        if (is_array($cachedOrders)) {
+            foreach ($cachedOrders as $o) {
+                if (!empty($o['id'])) {
+                    Cache::forget('odoo_car_rfq_' . $o['id']);
+                }
+            }
+        }
         Cache::forget('odoo_car_rfqs');
+        Cache::forget('odoo_car_rfqs_cached_at');
         Cache::forget('odoo_vendors');
     }
 

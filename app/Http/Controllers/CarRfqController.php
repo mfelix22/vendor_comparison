@@ -70,9 +70,13 @@ class CarRfqController extends Controller
     public function show(int $id)
     {
         $this->authorizeCarAccess();
+        $forceRefresh = request()->boolean('refresh');
+        if ($forceRefresh) {
+            Cache::forget('odoo_vendors');
+        }
         $history = [];
         try {
-            $rfq = $this->odoo->getCarRfq($id);
+            $rfq = $this->odoo->getCarRfq($id, $forceRefresh);
 
             if (!$rfq) {
                 abort(404, 'Car RFQ not found in Odoo.');

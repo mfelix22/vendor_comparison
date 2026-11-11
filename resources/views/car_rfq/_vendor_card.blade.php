@@ -39,7 +39,7 @@
 
             {{-- Pricing, Discount & Cashback Section --}}
             <div class="mb-2">
-                <label class="form-label small fw-semibold mb-1">Offered Unit Price</label>
+                <label class="form-label small fw-semibold mb-1">Harga OTR</label>
                 <div class="input-group input-group-sm">
                     <span class="input-group-text">Rp</span>
                     <input type="number" step="any" name="vendors[{{ $idx }}][unit_price]" class="form-control form-control-sm text-end fw-bold unit-price-input calc-trigger" value="{{ $vendor['unit_price'] ?? 0 }}">
@@ -100,7 +100,7 @@
             {{-- Dealer Notes --}}
             <div class="mb-0">
                 <label class="form-label small mb-1 text-muted">Notes / Bonus Accessories</label>
-                <input type="text" name="vendors[{{ $idx }}][notes]" class="form-control form-control-sm" placeholder="e.g. Free kaca film, karpet, apar..." value="{{ $vendor['notes'] ?? '' }}">
+                <textarea name="vendors[{{ $idx }}][notes]" rows="2" class="form-control form-control-sm dealer-notes-input" placeholder="e.g. Free Kaca&#10;Free Karpet, Apar...">{{ $vendor['notes'] ?? '' }}</textarea>
             </div>
         </div>
     </div>
