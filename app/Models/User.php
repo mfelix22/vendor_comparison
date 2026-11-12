@@ -84,6 +84,11 @@ class User extends Authenticatable
         return $this->isSupervisor() || $this->isManager() || $this->isAdmin() || (bool) $this->has_car_access;
     }
 
+    public function canCreateCar(): bool
+    {
+        return $this->canAccessCar() && !$this->isController();
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *

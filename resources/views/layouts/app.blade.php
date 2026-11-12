@@ -278,8 +278,12 @@
                         @if (Auth::check() && Auth::user()->canAccessCar())
                             @php
                                 $carPendingCount = 0;
-                                if (Auth::user()->isManager() || Auth::user()->isAdmin()) {
+                                if (Auth::user()->isAdmin()) {
+                                    $carPendingCount = \App\Models\CarVendorComparison::whereIn('status', ['pending_manager', 'pending_controller'])->count();
+                                } elseif (Auth::user()->isManager()) {
                                     $carPendingCount = \App\Models\CarVendorComparison::where('status', 'pending_manager')->count();
+                                } elseif (Auth::user()->isController()) {
+                                    $carPendingCount = \App\Models\CarVendorComparison::where('status', 'pending_controller')->count();
                                 } elseif (Auth::user()->isSupervisor()) {
                                     $carPendingCount = \App\Models\CarVendorComparison::where('status', 'pending_supervisor')
                                         ->where(function ($q) {

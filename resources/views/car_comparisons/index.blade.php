@@ -9,12 +9,12 @@
             <h4 class="fw-bold mb-0">
                 <i class="bi bi-car-front-fill text-primary me-2"></i>Car Comparison Approvals (Unit Baru)
             </h4>
-            <div class="text-muted small">Supervisor & Manager review dashboard for vehicle comparisons</div>
+            <div class="text-muted small">Supervisor, Manager &amp; Controller review dashboard for vehicle comparisons</div>
         </div>
     </div>
 
     {{-- Stats cards --}}
-    <div class="row row-cols-2 row-cols-md-5 g-3 mb-4">
+    <div class="row row-cols-2 row-cols-md-6 g-3 mb-4">
         <div class="col">
             <div class="card text-center border-warning shadow-sm h-100 stat-filter-card" data-filter="pending_supervisor" role="button" title="Filter by Pending Supervisor">
                 <div class="card-body py-3">
@@ -28,6 +28,14 @@
                 <div class="card-body py-3">
                     <div class="display-6 fw-bold text-info">{{ $stats['pending_manager'] }}</div>
                     <div class="small text-muted mt-1 fw-semibold">Pending Manager</div>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card text-center border-primary shadow-sm h-100 stat-filter-card" data-filter="pending_controller" role="button" title="Filter by Pending Controller">
+                <div class="card-body py-3">
+                    <div class="display-6 fw-bold text-primary">{{ $stats['pending_controller'] }}</div>
+                    <div class="small text-muted mt-1 fw-semibold">Pending Controller</div>
                 </div>
             </div>
         </div>
@@ -76,6 +84,7 @@
                     <option value="">All Statuses</option>
                     <option value="pending_supervisor">Pending Supervisor</option>
                     <option value="pending_manager">Pending Manager</option>
+                    <option value="pending_controller">Pending Controller</option>
                     <option value="approved">Approved</option>
                     <option value="rejected">Rejected</option>
                     <option value="cancelled">Cancelled</option>
@@ -98,6 +107,7 @@
                                 <th class="text-center text-nowrap" style="width:130px;">Status</th>
                                 <th class="text-center text-nowrap" style="min-width:130px;">Supervisor</th>
                                 <th class="text-center text-nowrap" style="min-width:130px;">Manager</th>
+                                <th class="text-center text-nowrap" style="min-width:130px;">Controller</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -169,10 +179,25 @@
                                                 <br>
                                                 <span class="text-muted">{{ $c->manager_approved_at->format('d M Y') }}</span>
                                             </span>
-                                        @elseif ($c->isRejected() && $c->rejectedBy && (!$c->requiresSupervisorApproval() || !$c->rejectedBy->isSupervisor()))
+                                        @elseif ($c->isRejected() && $c->manager_approved_at === null && $c->rejectedBy && (!$c->requiresSupervisorApproval() || !$c->rejectedBy->isSupervisor()))
                                             <span class="text-danger small"><i class="bi bi-x-circle-fill me-1"></i>Rejected</span>
                                         @elseif ($c->isPendingManager())
                                             <span class="text-info small fw-semibold">Pending</span>
+                                        @else
+                                            <span class="text-muted small">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center text-nowrap">
+                                        @if ($c->controller_approved_at)
+                                            <span class="text-success small">
+                                                <i class="bi bi-check-circle-fill me-1"></i>
+                                                {{ $c->controller->name ?? '—' }}<br>
+                                                <span class="text-muted">{{ $c->controller_approved_at->format('d M Y') }}</span>
+                                            </span>
+                                        @elseif ($c->isRejected() && $c->manager_approved_at !== null)
+                                            <span class="text-danger small"><i class="bi bi-x-circle-fill me-1"></i>Rejected</span>
+                                        @elseif ($c->isPendingController())
+                                            <span class="text-primary small fw-semibold">Pending</span>
                                         @else
                                             <span class="text-muted small">—</span>
                                         @endif

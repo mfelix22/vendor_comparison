@@ -17,7 +17,7 @@
             && \App\Models\CarVendorComparison::where('po_id', $comparison->po_id)
                 ->whereNotIn('status', ['rejected', 'cancelled'])
                 ->exists();
-        $canResubmit = Auth::user()?->canAccessCar()
+        $canResubmit = Auth::user()?->canCreateCar()
             && (Auth::id() === $comparison->created_by || Auth::user()?->isSupervisor() || Auth::user()?->isAdmin())
             && !$hasActiveReplacement;
     @endphp
@@ -221,7 +221,7 @@
                                                         <strong>Reason:</strong> {{ $comparison->rejection_reason }}
                                                     </div>
                                                 @endif
-                                            @elseif ($comparison->isApproved() && $comparison->isBypassed())
+                                            @elseif ($comparison->isBypassed())
                                                 <div class="text-muted small fst-italic">Skipped — Manager bypass</div>
                                             @else
                                                 <div class="text-muted small">—</div>
@@ -230,20 +230,21 @@
                                     </li>
                                 @endif
 
-                                {{-- Final Step: Manager Approval --}}
-                                <li class="d-flex gap-3">
+                                {{-- Step 3: Manager Approval --}}
+                                <li class="d-flex gap-3 mb-3">
                                     <div class="text-center" style="width:28px">
                                         @if ($comparison->manager_approved_at)
                                             <span class="badge bg-success rounded-circle p-2"><i class="bi bi-check-lg"></i></span>
-                                        @elseif ($comparison->isRejected() && (!$comparison->requiresSupervisorApproval() || !$comparison->rejectedBy?->isSupervisor()))
+                                        @elseif ($comparison->isRejected() && $comparison->manager_approved_at === null && (!$comparison->requiresSupervisorApproval() || !$comparison->rejectedBy?->isSupervisor()))
                                             <span class="badge bg-danger rounded-circle p-2"><i class="bi bi-x-lg"></i></span>
-                                        @elseif ($comparison->isCancelled())
+                                        @elseif ($comparison->isCancelled() && $comparison->manager_approved_at === null)
                                             <span class="badge bg-secondary rounded-circle p-2"><i class="bi bi-dash"></i></span>
                                         @elseif ($comparison->isPendingManager())
                                             <span class="badge bg-warning rounded-circle p-2"><i class="bi bi-hourglass-split"></i></span>
                                         @else
                                             <span class="badge bg-secondary rounded-circle p-2"><i class="bi bi-dash"></i></span>
                                         @endif
+                                        <div style="width:2px;height:30px;background:#e5e7eb;margin:4px auto"></div>
                                     </div>
                                     <div>
                                         <div class="fw-semibold small">Manager Approval</div>
@@ -258,7 +259,7 @@
                                             @elseif ($comparison->manager_notes)
                                                 <div class="mt-1 p-2 bg-light rounded small fst-italic">{{ $comparison->manager_notes }}</div>
                                             @endif
-                                        @elseif ($comparison->isRejected() && (!$comparison->requiresSupervisorApproval() || !$comparison->rejectedBy?->isSupervisor()))
+                                        @elseif ($comparison->isRejected() && $comparison->manager_approved_at === null && (!$comparison->requiresSupervisorApproval() || !$comparison->rejectedBy?->isSupervisor()))
                                             <div class="text-danger small fw-semibold">Rejected by {{ $comparison->rejectedBy->name ?? 'Manager' }}</div>
                                             <div class="text-muted small">{{ $comparison->rejected_at?->format('d M Y H:i') }}</div>
                                             @if ($comparison->rejection_reason)
@@ -266,7 +267,7 @@
                                                     <strong>Reason:</strong> {{ $comparison->rejection_reason }}
                                                 </div>
                                             @endif
-                                        @elseif ($comparison->isCancelled())
+                                        @elseif ($comparison->isCancelled() && $comparison->manager_approved_at === null)
                                             <div class="text-secondary small fw-semibold">Cancelled by {{ $comparison->cancelledBy->name ?? 'User' }}</div>
                                             <div class="text-muted small">{{ $comparison->cancelled_at?->format('d M Y H:i') }}</div>
                                             @if ($comparison->cancel_reason)
@@ -274,6 +275,58 @@
                                             @endif
                                         @elseif ($comparison->isPendingManager())
                                             <div class="text-warning small">Waiting for manager approval…</div>
+                                        @else
+                                            <div class="text-muted small">—</div>
+                                        @endif
+                                    </div>
+                                </li>
+
+                                {{-- Final Step: Controller Approval --}}
+                                <li class="d-flex gap-3">
+                                    <div class="text-center" style="width:28px">
+                                        @if ($comparison->controller_approved_at)
+                                            <span class="badge bg-success rounded-circle p-2"><i class="bi bi-check-lg"></i></span>
+                                        @elseif ($comparison->isRejected() && $comparison->manager_approved_at !== null)
+                                            <span class="badge bg-danger rounded-circle p-2"><i class="bi bi-x-lg"></i></span>
+                                        @elseif ($comparison->isCancelled() && $comparison->manager_approved_at !== null)
+                                            <span class="badge bg-secondary rounded-circle p-2"><i class="bi bi-dash"></i></span>
+                                        @elseif ($comparison->isPendingController())
+                                            <span class="badge bg-warning rounded-circle p-2"><i class="bi bi-hourglass-split"></i></span>
+                                        @else
+                                            <span class="badge bg-secondary rounded-circle p-2"><i class="bi bi-dash"></i></span>
+                                        @endif
+                                    </div>
+                                    <div>
+                                        <div class="fw-semibold small">Controller Approval</div>
+                                        @if ($comparison->controller_approved_at)
+                                            <div class="text-muted small">{{ $comparison->controller->name ?? 'Controller' }}</div>
+                                            <div class="text-muted small">{{ $comparison->controller_approved_at->format('d M Y H:i') }}</div>
+                                            @if ($comparison->controller_notes)
+                                                <div class="mt-1 p-2 bg-light rounded small fst-italic">{{ $comparison->controller_notes }}</div>
+                                            @endif
+                                            @if ($comparison->isCancelled())
+                                                <div class="text-secondary small fw-semibold mt-2">Cancelled by {{ $comparison->cancelledBy->name ?? 'User' }}</div>
+                                                <div class="text-muted small">{{ $comparison->cancelled_at?->format('d M Y H:i') }}</div>
+                                                @if ($comparison->cancel_reason)
+                                                    <div class="mt-1 p-2 bg-light rounded small fst-italic">{{ $comparison->cancel_reason }}</div>
+                                                @endif
+                                            @endif
+                                        @elseif ($comparison->isRejected() && $comparison->manager_approved_at !== null)
+                                            <div class="text-danger small fw-semibold">Rejected by {{ $comparison->rejectedBy->name ?? 'Controller' }}</div>
+                                            <div class="text-muted small">{{ $comparison->rejected_at?->format('d M Y H:i') }}</div>
+                                            @if ($comparison->rejection_reason)
+                                                <div class="mt-1 p-2 bg-danger-subtle text-danger rounded small">
+                                                    <strong>Reason:</strong> {{ $comparison->rejection_reason }}
+                                                </div>
+                                            @endif
+                                        @elseif ($comparison->isCancelled() && $comparison->manager_approved_at !== null)
+                                            <div class="text-secondary small fw-semibold">Cancelled by {{ $comparison->cancelledBy->name ?? 'User' }}</div>
+                                            <div class="text-muted small">{{ $comparison->cancelled_at?->format('d M Y H:i') }}</div>
+                                            @if ($comparison->cancel_reason)
+                                                <div class="mt-1 p-2 bg-light rounded small fst-italic">{{ $comparison->cancel_reason }}</div>
+                                            @endif
+                                        @elseif ($comparison->isPendingController())
+                                            <div class="text-primary small">Waiting for controller approval…</div>
                                         @else
                                             <div class="text-muted small">—</div>
                                         @endif
@@ -308,6 +361,25 @@
                                         @csrf
                                         <input type="text" name="notes" class="form-control form-control-sm mb-2" placeholder="Optional approval remarks…">
                                         <div class="d-flex gap-2">
+                                            <button type="submit" class="btn btn-primary btn-sm flex-grow-1 fw-bold">
+                                                <i class="bi bi-check-circle me-1"></i>Approve (Send to Controller)
+                                            </button>
+                                            <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                                                <i class="bi bi-x-circle me-1"></i>Reject
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            @endif
+
+                            {{-- Controller Action Form (when pending Controller approval) --}}
+                            @if ((Auth::user()?->isController() || Auth::user()?->isAdmin()) && $comparison->isPendingController())
+                                <div class="mt-4 pt-3 border-top">
+                                    <label class="form-label fw-bold small text-success"><i class="bi bi-patch-check me-1"></i>Controller Approval Action</label>
+                                    <form method="POST" action="{{ route('car_comparisons.approve', $comparison) }}" class="mb-2">
+                                        @csrf
+                                        <input type="text" name="notes" class="form-control form-control-sm mb-2" placeholder="Optional controller approval remarks…">
+                                        <div class="d-flex gap-2">
                                             <button type="submit" class="btn btn-success btn-sm flex-grow-1 fw-bold">
                                                 <i class="bi bi-check-circle me-1"></i>Approve Comparison
                                             </button>
@@ -327,7 +399,7 @@
                                     </div>
                                     <div class="card-body p-3">
                                         <p class="text-muted small mb-2">
-                                            Supervisor review is still pending. As Manager, you may bypass Supervisor approval and give final approval directly.
+                                            Supervisor review is still pending. As Manager, you may bypass Supervisor approval and forward directly to Controller.
                                         </p>
                                         <form method="POST" action="{{ route('car_comparisons.bypass-approve', $comparison) }}" class="mb-2">
                                             @csrf
@@ -335,8 +407,8 @@
                                             <textarea name="bypass_reason" class="form-control form-control-sm mb-2" rows="2" placeholder="e.g. Supervisor is on leave…" required></textarea>
                                             <div class="d-flex gap-2">
                                                 <button type="submit" class="btn btn-success btn-sm flex-grow-1 fw-bold"
-                                                    onclick="return confirm('Are you sure you want to bypass Supervisor approval and give final approval?')">
-                                                    <i class="bi bi-check-circle me-1"></i>Bypass &amp; Final Approve
+                                                    onclick="return confirm('Are you sure you want to bypass Supervisor approval and forward directly to Controller?')">
+                                                    <i class="bi bi-check-circle me-1"></i>Bypass SPV &amp; Send to Controller
                                                 </button>
                                                 <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectModal">
                                                     <i class="bi bi-x-circle me-1"></i>Reject

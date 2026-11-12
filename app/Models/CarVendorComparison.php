@@ -29,6 +29,9 @@ class CarVendorComparison extends Model
         'manager_id',
         'manager_approved_at',
         'manager_notes',
+        'controller_id',
+        'controller_approved_at',
+        'controller_notes',
         'bypassed_by',
         'bypassed_at',
         'bypass_reason',
@@ -48,6 +51,7 @@ class CarVendorComparison extends Model
         'supervisor_submitted_at' => 'datetime',
         'supervisor_approved_at'  => 'datetime',
         'manager_approved_at'     => 'datetime',
+        'controller_approved_at'  => 'datetime',
         'bypassed_at'             => 'datetime',
         'rejected_at'             => 'datetime',
         'cancelled_at'            => 'datetime',
@@ -69,6 +73,11 @@ class CarVendorComparison extends Model
     public function manager()
     {
         return $this->belongsTo(User::class, 'manager_id');
+    }
+
+    public function controller()
+    {
+        return $this->belongsTo(User::class, 'controller_id');
     }
 
     public function rejectedBy()
@@ -101,6 +110,11 @@ class CarVendorComparison extends Model
     public function isPendingManager(): bool
     {
         return $this->status === 'pending_manager';
+    }
+
+    public function isPendingController(): bool
+    {
+        return $this->status === 'pending_controller';
     }
 
     public function isApproved(): bool
@@ -139,7 +153,7 @@ class CarVendorComparison extends Model
 
     public function isEditableBy(?User $user): bool
     {
-        if (!$user) return false;
+        if (!$user || $user->isController()) return false;
         if ($this->isPendingSupervisor()) {
             return $user->id === $this->created_by || $user->isAdmin();
         }
@@ -156,7 +170,7 @@ class CarVendorComparison extends Model
 
     public function isCancellableBy(?User $user): bool
     {
-        if (!$user) return false;
+        if (!$user || $user->isController()) return false;
         // Creator can cancel while waiting for supervisor review
         if ($this->isPendingSupervisor() && ($user->id === $this->created_by || $user->isAdmin())) {
             return true;
@@ -165,8 +179,12 @@ class CarVendorComparison extends Model
         if ($user->isSupervisor() && $this->isPendingManager()) {
             return true;
         }
-        // Manager or Admin can cancel even after approval
-        if (($user->isManager() || $user->isAdmin()) && $this->isApproved()) {
+        // Manager can cancel while waiting for controller or after final approval
+        if ($user->isManager() && ($this->isPendingController() || $this->isApproved())) {
+            return true;
+        }
+        // Admin can cancel at any active post-submission or approved stage
+        if ($user->isAdmin() && ($this->isPendingManager() || $this->isPendingController() || $this->isApproved())) {
             return true;
         }
         return false;
@@ -177,6 +195,7 @@ class CarVendorComparison extends Model
         return match ($this->status) {
             'pending_supervisor' => 'Pending Supervisor',
             'pending_manager'    => 'Pending Manager',
+            'pending_controller' => 'Pending Controller',
             'approved'           => 'Approved',
             'rejected'           => 'Rejected',
             'cancelled'          => 'Cancelled',
@@ -189,6 +208,7 @@ class CarVendorComparison extends Model
         return match ($this->status) {
             'pending_supervisor' => 'bg-warning text-dark',
             'pending_manager'    => 'bg-info text-dark',
+            'pending_controller' => 'bg-primary',
             'approved'           => 'bg-success',
             'rejected'           => 'bg-danger',
             'cancelled'          => 'bg-secondary',
