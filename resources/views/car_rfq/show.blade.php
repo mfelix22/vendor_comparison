@@ -9,7 +9,8 @@
     $existing = $existingComparison ?? null;
     $isRejectedOrCancelledPrefill = !$isEdit && $existing && ($existing->isRejected() || $existing->isCancelled());
     $prefillSource = $isEdit ? $comparison : ($isRejectedOrCancelledPrefill ? $existing : null);
-    $canShowForm = $isEdit || !$existing || $existing->isRejected() || $existing->isCancelled();
+    $canCreateCar = Auth::user()->canCreateCar();
+    $canShowForm = $canCreateCar && ($isEdit || !$existing || $existing->isRejected() || $existing->isCancelled());
 
     $poId = $isEdit ? $comparison->po_id : ($rfq['id'] ?? 0);
     $poName = $isEdit ? $comparison->po_name : ($rfq['name'] ?? '');
@@ -79,9 +80,13 @@
         <div>
             <strong>
                 @if ($existing->isRejected())
-                    Previous Car Comparison was rejected. Your previous entries have been pre-filled below so you can adjust and resubmit.
+                    {{ $canCreateCar
+                        ? 'Previous Car Comparison was rejected. Your previous entries have been pre-filled below so you can adjust and resubmit.'
+                        : 'Previous Car Comparison was rejected.' }}
                 @elseif ($existing->isCancelled())
-                    Previous Car Comparison was cancelled. Your previous entries have been pre-filled below so you can adjust and submit a new one.
+                    {{ $canCreateCar
+                        ? 'Previous Car Comparison was cancelled. Your previous entries have been pre-filled below so you can adjust and submit a new one.'
+                        : 'Previous Car Comparison was cancelled.' }}
                 @else
                     Car Comparison already submitted for this RFQ.
                 @endif
@@ -98,6 +103,15 @@
                 </a>
             </div>
         </div>
+    </div>
+@endif
+
+@if (!$canCreateCar && !$existing)
+    <div class="alert alert-info d-flex align-items-center justify-content-between gap-3">
+        <div>
+            <i class="bi bi-info-circle me-2"></i>Controller role is review-only and cannot create new Car comparisons.
+        </div>
+        <a href="{{ route('car_comparisons.index') }}" class="btn btn-sm btn-outline-primary">Go to Car Approvals</a>
     </div>
 @endif
 

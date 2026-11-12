@@ -100,8 +100,13 @@
                                     $clvp = $existingComparisons[$rfq['id']] ?? null;
                                     $vendorName = is_array($rfq['partner_id']) ? $rfq['partner_id'][1] : '';
                                     $currency = is_array($rfq['currency_id']) ? $rfq['currency_id'][1] : 'IDR';
+                                    $canCreateCar = Auth::user()->canCreateCar();
+                                    $hasActiveClvp = $clvp && !in_array($clvp->status, ['rejected', 'cancelled']);
+                                    $rowHref = ($hasActiveClvp || (!$canCreateCar && $clvp))
+                                        ? route('car_comparisons.show', $clvp->id)
+                                        : ($canCreateCar ? route('car_rfq.show', $rfq['id']) : '');
                                 @endphp
-                                <tr data-href="{{ ($clvp && !in_array($clvp->status, ['rejected', 'cancelled'])) ? route('car_comparisons.show', $clvp->id) : route('car_rfq.show', $rfq['id']) }}"
+                                <tr @if($rowHref) data-href="{{ $rowHref }}" @endif
                                     data-rfq-name="{{ strtolower($rfq['name']) }}"
                                     data-vendor="{{ strtolower($vendorName) }}"
                                     data-origin="{{ strtolower($rfq['origin'] ?? '') }}"
@@ -149,16 +154,18 @@
                                         @endif
                                     </td>
                                     <td class="text-center">
-                                        @if ($clvp && !in_array($clvp->status, ['rejected', 'cancelled']))
+                                        @if ($hasActiveClvp || (!$canCreateCar && $clvp))
                                             <a href="{{ route('car_comparisons.show', $clvp->id) }}"
                                                 class="btn btn-sm btn-outline-secondary">
                                                 <i class="bi bi-eye me-1"></i>View
                                             </a>
-                                        @else
+                                        @elseif ($canCreateCar)
                                             <a href="{{ route('car_rfq.show', $rfq['id']) }}"
                                                 class="btn btn-sm btn-outline-primary">
                                                 <i class="bi bi-search me-1"></i>Compare
                                             </a>
+                                        @else
+                                            <span class="text-muted small">—</span>
                                         @endif
                                     </td>
                                 </tr>
