@@ -88,6 +88,14 @@ Route::middleware('auth')->group(function () {
             Route::post('/vehicle-types', [App\Http\Controllers\Costing\MasterDataController::class, 'storeVehicleType'])->name('vehicle-types.store');
             Route::put('/vehicle-types/{vehicleType}', [App\Http\Controllers\Costing\MasterDataController::class, 'updateVehicleType'])->name('vehicle-types.update');
             Route::delete('/vehicle-types/{vehicleType}', [App\Http\Controllers\Costing\MasterDataController::class, 'destroyVehicleType'])->name('vehicle-types.destroy');
+            Route::get('/vehicle-types/template', [App\Http\Controllers\Costing\MasterDataController::class, 'downloadPriceTemplate'])->name('vehicle-types.template');
+            Route::post('/vehicle-types/preview-prices', [App\Http\Controllers\Costing\MasterDataController::class, 'previewPrices'])->name('vehicle-types.preview-prices');
+            Route::post('/vehicle-types/import', [App\Http\Controllers\Costing\MasterDataController::class, 'importPrices'])->name('vehicle-types.import');
+            Route::post('/vehicle-types/{vehicleType}/update-price', [App\Http\Controllers\Costing\MasterDataController::class, 'updateVehicleTypePrice'])->name('vehicle-types.update-price');
+            Route::post('/vehicle-types/price-approvals/{history}/approve', [App\Http\Controllers\Costing\MasterDataController::class, 'approvePriceHistory'])->name('vehicle-types.price-approve');
+            Route::post('/vehicle-types/price-approvals/{history}/reject', [App\Http\Controllers\Costing\MasterDataController::class, 'rejectPriceHistory'])->name('vehicle-types.price-reject');
+            Route::post('/vehicle-types/price-approvals/bulk-approve', [App\Http\Controllers\Costing\MasterDataController::class, 'bulkApprovePrices'])->name('vehicle-types.price-bulk-approve');
+            Route::get('/vehicle-types/{vehicleType}/price-history', [App\Http\Controllers\Costing\MasterDataController::class, 'apiVehicleTypePriceHistory'])->name('vehicle-types.price-history');
 
             // BBN
             Route::post('/bbn', [App\Http\Controllers\Costing\MasterDataController::class, 'storeBbn'])->name('bbn.store');

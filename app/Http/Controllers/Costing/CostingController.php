@@ -56,9 +56,13 @@ class CostingController extends Controller
         $products      = CostingVehicleType::where('is_active', true)->orderBy('name')->get()->map(function ($vt) {
             return [
                 'id'               => $vt->odoo_product_id ?: $vt->id,
+                'costing_type_id'  => $vt->id,
                 'name'             => $vt->name,
                 'display_name'     => $vt->name,
                 'vehicle_brand_id' => [0, $vt->brand_name],
+                'harga_otr'        => (float) $vt->harga_otr,
+                'diskon'           => (float) $vt->diskon,
+                'harga_netto'      => (float) $vt->harga_netto,
             ];
         })->toArray();
         $smdList       = $this->odooService->getSmdList();
@@ -272,9 +276,13 @@ class CostingController extends Controller
         $products  = CostingVehicleType::where('is_active', true)->orderBy('name')->get()->map(function ($vt) {
             return [
                 'id'               => $vt->odoo_product_id ?: $vt->id,
+                'costing_type_id'  => $vt->id,
                 'name'             => $vt->name,
                 'display_name'     => $vt->name,
                 'vehicle_brand_id' => [0, $vt->brand_name],
+                'harga_otr'        => (float) $vt->harga_otr,
+                'diskon'           => (float) $vt->diskon,
+                'harga_netto'      => (float) $vt->harga_netto,
             ];
         })->toArray();
 
@@ -608,9 +616,13 @@ class CostingController extends Controller
         $filtered = $query->get()->map(function ($vt) {
             return [
                 'id'               => $vt->odoo_product_id ?: $vt->id,
+                'costing_type_id'  => $vt->id,
                 'name'             => $vt->name,
                 'display_name'     => $vt->name,
                 'vehicle_brand_id' => [0, $vt->brand_name],
+                'harga_otr'        => (float) $vt->harga_otr,
+                'diskon'           => (float) $vt->diskon,
+                'harga_netto'      => (float) $vt->harga_netto,
             ];
         });
 

@@ -7,7 +7,9 @@ use App\Models\CostingBbnMaster;
 use App\Models\CostingBrand;
 use App\Models\CostingLokasiPemakaian;
 use App\Models\CostingVehicleType;
+use App\Models\CostingVehicleTypePriceHistory;
 use App\Services\CostingOdooService;
+use App\Services\CostingVehicleTypePriceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +17,8 @@ use Illuminate\Support\Facades\DB;
 class MasterDataController extends Controller
 {
     public function __construct(
-        private CostingOdooService $odooService
+        private CostingOdooService $odooService,
+        private CostingVehicleTypePriceService $priceService
     ) {}
 
     /**
@@ -35,8 +38,17 @@ class MasterDataController extends Controller
         // All active brands for dropdowns
         $allBrands = CostingBrand::where('is_active', true)->orderBy('name')->get();
 
-        // 2. Vehicle Types
-        $typesQuery = CostingVehicleType::with('brand')->orderBy('brand_name')->orderBy('name');
+        // 2. Vehicle Types (with active OTR, Diskon, and pending price changes)
+        $pendingPriceCount = CostingVehicleTypePriceHistory::where('status', 'pending')->count();
+
+        $typesQuery = CostingVehicleType::with(['brand', 'pendingPriceHistory.requester', 'priceHistories'])
+            ->withCount('priceHistories')
+            ->withCount(['priceHistories as pending_histories_count' => function ($q) {
+                $q->where('status', 'pending');
+            }])
+            ->orderBy('brand_name')
+            ->orderBy('name');
+
         if ($filterBrand = $request->input('filter_brand')) {
             $typesQuery->where('brand_name', $filterBrand);
         }
@@ -45,6 +57,19 @@ class MasterDataController extends Controller
                 $q->where('name', 'like', "%{$searchType}%")
                   ->orWhere('brand_name', 'like', "%{$searchType}%");
             });
+        }
+        if ($priceStatus = $request->input('price_status')) {
+            if ($priceStatus === 'pending') {
+                $typesQuery->whereHas('priceHistories', function ($q) {
+                    $q->where('status', 'pending');
+                });
+            } elseif ($priceStatus === 'priced') {
+                $typesQuery->where('harga_otr', '>', 0);
+            } elseif ($priceStatus === 'unpriced') {
+                $typesQuery->where(function ($q) {
+                    $q->where('harga_otr', '<=', 0)->orWhereNull('harga_otr');
+                });
+            }
         }
         $vehicleTypes = $typesQuery->paginate(20, ['*'], 'types_page')->withQueryString();
 
@@ -84,7 +109,7 @@ class MasterDataController extends Controller
         $provinsiList = CostingLokasiPemakaian::whereNotNull('provinsi')->distinct()->orderBy('provinsi')->pluck('provinsi')->toArray();
 
         return view('costing.master.index', compact(
-            'tab', 'brands', 'allBrands', 'vehicleTypes', 'pemakaianList', 'bbnList', 'pulauList', 'provinsiList'
+            'tab', 'brands', 'allBrands', 'vehicleTypes', 'pemakaianList', 'bbnList', 'pulauList', 'provinsiList', 'pendingPriceCount'
         ));
     }
 
@@ -138,20 +163,87 @@ class MasterDataController extends Controller
         $validated = $request->validate([
             'costing_brand_id' => ['required', 'exists:costing_brands,id'],
             'name'             => ['required', 'string', 'max:255'],
+            'harga_otr'        => ['nullable', 'numeric', 'min:0'],
+            'diskon'           => ['nullable', 'numeric', 'min:0'],
+            'notes'            => ['nullable', 'string', 'max:1000'],
         ]);
 
         $brand = CostingBrand::findOrFail($validated['costing_brand_id']);
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $isManagerOrAdmin = $user->isManager() || $user->isAdmin();
+        $newOtr = (float) ($request->input('harga_otr', 0) ?: 0);
+        $newDiskon = (float) ($request->input('diskon', 0) ?: 0);
+        $notes = $request->input('notes');
 
-        CostingVehicleType::create([
-            'costing_brand_id' => $brand->id,
-            'brand_name'       => $brand->name,
-            'name'             => trim($validated['name']),
-            'is_active'        => true,
-            'created_by'       => Auth::id(),
-        ]);
+        if ($newOtr > 0 || $newDiskon > 0) {
+            if ($isManagerOrAdmin) {
+                $vehicleType = CostingVehicleType::create([
+                    'costing_brand_id' => $brand->id,
+                    'brand_name'       => $brand->name,
+                    'name'             => trim($validated['name']),
+                    'harga_otr'        => $newOtr,
+                    'diskon'           => $newDiskon,
+                    'is_active'        => true,
+                    'created_by'       => $user->id,
+                ]);
+
+                CostingVehicleTypePriceHistory::create([
+                    'costing_vehicle_type_id' => $vehicleType->id,
+                    'old_harga_otr'           => 0,
+                    'new_harga_otr'           => $newOtr,
+                    'old_diskon'              => 0,
+                    'new_diskon'              => $newDiskon,
+                    'status'                  => 'approved',
+                    'source'                  => 'manual_create',
+                    'requested_by'            => $user->id,
+                    'approved_by'             => $user->id,
+                    'approved_at'             => now(),
+                    'notes'                   => $notes,
+                ]);
+
+                $msg = "Vehicle Type {$vehicleType->name} ({$brand->name}) added with approved Harga OTR & Diskon.";
+            } else {
+                $vehicleType = CostingVehicleType::create([
+                    'costing_brand_id' => $brand->id,
+                    'brand_name'       => $brand->name,
+                    'name'             => trim($validated['name']),
+                    'harga_otr'        => 0,
+                    'diskon'           => 0,
+                    'is_active'        => true,
+                    'created_by'       => $user->id,
+                ]);
+
+                CostingVehicleTypePriceHistory::create([
+                    'costing_vehicle_type_id' => $vehicleType->id,
+                    'old_harga_otr'           => 0,
+                    'new_harga_otr'           => $newOtr,
+                    'old_diskon'              => 0,
+                    'new_diskon'              => $newDiskon,
+                    'status'                  => 'pending',
+                    'source'                  => 'manual_create',
+                    'requested_by'            => $user->id,
+                    'notes'                   => $notes,
+                ]);
+
+                $msg = "Vehicle Type {$vehicleType->name} added. Initial price submitted for Purchasing Manager approval.";
+            }
+        } else {
+            $vehicleType = CostingVehicleType::create([
+                'costing_brand_id' => $brand->id,
+                'brand_name'       => $brand->name,
+                'name'             => trim($validated['name']),
+                'harga_otr'        => 0,
+                'diskon'           => 0,
+                'is_active'        => true,
+                'created_by'       => $user->id,
+            ]);
+
+            $msg = "Vehicle Type {$vehicleType->name} ({$brand->name}) added successfully.";
+        }
 
         return redirect()->route('costing.master.index', ['tab' => 'types'])
-            ->with('success', "Vehicle Type {$validated['name']} ({$brand->name}) added successfully.");
+            ->with('success', $msg);
     }
 
     public function updateVehicleType(Request $request, CostingVehicleType $vehicleType)
@@ -159,6 +251,9 @@ class MasterDataController extends Controller
         $validated = $request->validate([
             'costing_brand_id' => ['required', 'exists:costing_brands,id'],
             'name'             => ['required', 'string', 'max:255'],
+            'harga_otr'        => ['nullable', 'numeric', 'min:0'],
+            'diskon'           => ['nullable', 'numeric', 'min:0'],
+            'notes'            => ['nullable', 'string', 'max:1000'],
             'is_active'        => ['nullable', 'boolean'],
         ]);
 
@@ -171,8 +266,179 @@ class MasterDataController extends Controller
             'is_active'        => $request->has('is_active'),
         ]);
 
+        $newOtr = isset($validated['harga_otr']) ? (float)$validated['harga_otr'] : (float)$vehicleType->harga_otr;
+        $newDiskon = isset($validated['diskon']) ? (float)$validated['diskon'] : (float)$vehicleType->diskon;
+        $notes = $request->input('notes');
+
+        // Check if price changed
+        if (abs($newOtr - (float)$vehicleType->harga_otr) > 0.01 || abs($newDiskon - (float)$vehicleType->diskon) > 0.01) {
+            /** @var \App\Models\User $user */
+            $user = Auth::user();
+            $history = $this->priceService->recordManualChange($vehicleType, $newOtr, $newDiskon, $notes, $user);
+
+            $msg = ($history->status === 'approved')
+                ? "Vehicle Type {$vehicleType->name} and prices updated successfully."
+                : "Vehicle Type {$vehicleType->name} updated. New prices submitted for Purchasing Manager approval.";
+        } else {
+            $msg = "Vehicle Type {$vehicleType->name} updated successfully.";
+        }
+
         return redirect()->route('costing.master.index', ['tab' => 'types'])
-            ->with('success', "Vehicle Type {$vehicleType->name} updated successfully.");
+            ->with('success', $msg);
+    }
+
+    public function updateVehicleTypePrice(Request $request, CostingVehicleType $vehicleType)
+    {
+        $validated = $request->validate([
+            'harga_otr' => ['required', 'numeric', 'min:0'],
+            'diskon'    => ['nullable', 'numeric', 'min:0'],
+            'notes'     => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $newOtr = (float) $validated['harga_otr'];
+        $newDiskon = (float) ($validated['diskon'] ?? 0);
+        $notes = $validated['notes'] ?? null;
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        $history = $this->priceService->recordManualChange($vehicleType, $newOtr, $newDiskon, $notes, $user);
+
+        $msg = ($history->status === 'approved')
+            ? "Price for {$vehicleType->name} updated and approved."
+            : "Price change for {$vehicleType->name} submitted. Awaiting Purchasing Manager approval.";
+
+        return redirect()->route('costing.master.index', ['tab' => 'types'])
+            ->with('success', $msg);
+    }
+
+    public function approvePriceHistory(CostingVehicleTypePriceHistory $history)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        if (!$user->isManager() && !$user->isAdmin()) {
+            abort(403, 'Only Purchasing Manager or Administrator can approve price changes.');
+        }
+
+        $this->priceService->approveHistory($history, $user);
+
+        return redirect()->route('costing.master.index', ['tab' => 'types'])
+            ->with('success', "Price revision for {$history->vehicleType->name} has been approved.");
+    }
+
+    public function rejectPriceHistory(Request $request, CostingVehicleTypePriceHistory $history)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        if (!$user->isManager() && !$user->isAdmin()) {
+            abort(403, 'Only Purchasing Manager or Administrator can reject price changes.');
+        }
+
+        $validated = $request->validate([
+            'rejection_reason' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $this->priceService->rejectHistory($history, $user, $validated['rejection_reason']);
+
+        return redirect()->route('costing.master.index', ['tab' => 'types'])
+            ->with('success', "Price revision for {$history->vehicleType->name} has been rejected.");
+    }
+
+    public function bulkApprovePrices(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        if (!$user->isManager() && !$user->isAdmin()) {
+            abort(403, 'Only Purchasing Manager or Administrator can approve price changes.');
+        }
+
+        $historyIds = $request->input('history_ids', []);
+        if (empty($historyIds)) {
+            // Approve all currently pending
+            $historyIds = CostingVehicleTypePriceHistory::where('status', 'pending')->pluck('id')->toArray();
+        }
+
+        $count = $this->priceService->bulkApprove($historyIds, $user);
+
+        return redirect()->route('costing.master.index', ['tab' => 'types'])
+            ->with('success', "{$count} pending vehicle price revisions approved successfully.");
+    }
+
+    public function downloadPriceTemplate()
+    {
+        return $this->priceService->downloadTemplate();
+    }
+
+    public function importPrices(Request $request)
+    {
+        $request->validate([
+            'file'         => ['required', 'file', 'mimes:xlsx,xls', 'max:10240'],
+            'import_notes' => ['nullable', 'string', 'max:500'],
+            'auto_approve' => ['nullable', 'boolean'],
+        ]);
+
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $autoApprove = $request->boolean('auto_approve');
+        $notes = $request->input('import_notes');
+
+        try {
+            $stats = $this->priceService->importFromExcel($request->file('file'), $user, $notes, $autoApprove);
+
+            $msg = "Excel Import finished: {$stats['updated_count']} model price(s) processed ({$stats['approved_count']} approved immediately, {$stats['pending_count']} pending Manager approval). {$stats['skipped_count']} unchanged/skipped.";
+
+            if (!empty($stats['errors'])) {
+                $errSummary = implode(', ', array_slice($stats['errors'], 0, 3));
+                if (count($stats['errors']) > 3) $errSummary .= ' and ' . (count($stats['errors']) - 3) . ' more.';
+                return redirect()->route('costing.master.index', ['tab' => 'types'])
+                    ->with('success', $msg)
+                    ->with('warning', "Notice: " . $errSummary);
+            }
+
+            return redirect()->route('costing.master.index', ['tab' => 'types'])
+                ->with('success', $msg);
+        } catch (\Throwable $e) {
+            return redirect()->route('costing.master.index', ['tab' => 'types'])
+                ->with('error', "Import failed: " . $e->getMessage());
+        }
+    }
+
+    public function previewPrices(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls', 'max:10240'],
+        ]);
+
+        try {
+            $preview = $this->priceService->previewFromExcel($request->file('file'));
+
+            return response()->json([
+                'success' => true,
+                'preview' => $preview,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal membaca file Excel: ' . $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    public function apiVehicleTypePriceHistory(CostingVehicleType $vehicleType)
+    {
+        $histories = $vehicleType->priceHistories()
+            ->with(['requester:id,name,email', 'approver:id,name,email'])
+            ->get();
+
+        return response()->json([
+            'vehicle_type' => [
+                'id'         => $vehicleType->id,
+                'name'       => $vehicleType->name,
+                'brand_name' => $vehicleType->brand_name,
+                'harga_otr'  => (float) $vehicleType->harga_otr,
+                'diskon'     => (float) $vehicleType->diskon,
+            ],
+            'histories' => $histories,
+        ]);
     }
 
     public function destroyVehicleType(CostingVehicleType $vehicleType)
@@ -332,7 +598,21 @@ class MasterDataController extends Controller
             $query->where('brand_name', $brand);
         }
 
-        $types = $query->get(['id', 'brand_name', 'name', 'odoo_product_id']);
+        $types = $query->get(['id', 'brand_name', 'name', 'odoo_product_id', 'harga_otr', 'diskon'])
+            ->map(function ($t) {
+                $otr = (float) $t->harga_otr;
+                $disc = (float) $t->diskon;
+                return [
+                    'id'              => $t->id,
+                    'brand_name'      => $t->brand_name,
+                    'name'            => $t->name,
+                    'odoo_product_id' => $t->odoo_product_id,
+                    'harga_otr'       => $otr,
+                    'diskon'          => $disc,
+                    'harga_netto'     => max(0, $otr - $disc),
+                ];
+            });
+
         return response()->json($types);
     }
 
