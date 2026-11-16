@@ -21,6 +21,34 @@
         </div>
     </div>
 
+    @php
+        $pendingMasterCount = 0;
+        if (Auth::check() && (Auth::user()->isManager() || Auth::user()->isAdmin())) {
+            $pendingMasterCount = \App\Models\CostingVehicleTypePriceHistory::where('status', 'pending')->count();
+        }
+    @endphp
+
+    @if ($pendingMasterCount > 0)
+        <div class="alert alert-warning border-0 shadow-sm d-flex flex-wrap align-items-center justify-content-between p-3 mb-4 rounded-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center p-2" style="width: 40px; height: 40px;">
+                    <i class="bi bi-tag-fill fs-5"></i>
+                </div>
+                <div>
+                    <div class="fw-bold text-dark">
+                        Persetujuan Harga Master Kendaraan ({{ $pendingMasterCount }} Pending)
+                    </div>
+                    <div class="small text-muted">
+                        Terdapat {{ $pendingMasterCount }} usulan perubahan Harga OTR / Diskon tipe kendaraan yang menunggu persetujuan Anda sebelum aktif di Costing.
+                    </div>
+                </div>
+            </div>
+            <a href="{{ route('costing.master.index', ['tab' => 'types', 'price_status' => 'pending']) }}" class="btn btn-sm btn-dark px-3 mt-2 mt-md-0 shadow-sm">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Review Harga Master
+            </a>
+        </div>
+    @endif
+
     {{-- Filter Tabs & Search --}}
     <div class="card mb-4 border-0 shadow-sm">
         <div class="card-header bg-white border-bottom p-0">

@@ -640,6 +640,8 @@
 
             const firstVal = firstTypeInp.value || '';
             const firstProdId = firstProdIdInp ? firstProdIdInp.value : '';
+            const firstOtr = document.getElementById(`inputOtr_${firstIdx}`)?.value || '';
+            const firstDiskon = document.getElementById(`inputDiskon_${firstIdx}`)?.value || '';
 
             getAllVehicleIndices().forEach(idx => {
                 if (idx !== firstIdx) {
@@ -651,6 +653,13 @@
                     }
                     if (prodInp) {
                         prodInp.value = firstProdId;
+                    }
+                    const otrInp = document.getElementById(`inputOtr_${idx}`);
+                    const discInp = document.getElementById(`inputDiskon_${idx}`);
+                    if (firstOtr && otrInp && (!otrInp.value || Number(otrInp.value) === 0)) {
+                        otrInp.value = firstOtr;
+                        if (discInp) discInp.value = firstDiskon;
+                        calculateColumn(idx);
                     }
                 }
             });
@@ -870,10 +879,21 @@
                 }
             }
 
-            const otr = (data.harga_otr !== undefined && data.harga_otr !== null && data.harga_otr !== '') ? data.harga_otr : '';
-            const diskon = (data.diskon !== undefined && data.diskon !== null && data.diskon !== '') ? data.diskon : '';
+            let otr = (data.harga_otr !== undefined && data.harga_otr !== null && data.harga_otr !== '') ? data.harga_otr : '';
+            let diskon = (data.diskon !== undefined && data.diskon !== null && data.diskon !== '') ? data.diskon : '';
             const estimasi = (data.estimasi_kenaikan !== undefined && data.estimasi_kenaikan !== null && data.estimasi_kenaikan !== '') ? data.estimasi_kenaikan : '';
             const qty = (data.qty !== undefined && data.qty !== null && data.qty !== '') ? data.qty : 1;
+
+            // Auto-fill OTR & Diskon from master vehicle catalog if type is specified and price is not set
+            if ((!otr || Number(otr) === 0) && vType && Array.isArray(odooProducts)) {
+                const matched = odooProducts.find(p => (p.name || '').trim().toLowerCase() === vType.trim().toLowerCase());
+                if (matched && Number(matched.harga_otr || 0) > 0) {
+                    otr = Number(matched.harga_otr);
+                    if (!diskon && (Number(matched.diskon || 0) > 0 || Number(matched.harga_otr) > 0)) {
+                        diskon = Number(matched.diskon || 0);
+                    }
+                }
+            }
 
             // 1. Header Cell
             const th = document.createElement('th');
@@ -926,6 +946,7 @@
                         rows="1" autocomplete="off"
                         oninput="handleTypeInput(${vIndex})"
                         onfocus="showTypeSuggestions(${vIndex})"
+                        onblur="handleTypeBlur(${vIndex})"
                         onkeydown="handleTypeKeyDown(event, ${vIndex})">${vType}</textarea>
                     <input type="hidden" name="vehicles[${vIndex}][odoo_product_id]" id="inputOdooProductId_${vIndex}" value="${odooProdId}">
                     <div id="typeSuggestions_${vIndex}" class="type-suggestions-dropdown shadow rounded border bg-white" style="display: none;"></div>
@@ -1211,6 +1232,21 @@
                     brandInput.value = pBrand.split(' - ')[0] || pBrand;
                 }
             }
+
+            // Auto-populate Harga OTR and Diskon from Master Data
+            const otrInput = document.getElementById(`inputOtr_${vIndex}`);
+            const diskonInput = document.getElementById(`inputDiskon_${vIndex}`);
+            const masterOtr = Number(product.harga_otr || 0);
+            const masterDisc = Number(product.diskon || 0);
+
+            if (otrInput && masterOtr > 0) {
+                otrInput.value = masterOtr;
+            }
+            if (diskonInput && (masterDisc > 0 || masterOtr > 0)) {
+                diskonInput.value = masterDisc;
+            }
+            calculateColumn(vIndex);
+
             if (dropdown) {
                 dropdown.style.display = 'none';
             }
@@ -1224,6 +1260,29 @@
                     syncTypeToAll();
                 }
             }
+        }
+
+        function handleTypeBlur(vIndex) {
+            setTimeout(() => {
+                const dropdown = document.getElementById(`typeSuggestions_${vIndex}`);
+                if (dropdown) dropdown.style.display = 'none';
+
+                const textarea = document.getElementById(`inputType_${vIndex}`);
+                const otrInput = document.getElementById(`inputOtr_${vIndex}`);
+                const diskonInput = document.getElementById(`inputDiskon_${vIndex}`);
+
+                if (textarea && textarea.value.trim() && otrInput && (!otrInput.value || Number(otrInput.value) === 0)) {
+                    const typed = textarea.value.trim().toLowerCase();
+                    const matched = odooProducts.find(p => (p.name || '').trim().toLowerCase() === typed || (p.display_name || '').trim().toLowerCase() === typed);
+                    if (matched && Number(matched.harga_otr || 0) > 0) {
+                        otrInput.value = Number(matched.harga_otr);
+                        if (diskonInput && (Number(matched.diskon || 0) > 0 || Number(matched.harga_otr) > 0)) {
+                            diskonInput.value = Number(matched.diskon || 0);
+                        }
+                        calculateColumn(vIndex);
+                    }
+                }
+            }, 250);
         }
 
         function handleTypeKeyDown(e, vIndex) {

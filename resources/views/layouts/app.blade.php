@@ -167,6 +167,10 @@
                 $isCostingModule = request()->is('costing*');
                 $isCarModule = request()->is('car*');
                 $hasCostingAccess = Auth::check() && Auth::user()->canAccessCosting();
+                $pendingMasterPriceCount = 0;
+                if (Auth::check() && (Auth::user()->isManager() || Auth::user()->isAdmin())) {
+                    $pendingMasterPriceCount = \App\Models\CostingVehicleTypePriceHistory::where('status', 'pending')->count();
+                }
             @endphp
 
             <div class="dropdown me-3">
@@ -206,8 +210,13 @@
                         <li>
                             <a class="dropdown-item d-flex align-items-center gap-2 {{ $isCostingModule ? 'active' : '' }}" href="{{ route('costing.index') }}">
                                 <i class="bi bi-calculator {{ $isCostingModule ? '' : 'text-success' }}"></i>
-                                <div>
-                                    <div class="fw-semibold">Costing</div>
+                                <div class="w-100">
+                                    <div class="fw-semibold d-flex align-items-center justify-content-between">
+                                        <span>Costing</span>
+                                        @if ($pendingMasterPriceCount > 0)
+                                            <span class="badge bg-warning text-dark rounded-pill ms-2" style="font-size: 0.65rem;">{{ $pendingMasterPriceCount }} Pending</span>
+                                        @endif
+                                    </div>
                                     <div class="small {{ $isCostingModule ? 'text-white-50' : 'text-muted' }}">Vehicle Costing &amp; Estimation</div>
                                 </div>
                             </a>
@@ -245,8 +254,13 @@
                             </a>
                         </li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle {{ request()->is('costing/master*') ? 'active fw-bold' : '' }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center gap-1 {{ request()->is('costing/master*') ? 'active fw-bold' : '' }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-database me-1"></i>Master Data
+                                @if ($pendingMasterPriceCount > 0)
+                                    <span class="badge bg-warning text-dark rounded-pill px-2 py-0 fw-bold shadow-sm" style="font-size: 0.68rem;" title="{{ $pendingMasterPriceCount }} perubahan harga master menunggu persetujuan">
+                                        <i class="bi bi-clock-history me-1"></i>{{ $pendingMasterPriceCount }}
+                                    </span>
+                                @endif
                             </a>
                             <ul class="dropdown-menu shadow">
                                 <li>
@@ -255,13 +269,25 @@
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2" href="{{ route('costing.master.index', ['tab' => 'types']) }}">
-                                        <i class="bi bi-car-front text-success"></i>Type Kendaraan
+                                    <a class="dropdown-item d-flex align-items-center justify-content-between" href="{{ route('costing.master.index', ['tab' => 'types']) }}">
+                                        <span class="d-flex align-items-center gap-2">
+                                            <i class="bi bi-car-front text-success"></i>Type Kendaraan
+                                        </span>
+                                        @if ($pendingMasterPriceCount > 0)
+                                            <span class="badge bg-warning text-dark rounded-pill" style="font-size: 0.68rem;">
+                                                {{ $pendingMasterPriceCount }} Pending
+                                            </span>
+                                        @endif
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2" href="{{ route('costing.master.index', ['tab' => 'pemakaian']) }}">
+                                        <i class="bi bi-geo-alt text-info"></i>Lokasi Pemakaian
                                     </a>
                                 </li>
                                 <li>
                                     <a class="dropdown-item d-flex align-items-center gap-2" href="{{ route('costing.master.index', ['tab' => 'bbn']) }}">
-                                        <i class="bi bi-geo-alt text-danger"></i>BBN (Wilayah)
+                                        <i class="bi bi-card-heading text-danger"></i>BBN (Wilayah)
                                     </a>
                                 </li>
                             </ul>
