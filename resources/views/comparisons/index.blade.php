@@ -13,7 +13,7 @@
         <div class="col-6 col-md-3">
             <div class="card text-center border-warning h-100">
                 <div class="card-body py-3">
-                    <div class="display-6 fw-bold text-warning">{{ $stats['pending_supervisor'] }}</div>
+                    <div class="display-6 fw-bold text-warning">{{ $stats['pending_supervisor'] ?? 0 }}</div>
                     <div class="small text-muted mt-1">Pending Supervisor</div>
                 </div>
             </div>
@@ -21,7 +21,7 @@
         <div class="col-6 col-md-3">
             <div class="card text-center border-info h-100">
                 <div class="card-body py-3">
-                    <div class="display-6 fw-bold text-info">{{ $stats['pending_manager'] }}</div>
+                    <div class="display-6 fw-bold text-info">{{ $stats['pending_manager'] ?? 0 }}</div>
                     <div class="small text-muted mt-1">Pending Manager</div>
                 </div>
             </div>
@@ -29,7 +29,7 @@
         <div class="col-6 col-md-3">
             <div class="card text-center border-success h-100">
                 <div class="card-body py-3">
-                    <div class="display-6 fw-bold text-success">{{ $stats['approved'] }}</div>
+                    <div class="display-6 fw-bold text-success">{{ $stats['approved'] ?? 0 }}</div>
                     <div class="small text-muted mt-1">Approved</div>
                 </div>
             </div>
@@ -37,7 +37,7 @@
         <div class="col-6 col-md-3">
             <div class="card text-center border-danger h-100">
                 <div class="card-body py-3">
-                    <div class="display-6 fw-bold text-danger">{{ $stats['rejected'] }}</div>
+                    <div class="display-6 fw-bold text-danger">{{ $stats['rejected'] ?? 0 }}</div>
                     <div class="small text-muted mt-1">Rejected</div>
                 </div>
             </div>
