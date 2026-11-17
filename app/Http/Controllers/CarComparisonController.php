@@ -47,10 +47,20 @@ class CarComparisonController extends Controller
                     ->orWhereNull('supervisor_id');
             });
         } elseif (!$user->isController() && !$user->isManager() && !$user->isAdmin()) {
-            $query->where('created_by', $user->id);
+            $query->where(function ($q) use ($user) {
+                $q->where('created_by', $user->id)
+                  ->orWhere('status', 'approved');
+            });
         }
 
         $comparisons = $query->get();
+
+        $poIds = $comparisons->pluck('po_id')->filter()->unique();
+        $poRevisions = CarVendorComparison::whereIn('po_id', $poIds)
+            ->selectRaw('po_id, count(*) as count, min(id) as first_id')
+            ->groupBy('po_id')
+            ->get()
+            ->keyBy('po_id');
 
         $stats = [
             'pending_supervisor' => $comparisons->where('status', 'pending_supervisor')->count(),
@@ -61,7 +71,7 @@ class CarComparisonController extends Controller
             'cancelled'          => $comparisons->where('status', 'cancelled')->count(),
         ];
 
-        return view('car_comparisons.index', compact('comparisons', 'stats'));
+        return view('car_comparisons.index', compact('comparisons', 'stats', 'poRevisions'));
     }
 
     /**
@@ -155,11 +165,25 @@ class CarComparisonController extends Controller
             'created_by'              => $authUser->id,
         ]);
 
+        // Check if there was a previous car comparison for this PO that was cancelled or rejected
+        $previousComparison = CarVendorComparison::where('po_id', $request->po_id)
+            ->where('id', '!=', $comparison->id)
+            ->orderByDesc('id')
+            ->first();
+
+        $isResubmit = $previousComparison && ($previousComparison->isCancelled() || $previousComparison->isRejected());
+        $action = $isResubmit ? 'resubmitted' : ($isStaffSubmission ? 'submitted' : 'submitted_supervisor');
+        $logNotes = $request->notes;
+        if ($isResubmit) {
+            $prefix = "Pengajuan Komparasi Revisi Mobil menggantikan {$previousComparison->comparison_code} (" . $previousComparison->statusLabel() . ").";
+            $logNotes = $logNotes ? "{$prefix} Catatan: {$logNotes}" : $prefix;
+        }
+
         CarComparisonLog::create([
             'car_comparison_id' => $comparison->id,
             'user_id'           => $authUser->id,
-            'action'            => $isStaffSubmission ? 'submitted' : 'submitted_supervisor',
-            'notes'             => $request->notes,
+            'action'            => $action,
+            'notes'             => $logNotes,
         ]);
 
         session()->flash('clear_draft_key', "car_clvp_draft_{$request->po_id}");
@@ -286,6 +310,21 @@ class CarComparisonController extends Controller
     {
         $this->authorizeCarAccess();
 
+        /** @var \App\Models\User $authUser */
+        $authUser = Auth::user();
+        if ($authUser && !$authUser->isSupervisor() && !$authUser->isManager() && !$authUser->isController() && !$authUser->isAdmin()) {
+            if ($comparison->created_by !== $authUser->id && !$comparison->isApproved()) {
+                // Check if this car comparison is part of an approved revision chain for the same PO
+                $hasApprovedRevision = CarVendorComparison::where('po_id', $comparison->po_id)
+                    ->where('status', 'approved')
+                    ->exists();
+
+                if (!$hasApprovedRevision) {
+                    abort(403, 'Unauthorized. Komparasi mobil ini belum disetujui (Approved) dan hanya dapat diakses oleh pembuatnya.');
+                }
+            }
+        }
+
         $comparison->load(['creator', 'supervisor', 'manager', 'controller', 'bypassedBy', 'rejectedBy', 'cancelledBy', 'logs.user']);
 
         $rfq = null;
@@ -307,8 +346,11 @@ class CarComparisonController extends Controller
                     ->orWhere('created_by', Auth::id())
                     ->orWhereNull('supervisor_id');
             });
-        } elseif (!Auth::user()->isController() && !Auth::user()->isManager() && !Auth::user()->isAdmin()) {
-            $query->where('created_by', Auth::id());
+        } elseif (!$authUser->isController() && !$authUser->isManager() && !$authUser->isAdmin()) {
+            $query->where(function ($q) use ($authUser) {
+                $q->where('created_by', $authUser->id)
+                  ->orWhere('status', 'approved');
+            });
         }
         if ($statusFilter) {
             $query->where('status', $statusFilter);
@@ -347,7 +389,14 @@ class CarComparisonController extends Controller
             }
         }
 
-        return view('car_comparisons.show', compact('comparison', 'rfq', 'history', 'prevId', 'nextId', 'statusFilter'));
+        // Fetch all revisions for this car PO (Comparison 1, Comparison Revisi, etc.)
+        $allRevisions = CarVendorComparison::where('po_id', $comparison->po_id)
+            ->with(['creator', 'supervisor', 'manager', 'controller', 'rejectedBy', 'cancelledBy', 'logs.user'])
+            ->orderBy('created_at', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        return view('car_comparisons.show', compact('comparison', 'rfq', 'history', 'prevId', 'nextId', 'statusFilter', 'allRevisions'));
     }
 
     /**
@@ -519,27 +568,37 @@ class CarComparisonController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        $request->validate(['cancel_reason' => ['required', 'string', 'max:2000']]);
+        $request->validate([
+            'cancel_reason' => ['required', 'string', 'max:2000'],
+            'action_type'   => ['nullable', 'string', 'in:cancel,resubmit'],
+        ]);
 
         if (!$comparison->isCancellableBy($user)) {
             return back()->with('error', 'You are not authorized to cancel this comparison.');
         }
 
+        $isResubmit = $request->input('action_type') === 'resubmit';
+        $prefix = $isResubmit ? '[MINTA REVISI] ' : '';
+
         $comparison->update([
             'status'        => 'cancelled',
             'cancelled_by'  => $user->id,
             'cancelled_at'  => now(),
-            'cancel_reason' => $request->cancel_reason,
+            'cancel_reason' => $prefix . $request->cancel_reason,
         ]);
 
         CarComparisonLog::create([
             'car_comparison_id' => $comparison->id,
             'user_id'           => $user->id,
-            'action'            => 'cancelled',
+            'action'            => $isResubmit ? 'revision_requested' : 'cancelled',
             'notes'             => $request->cancel_reason,
         ]);
 
-        return back()->with('success', 'Car comparison has been cancelled.');
+        $msg = $isResubmit
+            ? 'Komparasi mobil berhasil dibatalkan untuk revisi staff. Data lama disimpan sebagai Comparison 1.'
+            : 'Car comparison has been cancelled.';
+
+        return back()->with('success', $msg);
     }
 
     /**

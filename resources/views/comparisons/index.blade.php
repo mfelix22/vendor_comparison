@@ -94,7 +94,19 @@
                                     data-href="{{ route('comparisons.show', $c) }}"
                                     data-status="{{ $c->status }}"
                                     data-search="{{ strtolower($c->po_name . ' ' . $c->po_vendor . ' ' . $c->selected_vendor) }}">
-                                    <td class="ps-3 fw-semibold">{{ $c->po_name }}</td>
+                                    <td class="ps-3">
+                                        <div class="fw-semibold text-primary">
+                                            {{ $c->po_name }}
+                                            @if (isset($poRevisions[$c->po_id]) && $poRevisions[$c->po_id]->count > 1)
+                                                @if ($c->id == $poRevisions[$c->po_id]->first_id)
+                                                    <span class="badge bg-secondary-subtle text-secondary border ms-1" style="font-size:0.7rem;">Original</span>
+                                                @else
+                                                    <span class="badge bg-info-subtle text-info border ms-1" style="font-size:0.7rem;"><i class="bi bi-arrow-repeat me-1"></i>Revisi</span>
+                                                @endif
+                                            @endif
+                                        </div>
+                                        <div class="text-muted small">{{ $c->comparison_code ?: '—' }}</div>
+                                    </td>
                                     <td class="text-muted small">{{ $c->po_vendor ?: '—' }}</td>
                                     <td>{{ $c->selected_vendor ?: '—' }}</td>
                                     <td>{{ $c->creator->name ?? '—' }}</td>
