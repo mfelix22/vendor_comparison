@@ -88,8 +88,8 @@
                 // $existingComparison is passed from RfqController; $comparison from ComparisonController::edit()
                 $existing = $existingComparison ?? ($comparison ?? null);
                 $isEditMode = isset($comparison) && $comparison !== null;
-                $isRejectedPrefill = !$isEditMode && $existing && $existing->isRejected();
-                $prefillSource = $isEditMode ? $comparison : ($isRejectedPrefill ? $existing : null);
+                $isResubmitPrefill = !$isEditMode && $existing && ($existing->isRejected() || $existing->isCancelled());
+                $prefillSource = $isEditMode ? $comparison : ($isResubmitPrefill ? $existing : null);
                 $draftKey = 'clvp_draft_' . $rfq['id'];
                 $isActiveRfq = in_array($rfq['state'] ?? '', ['draft', 'sent']);
             @endphp
@@ -125,19 +125,21 @@
                         <div>
                             <strong>
                                 @if ($existing->isRejected())
-                                    CLVP was rejected.
+                                    CLVP ditolak. Data komparasi sebelumnya telah diisi otomatis di bawah untuk revisi.
                                 @elseif ($existing->isCancelled())
-                                    CLVP was cancelled.
+                                    CLVP sebelumnya dibatalkan untuk revisi. Data dari komparasi sebelumnya telah diisi otomatis di bawah.
                                 @else
                                     Comparison already submitted.
                                 @endif
                             </strong>
                             Status: <span class="badge {{ $existing->statusBadgeClass() }}">{{ $existing->statusLabel() }}</span>
-                            @if ($existing->isRejected())
+                            @if ($existing->isRejected() && $existing->rejection_reason)
                                 <div class="mt-1 small fst-italic">"{{ $existing->rejection_reason }}"</div>
+                            @elseif ($existing->isCancelled() && $existing->cancel_reason)
+                                <div class="mt-1 small fst-italic">"{{ $existing->cancel_reason }}"</div>
                             @endif
                             <a href="{{ route('comparisons.show', $existing) }}" class="btn btn-sm btn-outline-secondary ms-2">
-                                <i class="bi bi-eye me-1"></i>View Approval Details
+                                <i class="bi bi-eye me-1"></i>View Previous Comparison
                             </a>
                         </div>
                     </div>
@@ -154,6 +156,8 @@
                                 <i class="bi bi-table me-2"></i>
                                 @if ($isEditMode)
                                     Edit CLVP — {{ $comparison->po_name }}
+                                @elseif ($existing && ($existing->isRejected() || $existing->isCancelled()))
+                                    Comparison Revisi (Data Terisi Otomatis dari Comparison 1) — {{ $rfq['name'] }}
                                 @else
                                     Data Calon Vendor — Comparison Local Vendor Price (CLVP)
                                 @endif
@@ -1468,38 +1472,93 @@
                 $otherRows = array_values(array_values($vendorRows));
                 $totalHistoryCount = count($otherRows);
 
+                // Helper: compute nett price per pc (tax exclude after discount)
+                $getHistNett = function($r) {
+                    if (isset($r['nett_price']) && (float)$r['nett_price'] > 0) {
+                        return (float)$r['nett_price'];
+                    }
+                    $qty = (float)($r['product_qty'] ?? 1);
+                    $subtotal = (float)($r['price_subtotal'] ?? 0);
+                    if ($qty > 0 && $subtotal > 0) {
+                        return round($subtotal / $qty, 2);
+                    }
+                    $pu = (float)($r['price_unit'] ?? 0);
+                    $disc = (float)($r['discount'] ?? 0);
+                    if ($pu > 0 && $disc > 0) {
+                        return round($pu * (1 - ($disc / 100)), 2);
+                    }
+                    return $pu;
+                };
+
+                // Current RFQ line calculations
+                $currentLineNett = (float)($line['nett_unit_price'] ?? (
+                    ($line['product_qty'] > 0 && !empty($line['price_subtotal'])) 
+                        ? round($line['price_subtotal'] / $line['product_qty'], 2) 
+                        : ((float)$line['price_unit'] * (1 - (((float)($line['discount'] ?? 0)) / 100)))
+                ));
+                $currentLinePricelist = (float)($line['price_unit'] ?? 0);
+                $currentLineDiscount = (float)($line['discount'] ?? 0);
+                $currentHasDisc = ($currentLineDiscount > 0) || ($currentLinePricelist > 0 && abs($currentLineNett - $currentLinePricelist) > 0.01);
+
                 // 1. Most recent purchase (by date desc)
                 $byDate = $otherRows;
                 usort($byDate, fn($a, $b) => strtotime($b['date']) <=> strtotime($a['date']));
                 $mostRecentRow = $byDate[0] ?? null;
 
-                // 2. Best price purchase in history (lowest price, most recent date on tie)
+                // 2. Best Price per Tahun (grouped by calendar year)
+                $historyByYear = [];
+                foreach ($otherRows as $r) {
+                    $yr = $r['year'] ?? (!empty($r['date']) ? (int) date('Y', strtotime($r['date'])) : null);
+                    if ($yr) {
+                        $historyByYear[$yr][] = $r;
+                    }
+                }
+                krsort($historyByYear); // Sort years descending (2026, 2025, 2024...)
+
+                $bestPriceByYear = []; // [ year => row ]
+                foreach ($historyByYear as $yr => $rowsInYear) {
+                    usort($rowsInYear, function($a, $b) use ($getHistNett) {
+                        $pa = $getHistNett($a);
+                        $pb = $getHistNett($b);
+                        if ($pa == $pb) {
+                            return strtotime($b['date']) <=> strtotime($a['date']);
+                        }
+                        return $pa <=> $pb;
+                    });
+                    if (!empty($rowsInYear[0])) {
+                        $bestPriceByYear[$yr] = $rowsInYear[0];
+                    }
+                }
+
+                // Overall best price row across all history
                 $byPriceAsc = $otherRows;
-                usort($byPriceAsc, function ($a, $b) {
-                    if ($a['price_unit'] == $b['price_unit']) {
+                usort($byPriceAsc, function($a, $b) use ($getHistNett) {
+                    $pa = $getHistNett($a);
+                    $pb = $getHistNett($b);
+                    if ($pa == $pb) {
                         return strtotime($b['date']) <=> strtotime($a['date']);
                     }
-                    return $a['price_unit'] <=> $b['price_unit'];
+                    return $pa <=> $pb;
                 });
                 $bestPriceRow = $byPriceAsc[0] ?? null;
 
-                // 3. Highest price purchase in history (highest price, most recent date on tie)
+                // 3. Highest price purchase in history (highest nett price, most recent date on tie)
                 $byPriceDesc = $otherRows;
-                usort($byPriceDesc, function ($a, $b) {
-                    if ($a['price_unit'] == $b['price_unit']) {
+                usort($byPriceDesc, function($a, $b) use ($getHistNett) {
+                    $pa = $getHistNett($a);
+                    $pb = $getHistNett($b);
+                    if ($pa == $pb) {
                         return strtotime($b['date']) <=> strtotime($a['date']);
                     }
-                    return $b['price_unit'] <=> $a['price_unit'];
+                    return $pb <=> $pa;
                 });
                 $worstPriceRow = $byPriceDesc[0] ?? null;
 
                 // Pool valid prices to determine genuine variation
-                $pricePool = array_filter([
-                    $line['price_unit'],
-                    $mostRecentRow['price_unit'] ?? null,
-                    $bestPriceRow['price_unit'] ?? null,
-                    $worstPriceRow['price_unit'] ?? null,
-                ], fn($p) => $p !== null && $p > 0);
+                $pricePool = array_filter(array_merge(
+                    [$currentLineNett],
+                    array_map($getHistNett, $otherRows)
+                ), fn($p) => $p !== null && $p > 0);
 
                 $uniquePrices = array_unique($pricePool);
                 $hasVariation = count($uniquePrices) > 1;
@@ -1507,8 +1566,8 @@
                 $globalMax = $hasVariation ? max($uniquePrices) : null;
 
                 // Current RFQ state
-                $isCurrentBest = $hasVariation && $line['price_unit'] == $globalMin;
-                $isCurrentWorst = $hasVariation && $line['price_unit'] == $globalMax;
+                $isCurrentBest = $hasVariation && $currentLineNett == $globalMin;
+                $isCurrentWorst = $hasVariation && $currentLineNett == $globalMax;
                 $currentClass = 'price-current';
                 if ($isCurrentBest) {
                     $currentClass = 'price-best';
@@ -1517,22 +1576,37 @@
                 }
 
                 // Latest Purchase state
-                $isLatestBest = $hasVariation && $mostRecentRow && $mostRecentRow['price_unit'] == $globalMin;
-                $isLatestWorst = $hasVariation && $mostRecentRow && $mostRecentRow['price_unit'] == $globalMax;
+                $latestNett = $mostRecentRow ? $getHistNett($mostRecentRow) : 0;
+                $latestYear = $mostRecentRow ? ($mostRecentRow['year'] ?? (!empty($mostRecentRow['date']) ? (int) date('Y', strtotime($mostRecentRow['date'])) : null)) : null;
+                $isLatestBestForYear = $latestYear && isset($bestPriceByYear[$latestYear]) && ($bestPriceByYear[$latestYear]['order_id'] ?? null) === ($mostRecentRow['order_id'] ?? null);
+                $isLatestBestOverall = $hasVariation && $mostRecentRow && $latestNett == $globalMin;
+                $isLatestWorst = $hasVariation && $mostRecentRow && $latestNett == $globalMax;
 
-                // Determine whether standalone Best Price row is needed (distinct from Latest)
-                $showBestRow = $hasVariation
-                    && $bestPriceRow
-                    && $bestPriceRow['order_id'] !== ($mostRecentRow['order_id'] ?? null)
-                    && $bestPriceRow['price_unit'] < ($mostRecentRow['price_unit'] ?? 0);
+                // Track rendered POs to prevent duplicate rows
+                $renderedOrderIds = [];
+                if ($mostRecentRow && !empty($mostRecentRow['order_id'])) {
+                    $renderedOrderIds[] = $mostRecentRow['order_id'];
+                }
 
-                // Determine whether standalone Highest Price row is needed (distinct from Latest and Best)
-                $showWorstRow = $hasVariation
-                    && $worstPriceRow
-                    && $worstPriceRow['order_id'] !== ($mostRecentRow['order_id'] ?? null)
-                    && $worstPriceRow['order_id'] !== ($bestPriceRow['order_id'] ?? null)
-                    && $worstPriceRow['price_unit'] > ($mostRecentRow['price_unit'] ?? 0)
-                    && $worstPriceRow['price_unit'] > ($bestPriceRow['price_unit'] ?? 0);
+                // Determine standalone Best Price per year rows needed
+                $standaloneYearlyBestRows = [];
+                foreach ($bestPriceByYear as $yr => $bRow) {
+                    $bOrderId = $bRow['order_id'] ?? null;
+                    if ($bOrderId && in_array($bOrderId, $renderedOrderIds)) {
+                        continue;
+                    }
+                    $standaloneYearlyBestRows[$yr] = $bRow;
+                    if ($bOrderId) {
+                        $renderedOrderIds[] = $bOrderId;
+                    }
+                }
+
+                // Determine whether standalone Highest Price row is needed
+                $showWorstRow = $hasVariation 
+                    && $worstPriceRow 
+                    && !empty($worstPriceRow['order_id'])
+                    && !in_array($worstPriceRow['order_id'], $renderedOrderIds)
+                    && $getHistNett($worstPriceRow) > $globalMin;
             @endphp
 
             <div class="product-block mb-4">
@@ -1554,8 +1628,11 @@
                                 'text-success' => $isCurrentBest,
                                 'text-danger' => $isCurrentWorst,
                             ])>
-                                {{ $currency }} {{ number_format($line['price_unit'], 2, ',', '.') }}
+                                {{ $currency }} {{ number_format($currentLineNett, 2, ',', '.') }}
                             </strong>
+                            @if ($currentHasDisc && $currentLineDiscount > 0)
+                                <span class="text-danger" style="font-size: 0.72rem;">(-{{ rtrim(rtrim(number_format($currentLineDiscount, 2, ',', '.'), '0'), ',') }}%)</span>
+                            @endif
                         </span>
                     </div>
 
@@ -1581,7 +1658,15 @@
                                             <i class="bi bi-star-fill text-warning me-1"></i>{{ $rfqVendorNm }}
                                         </td>
                                         <td class="text-center fw-bold">
-                                            {{ $currency }} {{ number_format($line['price_unit'], 2, ',', '.') }}
+                                            <div>{{ $currency }} {{ number_format($currentLineNett, 2, ',', '.') }}</div>
+                                            @if ($currentHasDisc)
+                                                <div class="text-muted small fw-normal" style="font-size: 0.7rem;">
+                                                    @if ($currentLineDiscount > 0)
+                                                        <span class="text-danger fw-semibold">Disc. {{ rtrim(rtrim(number_format($currentLineDiscount, 2, ',', '.'), '0'), ',') }}%</span> &bull; 
+                                                    @endif
+                                                    List: {{ number_format($currentLinePricelist, 0, ',', '.') }}
+                                                </div>
+                                            @endif
                                         </td>
                                         <td class="text-center">{{ $line['product_qty'] }}</td>
                                         <td class="text-center">{{ $uom }}</td>
@@ -1620,7 +1705,7 @@
                                     {{-- Historical Table Header Row --}}
                                     <tr class="table-light text-muted small text-nowrap">
                                         <th class="ps-3">Historical Vendor</th>
-                                        <th class="text-center">Unit Price</th>
+                                        <th class="text-center">Unit Price (Nett)</th>
                                         <th class="text-center">Qty</th>
                                         <th class="text-center">UoM</th>
                                         <th>Past PO</th>
@@ -1630,13 +1715,26 @@
 
                                     {{-- Row 2: Latest Purchase row --}}
                                     @if ($mostRecentRow)
+                                        @php
+                                            $rNett = $getHistNett($mostRecentRow);
+                                            $rList = (float)($mostRecentRow['price_unit'] ?? 0);
+                                            $rDisc = (float)($mostRecentRow['discount'] ?? 0);
+                                            $rHasDisc = ($rDisc > 0) || ($rList > 0 && abs($rNett - $rList) > 0.01);
+                                        @endphp
                                         <tr class="table-info">
                                             <td class="ps-3 fw-semibold" style="box-shadow: inset 4px 0 0 #0d6efd;">
                                                 {{ $mostRecentRow['vendor_name'] }}
                                             </td>
                                             <td class="text-center fw-semibold">
-                                                {{ $currency }}
-                                                {{ number_format($mostRecentRow['price_unit'], 2, ',', '.') }}
+                                                <div>{{ $currency }} {{ number_format($rNett, 2, ',', '.') }}</div>
+                                                @if ($rHasDisc)
+                                                    <div class="text-muted small fw-normal" style="font-size: 0.7rem;">
+                                                        @if ($rDisc > 0)
+                                                            <span class="text-danger fw-semibold">Disc. {{ rtrim(rtrim(number_format($rDisc, 2, ',', '.'), '0'), ',') }}%</span> &bull; 
+                                                        @endif
+                                                        List: {{ number_format($rList, 0, ',', '.') }}
+                                                    </div>
+                                                @endif
                                             </td>
                                             <td class="text-center">{{ $mostRecentRow['product_qty'] }}</td>
                                             <td class="text-center">{{ $mostRecentRow['uom'] }}</td>
@@ -1651,47 +1749,78 @@
                                             </td>
                                             <td class="text-center">
                                                 <span class="badge bg-primary">Latest Purchase</span>
-                                                @if ($isLatestBest)
-                                                    <span class="badge bg-success">Best Price</span>
+                                                @if ($isLatestBestForYear)
+                                                    <span class="badge bg-success">&#9733; Best Price {{ $latestYear }}</span>
+                                                @elseif ($isLatestBestOverall)
+                                                    <span class="badge bg-success">&#9733; Best Price</span>
                                                 @elseif ($isLatestWorst)
-                                                    <span class="badge bg-danger">Highest Price</span>
+                                                    <span class="badge bg-danger">&#9660; Highest Price</span>
                                                 @endif
                                             </td>
                                         </tr>
                                     @endif
 
-                                    {{-- Row 3: Best Price row (shown if distinct from Latest Purchase) --}}
-                                    @if ($showBestRow)
+                                    {{-- Row 3+: Standalone Best Price per Year (for years distinct from Latest Purchase) --}}
+                                    @foreach ($standaloneYearlyBestRows as $yr => $yearlyRow)
+                                        @php
+                                            $yNett = $getHistNett($yearlyRow);
+                                            $yList = (float)($yearlyRow['price_unit'] ?? 0);
+                                            $yDisc = (float)($yearlyRow['discount'] ?? 0);
+                                            $yHasDisc = ($yDisc > 0) || ($yList > 0 && abs($yNett - $yList) > 0.01);
+                                        @endphp
                                         <tr class="price-best">
-                                            <td class="ps-3 fw-semibold">{{ $bestPriceRow['vendor_name'] }}</td>
+                                            <td class="ps-3 fw-semibold">{{ $yearlyRow['vendor_name'] }}</td>
                                             <td class="text-center fw-semibold">
-                                                {{ $currency }}
-                                                {{ number_format($bestPriceRow['price_unit'], 2, ',', '.') }}
+                                                <div>{{ $currency }} {{ number_format($yNett, 2, ',', '.') }}</div>
+                                                @if ($yHasDisc)
+                                                    <div class="text-muted small fw-normal" style="font-size: 0.7rem;">
+                                                        @if ($yDisc > 0)
+                                                            <span class="text-danger fw-semibold">Disc. {{ rtrim(rtrim(number_format($yDisc, 2, ',', '.'), '0'), ',') }}%</span> &bull; 
+                                                        @endif
+                                                        List: {{ number_format($yList, 0, ',', '.') }}
+                                                    </div>
+                                                @endif
                                             </td>
-                                            <td class="text-center">{{ $bestPriceRow['product_qty'] }}</td>
-                                            <td class="text-center">{{ $bestPriceRow['uom'] }}</td>
+                                            <td class="text-center">{{ $yearlyRow['product_qty'] }}</td>
+                                            <td class="text-center">{{ $yearlyRow['uom'] }}</td>
                                             <td>
-                                                <a href="{{ route('rfq.show', $bestPriceRow['order_id']) }}?from={{ $rfq['id'] }}&from_name={{ urlencode($rfq['name']) }}"
+                                                <a href="{{ route('rfq.show', $yearlyRow['order_id']) }}?from={{ $rfq['id'] }}&from_name={{ urlencode($rfq['name']) }}"
                                                     class="text-decoration-none small">
-                                                    {{ $bestPriceRow['po_name'] }}
+                                                    {{ $yearlyRow['po_name'] }}
                                                 </a>
                                             </td>
                                             <td class="text-muted">
-                                                {{ \Illuminate\Support\Carbon::parse($bestPriceRow['date'])->format('d M Y H:i') }}
+                                                {{ \Illuminate\Support\Carbon::parse($yearlyRow['date'])->format('d M Y H:i') }}
                                             </td>
                                             <td class="text-center">
-                                                <span class="badge bg-success">Best Price</span>
+                                                <span class="badge bg-success">&#9733; Best Price {{ $yr }}</span>
+                                                @if ($yNett == $globalMin && count($bestPriceByYear) > 1)
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.65rem;">All-Time Best</span>
+                                                @endif
                                             </td>
                                         </tr>
-                                    @endif
+                                    @endforeach
 
-                                    {{-- Row 4: Highest Price row (shown if distinct from Latest and Best Price) --}}
+                                    {{-- Row 4: Highest Price row (shown if distinct from Latest and all Best Price rows) --}}
                                     @if ($showWorstRow)
+                                        @php
+                                            $wNett = $getHistNett($worstPriceRow);
+                                            $wList = (float)($worstPriceRow['price_unit'] ?? 0);
+                                            $wDisc = (float)($worstPriceRow['discount'] ?? 0);
+                                            $wHasDisc = ($wDisc > 0) || ($wList > 0 && abs($wNett - $wList) > 0.01);
+                                        @endphp
                                         <tr class="price-worst">
                                             <td class="ps-3">{{ $worstPriceRow['vendor_name'] }}</td>
                                             <td class="text-center">
-                                                {{ $currency }}
-                                                {{ number_format($worstPriceRow['price_unit'], 2, ',', '.') }}
+                                                <div>{{ $currency }} {{ number_format($wNett, 2, ',', '.') }}</div>
+                                                @if ($wHasDisc)
+                                                    <div class="text-muted small fw-normal" style="font-size: 0.7rem;">
+                                                        @if ($wDisc > 0)
+                                                            <span class="text-danger fw-semibold">Disc. {{ rtrim(rtrim(number_format($wDisc, 2, ',', '.'), '0'), ',') }}%</span> &bull; 
+                                                        @endif
+                                                        List: {{ number_format($wList, 0, ',', '.') }}
+                                                    </div>
+                                                @endif
                                             </td>
                                             <td class="text-center">{{ $worstPriceRow['product_qty'] }}</td>
                                             <td class="text-center">{{ $worstPriceRow['uom'] }}</td>
@@ -1705,7 +1834,7 @@
                                                 {{ \Illuminate\Support\Carbon::parse($worstPriceRow['date'])->format('d M Y H:i') }}
                                             </td>
                                             <td class="text-center">
-                                                <span class="badge bg-danger">Highest Price</span>
+                                                <span class="badge bg-danger">&#9660; Highest Price</span>
                                             </td>
                                         </tr>
                                     @endif

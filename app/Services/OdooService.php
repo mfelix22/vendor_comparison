@@ -287,6 +287,14 @@ class OdooService
                 $pid = is_array($line['product_id']) ? $line['product_id'][0] : null;
                 $line['product_code']       = $pid ? ($productMap[$pid]['code'] ?? '') : '';
                 $line['product_clean_name'] = $pid ? ($productMap[$pid]['name'] ?? '') : '';
+
+                $qty = (float) ($line['product_qty'] ?? 1);
+                $subtotal = (float) ($line['price_subtotal'] ?? 0);
+                $priceUnit = (float) ($line['price_unit'] ?? 0);
+                $discount = (float) ($line['discount'] ?? 0);
+                $line['nett_unit_price'] = ($qty > 0 && $subtotal > 0)
+                    ? round($subtotal / $qty, 2)
+                    : ($priceUnit > 0 ? round($priceUnit * (1 - ($discount / 100)), 2) : $priceUnit);
             }
             unset($line);
         }
@@ -306,7 +314,7 @@ class OdooService
             return [];
         }
 
-        $cacheKey = 'odoo_vendor_history_v2_' . md5(implode(',', $productIds));
+        $cacheKey = 'odoo_vendor_history_v3_' . md5(implode(',', $productIds));
 
         return Cache::remember($cacheKey, 1800, function () use ($productIds) {
             return $this->fetchProductVendorHistory($productIds);
@@ -326,9 +334,12 @@ class OdooService
                     'product_id',
                     'name',
                     'price_unit',
+                    'price_subtotal',
+                    'discount',
+                    'fix_discount',
                     'product_qty',
                     'order_id',
-                    'product_uom'
+                    'product_uom',
                 ],
                 'order'  => 'id desc',
                 'limit'  => 1000,
@@ -376,15 +387,37 @@ class OdooService
             $date       = $order['date_order'];
             $historyKey = $productId . '::' . \App\Models\VendorComparison::normalizeDescription($line['name'] ?? '');
 
+            $qty         = (float) ($line['product_qty'] ?? 1);
+            $subtotal    = (float) ($line['price_subtotal'] ?? 0);
+            $priceUnit   = (float) $line['price_unit'];
+            $discount    = (float) ($line['discount'] ?? 0);
+            $fixDiscount = (float) ($line['fix_discount'] ?? 0);
+
+            // Calculate Nett Tax Exclude per pc (after discount, before PPN)
+            if ($qty > 0 && $subtotal > 0) {
+                $nettPrice = round($subtotal / $qty, 2);
+            } elseif ($priceUnit > 0) {
+                $nettPrice = round($priceUnit * (1 - ($discount / 100)), 2);
+            } else {
+                $nettPrice = $priceUnit;
+            }
+
+            $year = !empty($date) ? (int) date('Y', strtotime($date)) : null;
+
             $item = [
-                'vendor_id'   => $vendorId,
-                'vendor_name' => $vendorName,
-                'price_unit'  => (float) $line['price_unit'],
-                'product_qty' => $line['product_qty'],
-                'uom'         => is_array($line['product_uom']) ? $line['product_uom'][1] : '',
-                'po_name'     => $order['name'],
-                'date'        => $date,
-                'order_id'    => $orderId,
+                'vendor_id'      => $vendorId,
+                'vendor_name'    => $vendorName,
+                'price_unit'     => $priceUnit,      // Original pricelist from Odoo
+                'price_subtotal' => $subtotal,       // Line subtotal untaxed
+                'discount'       => $discount,       // Discount percentage
+                'fix_discount'   => $fixDiscount,   // Fixed discount if any
+                'nett_price'     => $nettPrice,      // Tax Exclude Nett Price per pc
+                'product_qty'    => $qty,
+                'uom'            => is_array($line['product_uom']) ? $line['product_uom'][1] : '',
+                'po_name'        => $order['name'],
+                'date'           => $date,
+                'year'           => $year,
+                'order_id'       => $orderId,
             ];
 
             $history[$historyKey][] = $item;

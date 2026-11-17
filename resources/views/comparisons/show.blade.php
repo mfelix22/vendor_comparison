@@ -12,6 +12,39 @@
         </ol>
     </nav>
 
+    {{-- Revision Switcher (when multiple comparisons exist for this PO) --}}
+    @if (isset($allRevisions) && $allRevisions->count() > 1)
+        <div class="card mb-3 shadow-sm border-0" style="background: linear-gradient(135deg, #f0fdfa 0%, #e6fffa 100%); border-left: 5px solid #0d9488 !important;">
+            <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-clock-history fs-5" style="color: #0d9488;"></i>
+                    <div>
+                        <div class="fw-bold text-dark" style="font-size: 0.88rem;">Riwayat Versi Komparasi (PO: {{ $comparison->po_name }})</div>
+                        <div class="text-muted small" style="font-size: 0.76rem;">Terdapat {{ $allRevisions->count() }} versi komparasi untuk pengadaan ini (bisa beralih versi di sebelah kanan):</div>
+                    </div>
+                </div>
+                <div class="btn-group btn-group-sm shadow-sm" role="group">
+                    @foreach ($allRevisions as $idx => $rev)
+                        @php
+                            $isCurrent = $rev->id === $comparison->id;
+                            $label = $idx === 0 ? 'Comparison 1 (Original)' : ($allRevisions->count() === 2 ? 'Comparison Revisi' : 'Comparison Revisi ' . $idx);
+                        @endphp
+                        <a href="{{ route('comparisons.show', $rev) }}"
+                           class="btn {{ $isCurrent ? 'text-white fw-bold' : 'btn-outline-secondary bg-white' }}"
+                           style="{{ $isCurrent ? 'background-color: #0d9488; border-color: #0d9488;' : '' }}"
+                           title="{{ $rev->comparison_code }} ({{ $rev->statusLabel() }})">
+                            <i class="bi {{ $isCurrent ? 'bi-check-circle-fill' : 'bi-file-earmark-text' }} me-1"></i>
+                            {{ $label }}
+                            <span class="badge {{ $rev->statusBadgeClass() }} ms-1" style="font-size: 0.68rem;">
+                                {{ $rev->statusLabel() }}
+                            </span>
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- Prominent rejection notice for creators --}}
     @if ($comparison->isRejected() && Auth::user()->isCreator())
         <div class="alert alert-danger d-flex gap-3 align-items-start mb-4">
@@ -278,26 +311,85 @@
                         </div>
                     </div>
 
-                    {{-- Cancel card for approved comparisons --}}
+                    {{-- Cancel / Resubmit card for approved comparisons --}}
                     @if ($comparison->isCancellableBy(Auth::user()))
-                        <div class="card border-secondary mt-3">
-                            <div class="card-header py-2" style="background:#f8f9fa; border-color:#6c757d">
-                                <h6 class="mb-0 text-secondary"><i class="bi bi-x-circle me-2"></i>Cancel Approved Comparison</h6>
+                        <div class="card border-warning-subtle shadow-sm mt-3">
+                            <div class="card-header py-2 bg-light border-bottom">
+                                <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-gear-wide-connected me-2 text-warning"></i>Tindakan Manager (Revisi / Pembatalan)</h6>
                             </div>
                             <div class="card-body">
-                                <p class="text-muted small mb-2">This comparison is already approved. Cancelling will void it and allow a new CLVP to be submitted for this RFQ.</p>
-                                <form method="POST" action="{{ route('comparisons.cancel', $comparison) }}">
+                                <p class="text-muted small mb-2">Komparasi ini sudah berstatus <strong>Approved</strong>. Anda dapat meminta revisi kepada staff atau membatalkan komparasi secara permanen:</p>
+                                
+                                {{-- Tab / Toggle between Resubmit vs Cancel --}}
+                                <div class="d-flex gap-2 mb-3">
+                                    <button type="button" class="btn btn-sm btn-warning text-dark active flex-fill" id="btnTabResubmit" onclick="setCancelAction('resubmit')">
+                                        <i class="bi bi-arrow-repeat me-1"></i> Minta Resubmit (Revisi)
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger flex-fill" id="btnTabCancel" onclick="setCancelAction('cancel')">
+                                        <i class="bi bi-x-circle me-1"></i> Batal Permanen
+                                    </button>
+                                </div>
+
+                                <form method="POST" action="{{ route('comparisons.cancel', $comparison) }}" id="formCancelAction">
                                     @csrf
-                                    <label class="form-label fw-semibold small text-secondary">Reason for Cancellation <span class="text-danger">*</span></label>
-                                    <textarea name="cancel_reason" class="form-control form-control-sm mb-2" rows="2"
-                                        placeholder="State the reason for cancellation…" required></textarea>
-                                    <button type="submit" class="btn btn-outline-secondary w-100"
-                                        onclick="return confirm('Are you sure you want to cancel this approved comparison? This action cannot be undone.')">
-                                        <i class="bi bi-x-circle me-2"></i>Cancel Comparison
+                                    <input type="hidden" name="action_type" id="cancelActionType" value="resubmit">
+
+                                    <div id="resubmitInfoAlert" class="alert alert-warning py-2 small mb-2">
+                                        <i class="bi bi-info-circle me-1"></i> Staff pembuat (<strong>{{ $comparison->creator->name ?? 'Staff' }}</strong>) akan diminta mengajukan <strong>Comparison Revisi</strong>. Seluruh data vendor lama akan otomatis terisi agar staff tidak perlu mengetik dari nol. Komparasi saat ini diarsipkan sebagai <strong>Comparison 1</strong>.
+                                    </div>
+                                    <div id="cancelInfoAlert" class="alert alert-danger py-2 small mb-2 d-none">
+                                        <i class="bi bi-exclamation-triangle me-1"></i> Komparasi ini akan <strong>dibatalkan total secara permanen</strong>.
+                                    </div>
+
+                                    <label class="form-label fw-semibold small" id="lblReason">Alasan Permintaan Revisi <span class="text-danger">*</span></label>
+                                    <textarea name="cancel_reason" class="form-control form-control-sm mb-3" rows="2"
+                                        id="txtCancelReason" placeholder="Tuliskan catatan revisi untuk staff, e.g. Mohon ganti vendor kedua, cari yang bisa TOP 30 hari…" required></textarea>
+
+                                    <button type="submit" class="btn btn-warning w-100 fw-semibold text-dark" id="btnSubmitCancelAction">
+                                        <i class="bi bi-arrow-repeat me-2"></i>Kirim Permintaan Resubmit ke Staff
                                     </button>
                                 </form>
                             </div>
                         </div>
+
+                        <script>
+                            function setCancelAction(type) {
+                                document.getElementById('cancelActionType').value = type;
+                                const btnResubmit = document.getElementById('btnTabResubmit');
+                                const btnCancel = document.getElementById('btnTabCancel');
+                                const alertResubmit = document.getElementById('resubmitInfoAlert');
+                                const alertCancel = document.getElementById('cancelInfoAlert');
+                                const lblReason = document.getElementById('lblReason');
+                                const txtReason = document.getElementById('txtCancelReason');
+                                const btnSubmit = document.getElementById('btnSubmitCancelAction');
+
+                                if (type === 'resubmit') {
+                                    btnResubmit.className = 'btn btn-sm btn-warning text-dark active flex-fill';
+                                    btnCancel.className = 'btn btn-sm btn-outline-danger flex-fill';
+
+                                    alertResubmit.classList.remove('d-none');
+                                    alertCancel.classList.add('d-none');
+
+                                    lblReason.innerHTML = 'Alasan Permintaan Revisi <span class="text-danger">*</span>';
+                                    txtReason.placeholder = 'Tuliskan catatan revisi untuk staff, e.g. Mohon ganti vendor kedua, cari yang bisa TOP 30 hari…';
+
+                                    btnSubmit.className = 'btn btn-warning w-100 fw-semibold text-dark';
+                                    btnSubmit.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Kirim Permintaan Resubmit ke Staff';
+                                } else {
+                                    btnCancel.className = 'btn btn-sm btn-danger text-white active flex-fill';
+                                    btnResubmit.className = 'btn btn-sm btn-outline-warning text-dark flex-fill';
+
+                                    alertCancel.classList.remove('d-none');
+                                    alertResubmit.classList.add('d-none');
+
+                                    lblReason.innerHTML = 'Alasan Pembatalan Permanen <span class="text-danger">*</span>';
+                                    txtReason.placeholder = 'Tuliskan alasan pembatalan permanen…';
+
+                                    btnSubmit.className = 'btn btn-danger w-100 fw-semibold text-white';
+                                    btnSubmit.innerHTML = '<i class="bi bi-x-circle me-2"></i>Batalkan Komparasi Permanen';
+                                }
+                            }
+                        </script>
                     @endif
 
                     {{-- Action card (supervisor / manager) --}}
@@ -590,7 +682,7 @@
                             <span class="badge bg-primary px-2 py-1">&#128197; Latest Purchase</span>
                             <span class="ms-auto text-muted small">
                                 <i class="bi bi-info-circle me-1"></i>
-                                Shows key purchase history benchmarks (Latest, Best Price, Highest Price) per product.
+                                Benchmarks (Latest, Best Price per tahun, Highest Price) menggunakan harga nett tax exclude per pc.
                             </span>
                         </div>
 
@@ -611,38 +703,93 @@
                                 $otherRows = array_values(array_values($vendorRows));
                                 $totalHistoryCount = count($otherRows);
 
+                                // Helper: compute nett price per pc (tax exclude after discount)
+                                $getHistNett = function($r) {
+                                    if (isset($r['nett_price']) && (float)$r['nett_price'] > 0) {
+                                        return (float)$r['nett_price'];
+                                    }
+                                    $qty = (float)($r['product_qty'] ?? 1);
+                                    $subtotal = (float)($r['price_subtotal'] ?? 0);
+                                    if ($qty > 0 && $subtotal > 0) {
+                                        return round($subtotal / $qty, 2);
+                                    }
+                                    $pu = (float)($r['price_unit'] ?? 0);
+                                    $disc = (float)($r['discount'] ?? 0);
+                                    if ($pu > 0 && $disc > 0) {
+                                        return round($pu * (1 - ($disc / 100)), 2);
+                                    }
+                                    return $pu;
+                                };
+
+                                // Current RFQ line calculations
+                                $currentLineNett = (float)($line['nett_unit_price'] ?? (
+                                    ($line['product_qty'] > 0 && !empty($line['price_subtotal'])) 
+                                        ? round($line['price_subtotal'] / $line['product_qty'], 2) 
+                                        : ((float)$line['price_unit'] * (1 - (((float)($line['discount'] ?? 0)) / 100)))
+                                ));
+                                $currentLinePricelist = (float)($line['price_unit'] ?? 0);
+                                $currentLineDiscount = (float)($line['discount'] ?? 0);
+                                $currentHasDisc = ($currentLineDiscount > 0) || ($currentLinePricelist > 0 && abs($currentLineNett - $currentLinePricelist) > 0.01);
+
                                 // 1. Most recent purchase (by date desc)
                                 $byDate = $otherRows;
                                 usort($byDate, fn($a, $b) => strtotime($b['date']) <=> strtotime($a['date']));
                                 $mostRecentRow = $byDate[0] ?? null;
 
-                                // 2. Best price purchase in history (lowest price, most recent date on tie)
+                                // 2. Best Price per Tahun (grouped by calendar year)
+                                $historyByYear = [];
+                                foreach ($otherRows as $r) {
+                                    $yr = $r['year'] ?? (!empty($r['date']) ? (int) date('Y', strtotime($r['date'])) : null);
+                                    if ($yr) {
+                                        $historyByYear[$yr][] = $r;
+                                    }
+                                }
+                                krsort($historyByYear); // Sort years descending (2026, 2025, 2024...)
+
+                                $bestPriceByYear = []; // [ year => row ]
+                                foreach ($historyByYear as $yr => $rowsInYear) {
+                                    usort($rowsInYear, function($a, $b) use ($getHistNett) {
+                                        $pa = $getHistNett($a);
+                                        $pb = $getHistNett($b);
+                                        if ($pa == $pb) {
+                                            return strtotime($b['date']) <=> strtotime($a['date']);
+                                        }
+                                        return $pa <=> $pb;
+                                    });
+                                    if (!empty($rowsInYear[0])) {
+                                        $bestPriceByYear[$yr] = $rowsInYear[0];
+                                    }
+                                }
+
+                                // Overall best price row across all history
                                 $byPriceAsc = $otherRows;
-                                usort($byPriceAsc, function($a, $b) {
-                                    if ($a['price_unit'] == $b['price_unit']) {
+                                usort($byPriceAsc, function($a, $b) use ($getHistNett) {
+                                    $pa = $getHistNett($a);
+                                    $pb = $getHistNett($b);
+                                    if ($pa == $pb) {
                                         return strtotime($b['date']) <=> strtotime($a['date']);
                                     }
-                                    return $a['price_unit'] <=> $b['price_unit'];
+                                    return $pa <=> $pb;
                                 });
                                 $bestPriceRow = $byPriceAsc[0] ?? null;
 
-                                // 3. Highest price purchase in history (highest price, most recent date on tie)
+                                // 3. Highest price purchase in history (highest nett price, most recent date on tie)
                                 $byPriceDesc = $otherRows;
-                                usort($byPriceDesc, function($a, $b) {
-                                    if ($a['price_unit'] == $b['price_unit']) {
+                                usort($byPriceDesc, function($a, $b) use ($getHistNett) {
+                                    $pa = $getHistNett($a);
+                                    $pb = $getHistNett($b);
+                                    if ($pa == $pb) {
                                         return strtotime($b['date']) <=> strtotime($a['date']);
                                     }
-                                    return $b['price_unit'] <=> $a['price_unit'];
+                                    return $pb <=> $pa;
                                 });
                                 $worstPriceRow = $byPriceDesc[0] ?? null;
 
                                 // Pool valid prices to determine genuine variation
-                                $pricePool = array_filter([
-                                    $line['price_unit'],
-                                    $mostRecentRow['price_unit'] ?? null,
-                                    $bestPriceRow['price_unit'] ?? null,
-                                    $worstPriceRow['price_unit'] ?? null,
-                                ], fn($p) => $p !== null && $p > 0);
+                                $pricePool = array_filter(array_merge(
+                                    [$currentLineNett],
+                                    array_map($getHistNett, $otherRows)
+                                ), fn($p) => $p !== null && $p > 0);
 
                                 $uniquePrices = array_unique($pricePool);
                                 $hasVariation = count($uniquePrices) > 1;
@@ -650,8 +797,8 @@
                                 $globalMax = $hasVariation ? max($uniquePrices) : null;
 
                                 // Current RFQ state
-                                $isCurrentBest = $hasVariation && $line['price_unit'] == $globalMin;
-                                $isCurrentWorst = $hasVariation && $line['price_unit'] == $globalMax;
+                                $isCurrentBest = $hasVariation && $currentLineNett == $globalMin;
+                                $isCurrentWorst = $hasVariation && $currentLineNett == $globalMax;
                                 $currentClass = 'price-current';
                                 if ($isCurrentBest) {
                                     $currentClass = 'price-best';
@@ -660,22 +807,37 @@
                                 }
 
                                 // Latest Purchase state
-                                $isLatestBest = $hasVariation && $mostRecentRow && $mostRecentRow['price_unit'] == $globalMin;
-                                $isLatestWorst = $hasVariation && $mostRecentRow && $mostRecentRow['price_unit'] == $globalMax;
+                                $latestNett = $mostRecentRow ? $getHistNett($mostRecentRow) : 0;
+                                $latestYear = $mostRecentRow ? ($mostRecentRow['year'] ?? (!empty($mostRecentRow['date']) ? (int) date('Y', strtotime($mostRecentRow['date'])) : null)) : null;
+                                $isLatestBestForYear = $latestYear && isset($bestPriceByYear[$latestYear]) && ($bestPriceByYear[$latestYear]['order_id'] ?? null) === ($mostRecentRow['order_id'] ?? null);
+                                $isLatestBestOverall = $hasVariation && $mostRecentRow && $latestNett == $globalMin;
+                                $isLatestWorst = $hasVariation && $mostRecentRow && $latestNett == $globalMax;
 
-                                // Determine whether standalone Best Price row is needed (distinct from Latest)
-                                $showBestRow = $hasVariation 
-                                    && $bestPriceRow 
-                                    && $bestPriceRow['order_id'] !== ($mostRecentRow['order_id'] ?? null)
-                                    && $bestPriceRow['price_unit'] < ($mostRecentRow['price_unit'] ?? 0);
+                                // Track rendered POs to prevent duplicate rows
+                                $renderedOrderIds = [];
+                                if ($mostRecentRow && !empty($mostRecentRow['order_id'])) {
+                                    $renderedOrderIds[] = $mostRecentRow['order_id'];
+                                }
 
-                                // Determine whether standalone Highest Price row is needed (distinct from Latest and Best)
+                                // Determine standalone Best Price per year rows needed
+                                $standaloneYearlyBestRows = [];
+                                foreach ($bestPriceByYear as $yr => $bRow) {
+                                    $bOrderId = $bRow['order_id'] ?? null;
+                                    if ($bOrderId && in_array($bOrderId, $renderedOrderIds)) {
+                                        continue;
+                                    }
+                                    $standaloneYearlyBestRows[$yr] = $bRow;
+                                    if ($bOrderId) {
+                                        $renderedOrderIds[] = $bOrderId;
+                                    }
+                                }
+
+                                // Determine whether standalone Highest Price row is needed
                                 $showWorstRow = $hasVariation 
                                     && $worstPriceRow 
-                                    && $worstPriceRow['order_id'] !== ($mostRecentRow['order_id'] ?? null)
-                                    && $worstPriceRow['order_id'] !== ($bestPriceRow['order_id'] ?? null)
-                                    && $worstPriceRow['price_unit'] > ($mostRecentRow['price_unit'] ?? 0)
-                                    && $worstPriceRow['price_unit'] > ($bestPriceRow['price_unit'] ?? 0);
+                                    && !empty($worstPriceRow['order_id'])
+                                    && !in_array($worstPriceRow['order_id'], $renderedOrderIds)
+                                    && $getHistNett($worstPriceRow) > $globalMin;
                             @endphp
                             <div class="card product-item-card mb-4 shadow-sm" style="border: 2px solid #94a3b8; border-radius: 8px; overflow: hidden;">
                                 <div class="card-header py-2 d-flex align-items-center gap-2 flex-wrap" style="background-color: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
@@ -690,8 +852,11 @@
                                             'text-success' => $isCurrentBest,
                                             'text-danger'  => $isCurrentWorst,
                                         ])>
-                                            {{ $currency }} {{ number_format($line['price_unit'], 2, ',', '.') }}
+                                            {{ $currency }} {{ number_format($currentLineNett, 2, ',', '.') }}
                                         </strong>
+                                        @if ($currentHasDisc && $currentLineDiscount > 0)
+                                            <span class="text-danger" style="font-size: 0.72rem;">(-{{ rtrim(rtrim(number_format($currentLineDiscount, 2, ',', '.'), '0'), ',') }}%)</span>
+                                        @endif
                                     </span>
                                 </div>
                                 <div class="card-body p-0">
@@ -715,7 +880,15 @@
                                                         <i class="bi bi-star-fill text-warning me-1"></i>{{ $rfqVendorNm }}
                                                     </td>
                                                     <td class="text-center fw-bold">
-                                                        {{ $currency }} {{ number_format($line['price_unit'], 2, ',', '.') }}
+                                                        <div>{{ $currency }} {{ number_format($currentLineNett, 2, ',', '.') }}</div>
+                                                        @if ($currentHasDisc)
+                                                            <div class="text-muted small fw-normal" style="font-size: 0.7rem;">
+                                                                @if ($currentLineDiscount > 0)
+                                                                    <span class="text-danger fw-semibold">Disc. {{ rtrim(rtrim(number_format($currentLineDiscount, 2, ',', '.'), '0'), ',') }}%</span> &bull; 
+                                                                @endif
+                                                                List: {{ number_format($currentLinePricelist, 0, ',', '.') }}
+                                                            </div>
+                                                        @endif
                                                     </td>
                                                     <td class="text-center">{{ $line['product_qty'] }}</td>
                                                     <td class="text-center">{{ $uom }}</td>
@@ -754,7 +927,7 @@
                                                 {{-- Historical Table Header Row --}}
                                                 <tr class="table-light text-muted small text-nowrap">
                                                     <th class="ps-3">Historical Vendor</th>
-                                                    <th class="text-center">Unit Price</th>
+                                                    <th class="text-center">Unit Price (Nett)</th>
                                                     <th class="text-center">Qty</th>
                                                     <th class="text-center">UoM</th>
                                                     <th>Past PO</th>
@@ -764,11 +937,24 @@
 
                                                 {{-- Row 2: Latest Purchase --}}
                                                 @if ($mostRecentRow)
+                                                    @php
+                                                        $rNett = $getHistNett($mostRecentRow);
+                                                        $rList = (float)($mostRecentRow['price_unit'] ?? 0);
+                                                        $rDisc = (float)($mostRecentRow['discount'] ?? 0);
+                                                        $rHasDisc = ($rDisc > 0) || ($rList > 0 && abs($rNett - $rList) > 0.01);
+                                                    @endphp
                                                     <tr class="table-info">
                                                         <td class="ps-3 fw-semibold" style="box-shadow: inset 4px 0 0 #0d6efd;">{{ $mostRecentRow['vendor_name'] }}</td>
                                                         <td class="text-center fw-semibold">
-                                                            {{ $currency }}
-                                                            {{ number_format($mostRecentRow['price_unit'], 2, ',', '.') }}
+                                                            <div>{{ $currency }} {{ number_format($rNett, 2, ',', '.') }}</div>
+                                                            @if ($rHasDisc)
+                                                                <div class="text-muted small fw-normal" style="font-size: 0.7rem;">
+                                                                    @if ($rDisc > 0)
+                                                                        <span class="text-danger fw-semibold">Disc. {{ rtrim(rtrim(number_format($rDisc, 2, ',', '.'), '0'), ',') }}%</span> &bull; 
+                                                                    @endif
+                                                                    List: {{ number_format($rList, 0, ',', '.') }}
+                                                                </div>
+                                                            @endif
                                                         </td>
                                                         <td class="text-center">{{ $mostRecentRow['product_qty'] }}</td>
                                                         <td class="text-center">{{ $mostRecentRow['uom'] }}</td>
@@ -786,50 +972,81 @@
                                                         </td>
                                                         <td class="text-center">
                                                             <span class="badge bg-primary">Latest Purchase</span>
-                                                            @if ($isLatestBest)
-                                                                <span class="badge bg-success">Best Price</span>
+                                                            @if ($isLatestBestForYear)
+                                                                <span class="badge bg-success">&#9733; Best Price {{ $latestYear }}</span>
+                                                            @elseif ($isLatestBestOverall)
+                                                                <span class="badge bg-success">&#9733; Best Price</span>
                                                             @elseif ($isLatestWorst)
-                                                                <span class="badge bg-danger">Highest Price</span>
+                                                                <span class="badge bg-danger">&#9660; Highest Price</span>
                                                             @endif
                                                         </td>
                                                     </tr>
                                                 @endif
 
-                                                {{-- Row 3: Best Price (shown if distinct from Latest Purchase) --}}
-                                                @if ($showBestRow)
+                                                {{-- Row 3+: Standalone Best Price per Year (for years distinct from Latest Purchase) --}}
+                                                @foreach ($standaloneYearlyBestRows as $yr => $yearlyRow)
+                                                    @php
+                                                        $yNett = $getHistNett($yearlyRow);
+                                                        $yList = (float)($yearlyRow['price_unit'] ?? 0);
+                                                        $yDisc = (float)($yearlyRow['discount'] ?? 0);
+                                                        $yHasDisc = ($yDisc > 0) || ($yList > 0 && abs($yNett - $yList) > 0.01);
+                                                    @endphp
                                                     <tr class="price-best">
-                                                        <td class="ps-3 fw-semibold">{{ $bestPriceRow['vendor_name'] }}</td>
+                                                        <td class="ps-3 fw-semibold">{{ $yearlyRow['vendor_name'] }}</td>
                                                         <td class="text-center fw-semibold">
-                                                            {{ $currency }}
-                                                            {{ number_format($bestPriceRow['price_unit'], 2, ',', '.') }}
+                                                            <div>{{ $currency }} {{ number_format($yNett, 2, ',', '.') }}</div>
+                                                            @if ($yHasDisc)
+                                                                <div class="text-muted small fw-normal" style="font-size: 0.7rem;">
+                                                                    @if ($yDisc > 0)
+                                                                        <span class="text-danger fw-semibold">Disc. {{ rtrim(rtrim(number_format($yDisc, 2, ',', '.'), '0'), ',') }}%</span> &bull; 
+                                                                    @endif
+                                                                    List: {{ number_format($yList, 0, ',', '.') }}
+                                                                </div>
+                                                            @endif
                                                         </td>
-                                                        <td class="text-center">{{ $bestPriceRow['product_qty'] }}</td>
-                                                        <td class="text-center">{{ $bestPriceRow['uom'] }}</td>
+                                                        <td class="text-center">{{ $yearlyRow['product_qty'] }}</td>
+                                                        <td class="text-center">{{ $yearlyRow['uom'] }}</td>
                                                         <td>
-                                                            @if (!empty($bestPriceRow['order_id']))
-                                                                <a href="{{ route('rfq.show', $bestPriceRow['order_id']) }}" class="text-decoration-none small">
-                                                                    {{ $bestPriceRow['po_name'] }}
+                                                            @if (!empty($yearlyRow['order_id']))
+                                                                <a href="{{ route('rfq.show', $yearlyRow['order_id']) }}" class="text-decoration-none small">
+                                                                    {{ $yearlyRow['po_name'] }}
                                                                 </a>
                                                             @else
-                                                                <span class="text-muted small">{{ $bestPriceRow['po_name'] }}</span>
+                                                                <span class="text-muted small">{{ $yearlyRow['po_name'] }}</span>
                                                             @endif
                                                         </td>
                                                         <td class="text-muted">
-                                                            {{ \Carbon\Carbon::parse($bestPriceRow['date'])->format('d M Y H:i') }}
+                                                            {{ \Carbon\Carbon::parse($yearlyRow['date'])->format('d M Y H:i') }}
                                                         </td>
                                                         <td class="text-center">
-                                                            <span class="badge bg-success">Best Price</span>
+                                                            <span class="badge bg-success">&#9733; Best Price {{ $yr }}</span>
+                                                            @if ($yNett == $globalMin && count($bestPriceByYear) > 1)
+                                                                <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.65rem;">All-Time Best</span>
+                                                            @endif
                                                         </td>
                                                     </tr>
-                                                @endif
+                                                @endforeach
 
-                                                {{-- Row 4: Highest Price (shown if distinct from Latest and Best Price) --}}
+                                                {{-- Row 4: Highest Price (shown if distinct from Latest and all Best Price rows) --}}
                                                 @if ($showWorstRow)
+                                                    @php
+                                                        $wNett = $getHistNett($worstPriceRow);
+                                                        $wList = (float)($worstPriceRow['price_unit'] ?? 0);
+                                                        $wDisc = (float)($worstPriceRow['discount'] ?? 0);
+                                                        $wHasDisc = ($wDisc > 0) || ($wList > 0 && abs($wNett - $wList) > 0.01);
+                                                    @endphp
                                                     <tr class="price-worst">
                                                         <td class="ps-3">{{ $worstPriceRow['vendor_name'] }}</td>
                                                         <td class="text-center">
-                                                            {{ $currency }}
-                                                            {{ number_format($worstPriceRow['price_unit'], 2, ',', '.') }}
+                                                            <div>{{ $currency }} {{ number_format($wNett, 2, ',', '.') }}</div>
+                                                            @if ($wHasDisc)
+                                                                <div class="text-muted small fw-normal" style="font-size: 0.7rem;">
+                                                                    @if ($wDisc > 0)
+                                                                        <span class="text-danger fw-semibold">Disc. {{ rtrim(rtrim(number_format($wDisc, 2, ',', '.'), '0'), ',') }}%</span> &bull; 
+                                                                    @endif
+                                                                    List: {{ number_format($wList, 0, ',', '.') }}
+                                                                </div>
+                                                            @endif
                                                         </td>
                                                         <td class="text-center">{{ $worstPriceRow['product_qty'] }}</td>
                                                         <td class="text-center">{{ $worstPriceRow['uom'] }}</td>
@@ -846,7 +1063,7 @@
                                                             {{ \Carbon\Carbon::parse($worstPriceRow['date'])->format('d M Y H:i') }}
                                                         </td>
                                                         <td class="text-center">
-                                                            <span class="badge bg-danger">Highest Price</span>
+                                                            <span class="badge bg-danger">&#9660; Highest Price</span>
                                                         </td>
                                                     </tr>
                                                 @endif
@@ -1319,38 +1536,173 @@
         {{-- TAB 3: AUDIT LOG                                         --}}
         {{-- ════════════════════════════════════════════════════════ --}}
         <div class="tab-pane fade" id="tabLog">
-            <div class="card" style="max-width:640px;">
-                <div class="card-header py-2">
-                    <h6 class="mb-0"><i class="bi bi-journal-text me-2"></i>Activity Log</h6>
-                </div>
-                <div class="card-body p-0">
-                    @if ($comparison->logs->isEmpty())
-                        <div class="p-3 text-muted small">No activity recorded yet.</div>
-                    @else
-                        <ul class="list-group list-group-flush">
-                            @foreach ($comparison->logs as $log)
-                                <li class="list-group-item py-3">
-                                    <div class="d-flex gap-3 align-items-start">
-                                        <i class="bi {{ $log->actionIcon() }} fs-5 mt-1 flex-shrink-0"></i>
-                                        <div class="flex-grow-1">
-                                            <div class="fw-semibold">{{ $log->actionLabel() }}</div>
-                                            <div class="text-muted small">
-                                                by {{ $log->user->name ?? 'System' }}
-                                                &middot; {{ $log->created_at->format('d M Y H:i') }}
-                                                ({{ $log->created_at->diffForHumans() }})
-                                            </div>
-                                            @if ($log->notes)
-                                                <div class="mt-1 p-2 bg-light rounded small fst-italic">
-                                                    {{ $log->notes }}
-                                                </div>
-                                            @endif
-                                        </div>
+            <div style="max-width: 760px;">
+
+                {{-- Context Banner for Revisions --}}
+                @if (isset($allRevisions) && $allRevisions->count() > 1)
+                    @php
+                        $isRevision = $comparison->id !== $allRevisions->first()->id;
+                        $origCmp = $allRevisions->first();
+                    @endphp
+                    @if ($isRevision)
+                        <div class="alert border-0 shadow-sm d-flex gap-3 align-items-start mb-3" style="background: #f0fdf4; border-left: 4px solid #16a34a !important;">
+                            <i class="bi bi-arrow-repeat fs-4 text-success flex-shrink-0 mt-1"></i>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold text-dark" style="font-size:0.92rem;">
+                                    Komparasi Ini Adalah Komparasi Revisi (PO: {{ $comparison->po_name }})
+                                </div>
+                                <div class="text-secondary small mt-1">
+                                    Dokumen ini diajukan untuk merevisi komparasi sebelumnya (<strong>{{ $origCmp->comparison_code }}</strong>)
+                                    @if ($origCmp->cancelled_at)
+                                        yang dibatalkan oleh <strong>{{ $origCmp->cancelledBy->name ?? 'Manager' }}</strong> pada {{ $origCmp->cancelled_at->format('d M Y H:i') }}.
+                                    @elseif ($origCmp->rejected_at)
+                                        yang ditolak oleh <strong>{{ $origCmp->rejectedBy->name ?? 'Approver' }}</strong> pada {{ $origCmp->rejected_at->format('d M Y H:i') }}.
+                                    @endif
+                                </div>
+                                @if ($origCmp->cancel_reason)
+                                    <div class="mt-2 p-2 rounded bg-white border border-success-subtle small text-dark">
+                                        <i class="bi bi-chat-quote-fill me-1 text-warning"></i><strong>Alasan Pembatalan / Catatan Revisi:</strong> "{{ $origCmp->cancel_reason }}"
                                     </div>
-                                </li>
-                            @endforeach
-                        </ul>
+                                @elseif ($origCmp->rejection_reason)
+                                    <div class="mt-2 p-2 rounded bg-white border border-danger-subtle small text-dark">
+                                        <i class="bi bi-chat-quote-fill me-1 text-danger"></i><strong>Alasan Penolakan:</strong> "{{ $origCmp->rejection_reason }}"
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @else
+                        <div class="alert border-0 shadow-sm d-flex gap-3 align-items-start mb-3" style="background: #fffbeb; border-left: 4px solid #f59e0b !important;">
+                            <i class="bi bi-clock-history fs-4 text-warning flex-shrink-0 mt-1"></i>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold text-dark" style="font-size:0.92rem;">
+                                    Dokumen Ini Adalah Komparasi 1 (Original)
+                                </div>
+                                <div class="text-secondary small mt-1">
+                                    Komparasi ini telah dibatalkan untuk revisi. Pengadaan telah dilanjutkan pada dokumen komparasi revisi baru.
+                                </div>
+                                @if ($comparison->cancel_reason)
+                                    <div class="mt-2 p-2 rounded bg-white border border-warning-subtle small text-dark">
+                                        <i class="bi bi-chat-quote-fill me-1 text-warning"></i><strong>Alasan Pembatalan:</strong> "{{ $comparison->cancel_reason }}"
+                                    </div>
+                                @endif
+                                <div class="mt-2">
+                                    <a href="{{ route('comparisons.show', $allRevisions->last()) }}" class="btn btn-sm btn-outline-dark fw-semibold">
+                                        <i class="bi bi-arrow-right-circle me-1"></i>Buka Comparison Revisi Aktif ({{ $allRevisions->last()->comparison_code }}) &rarr;
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
                     @endif
+                @endif
+
+                {{-- Activity Log Card --}}
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-light py-2 px-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <h6 class="mb-0 fw-semibold text-dark">
+                            <i class="bi bi-journal-text me-2 text-primary"></i>Activity Log
+                        </h6>
+                        @if (isset($allRevisions) && $allRevisions->count() > 1)
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-sm active" id="btnLogAll" onclick="toggleLogView('all')">
+                                    <i class="bi bi-clock-history me-1"></i>Semua Versi PO ({{ $allRevisions->sum(fn($r) => $r->logs->count()) }})
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="btnLogCurrent" onclick="toggleLogView('current')">
+                                    Hanya Versi Ini ({{ $comparison->logs->count() }})
+                                </button>
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="card-body p-0">
+                        {{-- VIEW 1: Current Comparison Only --}}
+                        <div id="logCurrentContainer" class="{{ isset($allRevisions) && $allRevisions->count() > 1 ? 'd-none' : '' }}">
+                            @if ($comparison->logs->isEmpty())
+                                <div class="p-4 text-center text-muted small">Belum ada riwayat aktivitas yang tercatat.</div>
+                            @else
+                                <ul class="list-group list-group-flush">
+                                    @foreach ($comparison->logs as $log)
+                                        @include('comparisons.partials.log_item', ['log' => $log])
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </div>
+
+                        {{-- VIEW 2: All Revisions Timeline --}}
+                        @if (isset($allRevisions) && $allRevisions->count() > 1)
+                            <div id="logAllContainer">
+                                @foreach ($allRevisions as $revIdx => $rev)
+                                    @php
+                                        $isThisCmp = $rev->id === $comparison->id;
+                                        $revTitle = $revIdx === 0 ? 'Comparison 1 (Original)' : ($allRevisions->count() === 2 ? 'Comparison Revisi' : 'Comparison Revisi ' . $revIdx);
+                                    @endphp
+                                    <div class="p-3 {{ $revIdx > 0 ? 'border-top' : '' }}" style="{{ $isThisCmp ? 'background: #f8fafc;' : '' }}">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2 pb-2 border-bottom">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge {{ $isThisCmp ? 'bg-primary' : 'bg-secondary' }} px-2 py-1">
+                                                    {{ $revTitle }}
+                                                </span>
+                                                <strong class="text-dark small">{{ $rev->comparison_code }}</strong>
+                                                @if ($isThisCmp)
+                                                    <span class="badge bg-primary-subtle text-primary border" style="font-size:0.68rem;">Dokumen Saat Ini</span>
+                                                @else
+                                                    <a href="{{ route('comparisons.show', $rev) }}" class="small text-decoration-none">
+                                                        <i class="bi bi-box-arrow-up-right me-1"></i>Buka Dokumen
+                                                    </a>
+                                                @endif
+                                            </div>
+                                            <div>
+                                                <span class="badge {{ $rev->statusBadgeClass() }}" style="font-size:0.72rem;">
+                                                    {{ $rev->statusLabel() }}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        @if ($rev->logs->isEmpty())
+                                            <div class="text-muted small py-2 fst-italic">Tidak ada log tercatat untuk versi ini.</div>
+                                        @else
+                                            <ul class="list-group list-group-flush mb-0">
+                                                @foreach ($rev->logs as $log)
+                                                    @include('comparisons.partials.log_item', ['log' => $log])
+                                                @endforeach
+                                            </ul>
+                                        @endif
+                                    </div>
+                                    @if ($revIdx < $allRevisions->count() - 1)
+                                        <div class="py-1 px-3 bg-light text-center border-top border-bottom small text-muted d-flex align-items-center justify-content-center gap-2">
+                                            <i class="bi bi-arrow-down-circle text-primary"></i>
+                                            <span class="fw-semibold">Transisi Revisi Pengadaan</span>
+                                            <i class="bi bi-arrow-down-circle text-primary"></i>
+                                        </div>
+                                    @endif
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
                 </div>
+
+                @if (isset($allRevisions) && $allRevisions->count() > 1)
+                    <script>
+                        function toggleLogView(mode) {
+                            const btnAll = document.getElementById('btnLogAll');
+                            const btnCurr = document.getElementById('btnLogCurrent');
+                            const cntAll = document.getElementById('logAllContainer');
+                            const cntCurr = document.getElementById('logCurrentContainer');
+
+                            if (mode === 'all') {
+                                btnAll.classList.add('active');
+                                btnCurr.classList.remove('active');
+                                cntAll.classList.remove('d-none');
+                                cntCurr.classList.add('d-none');
+                            } else {
+                                btnCurr.classList.add('active');
+                                btnAll.classList.remove('active');
+                                cntCurr.classList.remove('d-none');
+                                cntAll.classList.add('d-none');
+                            }
+                        }
+                    </script>
+                @endif
+
             </div>
         </div>{{-- end tabLog --}}
 

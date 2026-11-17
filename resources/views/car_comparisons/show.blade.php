@@ -12,6 +12,39 @@
         </ol>
     </nav>
 
+    {{-- Revision Switcher (when multiple car comparisons exist for this PO) --}}
+    @if (isset($allRevisions) && $allRevisions->count() > 1)
+        <div class="card mb-3 shadow-sm border-0" style="background: linear-gradient(135deg, #f0fdfa 0%, #e6fffa 100%); border-left: 5px solid #0d9488 !important;">
+            <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-clock-history fs-5" style="color: #0d9488;"></i>
+                    <div>
+                        <div class="fw-bold text-dark" style="font-size: 0.88rem;">Riwayat Versi Komparasi Mobil (PO: {{ $comparison->po_name }})</div>
+                        <div class="text-muted small" style="font-size: 0.76rem;">Terdapat {{ $allRevisions->count() }} versi komparasi untuk pengadaan ini (bisa beralih versi di sebelah kanan):</div>
+                    </div>
+                </div>
+                <div class="btn-group btn-group-sm shadow-sm" role="group">
+                    @foreach ($allRevisions as $idx => $rev)
+                        @php
+                            $isCurrent = $rev->id === $comparison->id;
+                            $label = $idx === 0 ? 'Comparison 1 (Original)' : ($allRevisions->count() === 2 ? 'Comparison Revisi' : 'Comparison Revisi ' . $idx);
+                        @endphp
+                        <a href="{{ route('car_comparisons.show', $rev) }}"
+                           class="btn {{ $isCurrent ? 'text-white fw-bold' : 'btn-outline-secondary bg-white' }}"
+                           style="{{ $isCurrent ? 'background-color: #0d9488; border-color: #0d9488;' : '' }}"
+                           title="{{ $rev->comparison_code }} ({{ $rev->statusLabel() }})">
+                            <i class="bi {{ $isCurrent ? 'bi-check-circle-fill' : 'bi-file-earmark-text' }} me-1"></i>
+                            {{ $label }}
+                            <span class="badge {{ $rev->statusBadgeClass() }} ms-1" style="font-size: 0.68rem;">
+                                {{ $rev->statusLabel() }}
+                            </span>
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    @endif
+
     @php
         $hasActiveReplacement = ($comparison->isRejected() || $comparison->isCancelled())
             && \App\Models\CarVendorComparison::where('po_id', $comparison->po_id)
@@ -419,11 +452,14 @@
                                 </div>
                             @endif
 
-                            {{-- Cancel Action --}}
+                            {{-- Cancel / Resubmit Action --}}
                             @if ($comparison->isCancellableBy(Auth::user()))
-                                <div class="mt-3 text-end">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#cancelModal">
-                                        <i class="bi bi-slash-circle me-1"></i>Cancel Comparison
+                                <div class="mt-3 text-end d-flex gap-2 justify-content-end">
+                                    <button type="button" class="btn btn-warning btn-sm text-dark fw-semibold" data-bs-toggle="modal" data-bs-target="#cancelModal" onclick="setCarCancelAction('resubmit')">
+                                        <i class="bi bi-arrow-repeat me-1"></i>Minta Resubmit
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#cancelModal" onclick="setCarCancelAction('cancel')">
+                                        <i class="bi bi-slash-circle me-1"></i>Batal Total
                                     </button>
                                 </div>
                             @endif
@@ -583,6 +619,11 @@
                         <span class="badge price-best px-2 py-1">&#9733; Best Price</span>
                         <span class="badge price-current px-2 py-1">&#9830; Current PO Vendor</span>
                         <span class="badge price-worst px-2 py-1">&#9660; Highest Price</span>
+                        <span class="badge bg-primary px-2 py-1">&#128197; Latest Purchase</span>
+                        <span class="ms-auto text-muted small">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Benchmarks (Latest, Best Price per tahun) menampilkan harga nett setelah diskon &amp; pricelist.
+                        </span>
                     </div>
 
                     {{-- Odoo Purchase History Card (Benchmark from Previous POs) --}}
@@ -1113,38 +1154,173 @@
         {{-- TAB 3: AUDIT LOG (MATCHING RFQ GENERAL)                  --}}
         {{-- ════════════════════════════════════════════════════════ --}}
         <div class="tab-pane fade" id="tabLog" role="tabpanel">
-            <div class="card" style="max-width:640px;">
-                <div class="card-header py-2">
-                    <h6 class="mb-0"><i class="bi bi-journal-text me-2"></i>Activity Log</h6>
-                </div>
-                <div class="card-body p-0">
-                    @if ($comparison->logs->isEmpty())
-                        <div class="p-3 text-muted small">No activity recorded yet.</div>
-                    @else
-                        <ul class="list-group list-group-flush">
-                            @foreach ($comparison->logs as $log)
-                                <li class="list-group-item py-3">
-                                    <div class="d-flex gap-3 align-items-start">
-                                        <i class="bi {{ $log->actionIcon() }} fs-5 mt-1 flex-shrink-0"></i>
-                                        <div class="flex-grow-1">
-                                            <div class="fw-semibold">{{ $log->actionLabel() }}</div>
-                                            <div class="text-muted small">
-                                                by {{ $log->user->name ?? 'System' }}
-                                                &middot; {{ $log->created_at->format('d M Y H:i') }}
-                                                ({{ $log->created_at->diffForHumans() }})
-                                            </div>
-                                            @if ($log->notes)
-                                                <div class="mt-1 p-2 bg-light rounded small fst-italic">
-                                                    {{ $log->notes }}
-                                                </div>
-                                            @endif
-                                        </div>
+            <div style="max-width: 760px;">
+
+                {{-- Context Banner for Revisions --}}
+                @if (isset($allRevisions) && $allRevisions->count() > 1)
+                    @php
+                        $isRevision = $comparison->id !== $allRevisions->first()->id;
+                        $origCmp = $allRevisions->first();
+                    @endphp
+                    @if ($isRevision)
+                        <div class="alert border-0 shadow-sm d-flex gap-3 align-items-start mb-3" style="background: #f0fdf4; border-left: 4px solid #16a34a !important;">
+                            <i class="bi bi-arrow-repeat fs-4 text-success flex-shrink-0 mt-1"></i>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold text-dark" style="font-size:0.92rem;">
+                                    Komparasi Ini Adalah Komparasi Revisi Mobil (PO: {{ $comparison->po_name }})
+                                </div>
+                                <div class="text-secondary small mt-1">
+                                    Dokumen ini diajukan untuk merevisi komparasi mobil sebelumnya (<strong>{{ $origCmp->comparison_code }}</strong>)
+                                    @if ($origCmp->cancelled_at)
+                                        yang dibatalkan oleh <strong>{{ $origCmp->cancelledBy->name ?? 'Manager' }}</strong> pada {{ $origCmp->cancelled_at->format('d M Y H:i') }}.
+                                    @elseif ($origCmp->rejected_at)
+                                        yang ditolak oleh <strong>{{ $origCmp->rejectedBy->name ?? 'Approver' }}</strong> pada {{ $origCmp->rejected_at->format('d M Y H:i') }}.
+                                    @endif
+                                </div>
+                                @if ($origCmp->cancel_reason)
+                                    <div class="mt-2 p-2 rounded bg-white border border-success-subtle small text-dark">
+                                        <i class="bi bi-chat-quote-fill me-1 text-warning"></i><strong>Alasan Pembatalan / Catatan Revisi:</strong> "{{ $origCmp->cancel_reason }}"
                                     </div>
-                                </li>
-                            @endforeach
-                        </ul>
+                                @elseif ($origCmp->rejection_reason)
+                                    <div class="mt-2 p-2 rounded bg-white border border-danger-subtle small text-dark">
+                                        <i class="bi bi-chat-quote-fill me-1 text-danger"></i><strong>Alasan Penolakan:</strong> "{{ $origCmp->rejection_reason }}"
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @else
+                        <div class="alert border-0 shadow-sm d-flex gap-3 align-items-start mb-3" style="background: #fffbeb; border-left: 4px solid #f59e0b !important;">
+                            <i class="bi bi-clock-history fs-4 text-warning flex-shrink-0 mt-1"></i>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold text-dark" style="font-size:0.92rem;">
+                                    Dokumen Ini Adalah Komparasi 1 Mobil (Original)
+                                </div>
+                                <div class="text-secondary small mt-1">
+                                    Komparasi mobil ini telah dibatalkan untuk revisi. Pengadaan telah dilanjutkan pada dokumen komparasi revisi baru.
+                                </div>
+                                @if ($comparison->cancel_reason)
+                                    <div class="mt-2 p-2 rounded bg-white border border-warning-subtle small text-dark">
+                                        <i class="bi bi-chat-quote-fill me-1 text-warning"></i><strong>Alasan Pembatalan:</strong> "{{ $comparison->cancel_reason }}"
+                                    </div>
+                                @endif
+                                <div class="mt-2">
+                                    <a href="{{ route('car_comparisons.show', $allRevisions->last()) }}" class="btn btn-sm btn-outline-dark fw-semibold">
+                                        <i class="bi bi-arrow-right-circle me-1"></i>Buka Comparison Revisi Aktif ({{ $allRevisions->last()->comparison_code }}) &rarr;
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
                     @endif
+                @endif
+
+                {{-- Activity Log Card --}}
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-light py-2 px-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <h6 class="mb-0 fw-semibold text-dark">
+                            <i class="bi bi-journal-text me-2 text-primary"></i>Activity Log
+                        </h6>
+                        @if (isset($allRevisions) && $allRevisions->count() > 1)
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-sm active" id="btnCarLogAll" onclick="toggleCarLogView('all')">
+                                    <i class="bi bi-clock-history me-1"></i>Semua Versi PO ({{ $allRevisions->sum(fn($r) => $r->logs->count()) }})
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="btnCarLogCurrent" onclick="toggleCarLogView('current')">
+                                    Hanya Versi Ini ({{ $comparison->logs->count() }})
+                                </button>
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="card-body p-0">
+                        {{-- VIEW 1: Current Comparison Only --}}
+                        <div id="carLogCurrentContainer" class="{{ isset($allRevisions) && $allRevisions->count() > 1 ? 'd-none' : '' }}">
+                            @if ($comparison->logs->isEmpty())
+                                <div class="p-4 text-center text-muted small">Belum ada riwayat aktivitas yang tercatat.</div>
+                            @else
+                                <ul class="list-group list-group-flush">
+                                    @foreach ($comparison->logs as $log)
+                                        @include('comparisons.partials.log_item', ['log' => $log])
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </div>
+
+                        {{-- VIEW 2: All Revisions Timeline --}}
+                        @if (isset($allRevisions) && $allRevisions->count() > 1)
+                            <div id="carLogAllContainer">
+                                @foreach ($allRevisions as $revIdx => $rev)
+                                    @php
+                                        $isThisCmp = $rev->id === $comparison->id;
+                                        $revTitle = $revIdx === 0 ? 'Comparison 1 (Original)' : ($allRevisions->count() === 2 ? 'Comparison Revisi' : 'Comparison Revisi ' . $revIdx);
+                                    @endphp
+                                    <div class="p-3 {{ $revIdx > 0 ? 'border-top' : '' }}" style="{{ $isThisCmp ? 'background: #f8fafc;' : '' }}">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2 pb-2 border-bottom">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge {{ $isThisCmp ? 'bg-primary' : 'bg-secondary' }} px-2 py-1">
+                                                    {{ $revTitle }}
+                                                </span>
+                                                <strong class="text-dark small">{{ $rev->comparison_code }}</strong>
+                                                @if ($isThisCmp)
+                                                    <span class="badge bg-primary-subtle text-primary border" style="font-size:0.68rem;">Dokumen Saat Ini</span>
+                                                @else
+                                                    <a href="{{ route('car_comparisons.show', $rev) }}" class="small text-decoration-none">
+                                                        <i class="bi bi-box-arrow-up-right me-1"></i>Buka Dokumen
+                                                    </a>
+                                                @endif
+                                            </div>
+                                            <div>
+                                                <span class="badge {{ $rev->statusBadgeClass() }}" style="font-size:0.72rem;">
+                                                    {{ $rev->statusLabel() }}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        @if ($rev->logs->isEmpty())
+                                            <div class="text-muted small py-2 fst-italic">Tidak ada log tercatat untuk versi ini.</div>
+                                        @else
+                                            <ul class="list-group list-group-flush mb-0">
+                                                @foreach ($rev->logs as $log)
+                                                    @include('comparisons.partials.log_item', ['log' => $log])
+                                                @endforeach
+                                            </ul>
+                                        @endif
+                                    </div>
+                                    @if ($revIdx < $allRevisions->count() - 1)
+                                        <div class="py-1 px-3 bg-light text-center border-top border-bottom small text-muted d-flex align-items-center justify-content-center gap-2">
+                                            <i class="bi bi-arrow-down-circle text-primary"></i>
+                                            <span class="fw-semibold">Transisi Revisi Pengadaan</span>
+                                            <i class="bi bi-arrow-down-circle text-primary"></i>
+                                        </div>
+                                    @endif
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
                 </div>
+
+                @if (isset($allRevisions) && $allRevisions->count() > 1)
+                    <script>
+                        function toggleCarLogView(mode) {
+                            const btnAll = document.getElementById('btnCarLogAll');
+                            const btnCurr = document.getElementById('btnCarLogCurrent');
+                            const cntAll = document.getElementById('carLogAllContainer');
+                            const cntCurr = document.getElementById('carLogCurrentContainer');
+
+                            if (mode === 'all') {
+                                btnAll.classList.add('active');
+                                btnCurr.classList.remove('active');
+                                cntAll.classList.remove('d-none');
+                                cntCurr.classList.add('d-none');
+                            } else {
+                                btnCurr.classList.add('active');
+                                btnAll.classList.remove('active');
+                                cntCurr.classList.remove('d-none');
+                                cntAll.classList.add('d-none');
+                            }
+                        }
+                    </script>
+                @endif
+
             </div>
         </div>
 
@@ -1171,26 +1347,88 @@
         </div>
     </div>
 
-    {{-- CANCEL MODAL --}}
+    {{-- CANCEL / RESUBMIT MODAL --}}
     <div class="modal fade" id="cancelModal" tabindex="-1">
         <div class="modal-dialog">
             <form method="POST" action="{{ route('car_comparisons.cancel', $comparison) }}" class="modal-content">
                 @csrf
-                <div class="modal-header bg-secondary text-white">
-                    <h5 class="modal-title"><i class="bi bi-slash-circle me-2"></i>Cancel Car Comparison</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <input type="hidden" name="action_type" id="carCancelActionType" value="resubmit">
+                <div class="modal-header bg-light border-bottom">
+                    <h5 class="modal-title fw-bold text-dark" id="carCancelModalTitle"><i class="bi bi-arrow-repeat me-2 text-warning"></i>Minta Resubmit (Revisi)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <label class="form-label fw-semibold">Cancellation Reason <span class="text-danger">*</span></label>
-                    <textarea name="cancel_reason" class="form-control" rows="3" required placeholder="Provide reason for cancelling this comparison…"></textarea>
+                    {{-- Tabs --}}
+                    <div class="d-flex gap-2 mb-3">
+                        <button type="button" class="btn btn-sm btn-warning text-dark active flex-fill" id="carBtnTabResubmit" onclick="setCarCancelAction('resubmit')">
+                            <i class="bi bi-arrow-repeat me-1"></i> Minta Resubmit
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger flex-fill" id="carBtnTabCancel" onclick="setCarCancelAction('cancel')">
+                            <i class="bi bi-x-circle me-1"></i> Batal Total
+                        </button>
+                    </div>
+
+                    <div id="carResubmitInfoAlert" class="alert alert-warning py-2 small mb-3">
+                        <i class="bi bi-info-circle me-1"></i> Staff pembuat (<strong>{{ $comparison->creator->name ?? 'Staff' }}</strong>) akan diminta mengajukan <strong>Comparison Revisi</strong>. Seluruh data mobil dan dealer lama akan otomatis ter-copy. Komparasi saat ini diarsipkan sebagai <strong>Comparison 1</strong>.
+                    </div>
+                    <div id="carCancelInfoAlert" class="alert alert-danger py-2 small mb-3 d-none">
+                        <i class="bi bi-exclamation-triangle me-1"></i> Komparasi mobil ini akan <strong>dibatalkan total secara permanen</strong>.
+                    </div>
+
+                    <label class="form-label fw-semibold small" id="carLblReason">Alasan Permintaan Revisi <span class="text-danger">*</span></label>
+                    <textarea name="cancel_reason" id="carTxtReason" class="form-control form-control-sm" rows="3" required placeholder="Tuliskan catatan revisi untuk staff…"></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-secondary fw-bold">Confirm Cancel</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Tutup</button>
+                    <button type="submit" class="btn btn-warning btn-sm fw-bold text-dark" id="carBtnSubmitModal">
+                        <i class="bi bi-arrow-repeat me-1"></i>Kirim Permintaan Resubmit
+                    </button>
                 </div>
             </form>
         </div>
     </div>
+
+    <script>
+        function setCarCancelAction(type) {
+            document.getElementById('carCancelActionType').value = type;
+            const btnResubmit = document.getElementById('carBtnTabResubmit');
+            const btnCancel = document.getElementById('carBtnTabCancel');
+            const alertResubmit = document.getElementById('carResubmitInfoAlert');
+            const alertCancel = document.getElementById('carCancelInfoAlert');
+            const lblReason = document.getElementById('carLblReason');
+            const txtReason = document.getElementById('carTxtReason');
+            const btnSubmit = document.getElementById('carBtnSubmitModal');
+            const title = document.getElementById('carCancelModalTitle');
+
+            if (type === 'resubmit') {
+                btnResubmit.className = 'btn btn-sm btn-warning text-dark active flex-fill';
+                btnCancel.className = 'btn btn-sm btn-outline-danger flex-fill';
+
+                alertResubmit.classList.remove('d-none');
+                alertCancel.classList.add('d-none');
+
+                title.innerHTML = '<i class="bi bi-arrow-repeat me-2 text-warning"></i>Minta Resubmit (Revisi)';
+                lblReason.innerHTML = 'Alasan Permintaan Revisi <span class="text-danger">*</span>';
+                txtReason.placeholder = 'Tuliskan catatan revisi untuk staff, e.g. Cari diskon yang lebih tinggi…';
+
+                btnSubmit.className = 'btn btn-warning btn-sm fw-bold text-dark';
+                btnSubmit.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Kirim Permintaan Resubmit';
+            } else {
+                btnCancel.className = 'btn btn-sm btn-danger text-white active flex-fill';
+                btnResubmit.className = 'btn btn-sm btn-outline-warning text-dark flex-fill';
+
+                alertCancel.classList.remove('d-none');
+                alertResubmit.classList.add('d-none');
+
+                title.innerHTML = '<i class="bi bi-x-circle me-2 text-danger"></i>Batalkan Komparasi Mobil';
+                lblReason.innerHTML = 'Alasan Pembatalan Permanen <span class="text-danger">*</span>';
+                txtReason.placeholder = 'Tuliskan alasan pembatalan permanen…';
+
+                btnSubmit.className = 'btn btn-danger btn-sm fw-bold text-white';
+                btnSubmit.innerHTML = '<i class="bi bi-x-circle me-1"></i>Konfirmasi Batal Total';
+            }
+        }
+    </script>
 
 @endsection
 
