@@ -18,7 +18,7 @@
         <div class="col">
             <div class="card text-center border-warning shadow-sm h-100 stat-filter-card" data-filter="pending_supervisor" role="button" title="Filter by Pending Supervisor">
                 <div class="card-body py-3">
-                    <div class="display-6 fw-bold text-warning">{{ $stats['pending_supervisor'] }}</div>
+                    <div class="display-6 fw-bold text-warning">{{ $stats['pending_supervisor'] ?? 0 }}</div>
                     <div class="small text-muted mt-1 fw-semibold">Pending Supervisor</div>
                 </div>
             </div>
@@ -26,7 +26,7 @@
         <div class="col">
             <div class="card text-center border-info shadow-sm h-100 stat-filter-card" data-filter="pending_manager" role="button" title="Filter by Pending Manager">
                 <div class="card-body py-3">
-                    <div class="display-6 fw-bold text-info">{{ $stats['pending_manager'] }}</div>
+                    <div class="display-6 fw-bold text-info">{{ $stats['pending_manager'] ?? 0 }}</div>
                     <div class="small text-muted mt-1 fw-semibold">Pending Manager</div>
                 </div>
             </div>
@@ -34,7 +34,7 @@
         <div class="col">
             <div class="card text-center border-primary shadow-sm h-100 stat-filter-card" data-filter="pending_controller" role="button" title="Filter by Pending Controller">
                 <div class="card-body py-3">
-                    <div class="display-6 fw-bold text-primary">{{ $stats['pending_controller'] }}</div>
+                    <div class="display-6 fw-bold text-primary">{{ $stats['pending_controller'] ?? 0 }}</div>
                     <div class="small text-muted mt-1 fw-semibold">Pending Controller</div>
                 </div>
             </div>
@@ -42,7 +42,7 @@
         <div class="col">
             <div class="card text-center border-success shadow-sm h-100 stat-filter-card" data-filter="approved" role="button" title="Filter by Approved">
                 <div class="card-body py-3">
-                    <div class="display-6 fw-bold text-success">{{ $stats['approved'] }}</div>
+                    <div class="display-6 fw-bold text-success">{{ $stats['approved'] ?? 0 }}</div>
                     <div class="small text-muted mt-1 fw-semibold">Approved</div>
                 </div>
             </div>
@@ -50,7 +50,7 @@
         <div class="col">
             <div class="card text-center border-danger shadow-sm h-100 stat-filter-card" data-filter="rejected" role="button" title="Filter by Rejected">
                 <div class="card-body py-3">
-                    <div class="display-6 fw-bold text-danger">{{ $stats['rejected'] }}</div>
+                    <div class="display-6 fw-bold text-danger">{{ $stats['rejected'] ?? 0 }}</div>
                     <div class="small text-muted mt-1 fw-semibold">Rejected</div>
                 </div>
             </div>
@@ -58,7 +58,7 @@
         <div class="col">
             <div class="card text-center border-secondary shadow-sm h-100 stat-filter-card" data-filter="cancelled" role="button" title="Filter by Cancelled">
                 <div class="card-body py-3">
-                    <div class="display-6 fw-bold text-secondary">{{ $stats['cancelled'] }}</div>
+                    <div class="display-6 fw-bold text-secondary">{{ $stats['cancelled'] ?? 0 }}</div>
                     <div class="small text-muted mt-1 fw-semibold">Cancelled</div>
                 </div>
             </div>

@@ -49,27 +49,27 @@
                 <div class="row g-3">
                     <div class="col-sm-6 col-lg-3">
                         <div class="text-muted small">Source Document</div>
-                        <div class="fw-semibold">{{ $rfq['origin'] ?: '—' }}</div>
+                        <div class="fw-semibold">{{ ($rfq['origin'] ?? null) ?: '—' }}</div>
                     </div>
                     <div class="col-sm-6 col-lg-3">
                         <div class="text-muted small">Order Deadline</div>
                         <div class="fw-semibold">
-                            {{ $rfq['date_order'] ? \Illuminate\Support\Carbon::parse($rfq['date_order'])->format('d M Y H:i') : '—' }}
+                            {{ !empty($rfq['date_order']) ? \Illuminate\Support\Carbon::parse($rfq['date_order'])->format('d M Y H:i') : '—' }}
                         </div>
                     </div>
                     <div class="col-sm-6 col-lg-3">
                         <div class="text-muted small">Total Amount</div>
                         <div class="fw-semibold fs-5">
                             @php
-                                $currency = is_array($rfq['currency_id']) ? $rfq['currency_id'][1] : 'IDR';
+                                $currency = is_array($rfq['currency_id'] ?? null) ? $rfq['currency_id'][1] : 'IDR';
                             @endphp
-                            {{ $currency }} {{ number_format($rfq['amount_total'], 0, ',', '.') }}
+                            {{ $currency }} {{ number_format($rfq['amount_total'] ?? 0, 0, ',', '.') }}
                         </div>
                     </div>
-                    @if (is_array($rfq['user_id']))
+                    @if (is_array($rfq['user_id'] ?? null))
                         <div class="col-sm-6 col-lg-3">
                             <div class="text-muted small">Buyer</div>
-                            <div class="fw-semibold">{{ $rfq['user_id'][1] }}</div>
+                            <div class="fw-semibold">{{ $rfq['user_id'][1] ?? '—' }}</div>
                         </div>
                     @endif
                     @if (is_array($rfq['purchase_spv_id'] ?? null))
@@ -89,8 +89,9 @@
                 $existing = $existingComparison ?? ($comparison ?? null);
                 $isEditMode = isset($comparison) && $comparison !== null;
                 $isResubmitPrefill = !$isEditMode && $existing && ($existing->isRejected() || $existing->isCancelled());
+                $isRejectedPrefill = $isResubmitPrefill;
                 $prefillSource = $isEditMode ? $comparison : ($isResubmitPrefill ? $existing : null);
-                $draftKey = 'clvp_draft_' . $rfq['id'];
+                $draftKey = 'clvp_draft_' . ($rfq['id'] ?? 0);
                 $isActiveRfq = in_array($rfq['state'] ?? '', ['draft', 'sent']);
             @endphp
 
@@ -408,7 +409,7 @@
                         const ALL_VENDORS = [...ODOO_VENDORS, ...LOCAL_VENDORS];
                         const PRODUCT_ROWS = {{ $lineIdx ?? 0 }};
                         const IS_EDIT_MODE = {{ $isEditMode ? 'true' : 'false' }};
-                        const IS_REJECTED_PREFILL = {{ $isRejectedPrefill ? 'true' : 'false' }};
+                        const IS_REJECTED_PREFILL = {{ ($isResubmitPrefill ?? $isRejectedPrefill ?? false) ? 'true' : 'false' }};
                         const DRAFT_KEY = '{{ $draftKey ?? 'clvp_draft_0' }}';
                         const PREFILL_VENDORS = @json($prefillSource ? $prefillSource->vendors ?? [] : []);
                         const PREFILL_PRICES = @json($prefillSource ? $prefillSource->vendor_prices ?? [] : []);

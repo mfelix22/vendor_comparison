@@ -137,8 +137,8 @@
         </ul>
 
         <div class="btn-group mb-2">
-            @if ($prevId)
-                <a href="{{ route('car_comparisons.show', ['comparison' => $prevId] + ($statusFilter ? ['status' => $statusFilter] : [])) }}"
+            @if (!empty($prevId))
+                <a href="{{ route('car_comparisons.show', ['comparison' => $prevId] + (!empty($statusFilter) ? ['status' => $statusFilter] : [])) }}"
                     class="btn btn-sm btn-outline-secondary fw-bold fs-5 px-3" style="line-height: 1;" title="Previous Comparison (← key)">
                     <i class="bi bi-chevron-left"></i>
                 </a>
@@ -148,8 +148,8 @@
                 </button>
             @endif
 
-            @if ($nextId)
-                <a href="{{ route('car_comparisons.show', ['comparison' => $nextId] + ($statusFilter ? ['status' => $statusFilter] : [])) }}"
+            @if (!empty($nextId))
+                <a href="{{ route('car_comparisons.show', ['comparison' => $nextId] + (!empty($statusFilter) ? ['status' => $statusFilter] : [])) }}"
                     class="btn btn-sm btn-outline-secondary fw-bold fs-5 px-3" style="line-height: 1;" title="Next Comparison (→ key)">
                     <i class="bi bi-chevron-right"></i>
                 </a>
@@ -210,7 +210,7 @@
                                     <div>
                                         <div class="fw-semibold small">Prepared &amp; Submitted</div>
                                         <div class="text-muted small">{{ $comparison->prepared_by_name }}</div>
-                                        <div class="text-muted small">{{ ($comparison->supervisor_submitted_at ?? $comparison->created_at)->format('d M Y H:i') }}</div>
+                                        <div class="text-muted small">{{ ($comparison->supervisor_submitted_at ?? $comparison->created_at)?->format('d M Y H:i') ?? '—' }}</div>
                                         @if ($comparison->notes)
                                             <div class="mt-1 p-2 bg-light rounded small fst-italic">
                                                 {{ $comparison->notes }}
@@ -1138,7 +1138,7 @@
                         @endif
                     </div>
                     <div style="text-align:right;">
-                        <div>Tgl {{ $comparison->created_at->format('d/m/y') }}</div>
+                        <div>Tgl {{ $comparison->created_at?->format('d/m/y') ?? '—' }}</div>
                         <div>Dibuat oleh,</div>
                         <div style="height:48px;"></div>
                         <div>({{ $comparison->prepared_by_name }})</div>
@@ -1172,9 +1172,9 @@
                                 <div class="text-secondary small mt-1">
                                     Dokumen ini diajukan untuk merevisi komparasi mobil sebelumnya (<strong>{{ $origCmp->comparison_code }}</strong>)
                                     @if ($origCmp->cancelled_at)
-                                        yang dibatalkan oleh <strong>{{ $origCmp->cancelledBy->name ?? 'Manager' }}</strong> pada {{ $origCmp->cancelled_at->format('d M Y H:i') }}.
+                                        yang dibatalkan oleh <strong>{{ $origCmp->cancelledBy->name ?? 'Manager' }}</strong> pada {{ $origCmp->cancelled_at?->format('d M Y H:i') }}.
                                     @elseif ($origCmp->rejected_at)
-                                        yang ditolak oleh <strong>{{ $origCmp->rejectedBy->name ?? 'Approver' }}</strong> pada {{ $origCmp->rejected_at->format('d M Y H:i') }}.
+                                        yang ditolak oleh <strong>{{ $origCmp->rejectedBy->name ?? 'Approver' }}</strong> pada {{ $origCmp->rejected_at?->format('d M Y H:i') }}.
                                     @endif
                                 </div>
                                 @if ($origCmp->cancel_reason)
@@ -1438,14 +1438,14 @@
             if (['input', 'textarea', 'select'].includes(document.activeElement.tagName.toLowerCase())) {
                 return;
             }
-            @if ($prevId)
+            @if (!empty($prevId))
                 if (e.key === 'ArrowLeft') {
-                    window.location.href = "{{ route('car_comparisons.show', ['comparison' => $prevId] + ($statusFilter ? ['status' => $statusFilter] : [])) }}";
+                    window.location.href = "{{ route('car_comparisons.show', ['comparison' => $prevId] + (!empty($statusFilter) ? ['status' => $statusFilter] : [])) }}";
                 }
             @endif
-            @if ($nextId)
+            @if (!empty($nextId))
                 if (e.key === 'ArrowRight') {
-                    window.location.href = "{{ route('car_comparisons.show', ['comparison' => $nextId] + ($statusFilter ? ['status' => $statusFilter] : [])) }}";
+                    window.location.href = "{{ route('car_comparisons.show', ['comparison' => $nextId] + (!empty($statusFilter) ? ['status' => $statusFilter] : [])) }}";
                 }
             @endif
         });

@@ -109,16 +109,16 @@
         </ul>
         
         <div class="btn-group mb-2">
-            @if ($prevId)
-                <a href="{{ route('comparisons.show', ['comparison' => $prevId] + ($statusFilter ? ['status' => $statusFilter] : [])) }}" class="btn btn-sm btn-outline-secondary fw-bold fs-5 px-3" style="line-height: 1;">
+            @if (!empty($prevId))
+                <a href="{{ route('comparisons.show', ['comparison' => $prevId] + (!empty($statusFilter) ? ['status' => $statusFilter] : [])) }}" class="btn btn-sm btn-outline-secondary fw-bold fs-5 px-3" style="line-height: 1;">
                     <i class="bi bi-chevron-left"></i>
                 </a>
             @else
                 <button class="btn btn-sm btn-outline-secondary fw-bold fs-5 px-3 disabled" style="line-height: 1;"><i class="bi bi-chevron-left"></i></button>
             @endif
 
-            @if ($nextId)
-                <a href="{{ route('comparisons.show', ['comparison' => $nextId] + ($statusFilter ? ['status' => $statusFilter] : [])) }}" class="btn btn-sm btn-outline-secondary fw-bold fs-5 px-3" style="line-height: 1;">
+            @if (!empty($nextId))
+                <a href="{{ route('comparisons.show', ['comparison' => $nextId] + (!empty($statusFilter) ? ['status' => $statusFilter] : [])) }}" class="btn btn-sm btn-outline-secondary fw-bold fs-5 px-3" style="line-height: 1;">
                     <i class="bi bi-chevron-right"></i>
                 </a>
             @else
@@ -179,7 +179,7 @@
                                     <div>
                                         <div class="fw-semibold small">Submitted</div>
                                         <div class="text-muted small">{{ $comparison->creator->name ?? '—' }}</div>
-                                        <div class="text-muted small">{{ $comparison->created_at->format('d M Y H:i') }}
+                                        <div class="text-muted small">{{ $comparison->created_at?->format('d M Y H:i') ?? '—' }}
                                         </div>
                                         @if ($comparison->notes)
                                             <div class="mt-1 p-2 bg-light rounded small fst-italic">
@@ -515,7 +515,7 @@
                 <div class="col-lg-8">
 
                     {{-- RFQ Summary --}}
-                    @if ($rfq)
+                    @if (!empty($rfq))
                         @php
                             // Calculate system best-price vendor from vendor_prices
                             $vpVendors = $comparison->vendors ?? [];
@@ -579,7 +579,7 @@
                                     </div>
                                     <div class="col-6 col-md-3">
                                         <div class="text-muted">Source</div>
-                                        <div class="fw-semibold">{{ $rfq['origin'] ?: '—' }}</div>
+                                        <div class="fw-semibold">{{ ($rfq['origin'] ?? null) ?: '—' }}</div>
                                     </div>
                                     <div class="col-6 col-md-2">
                                         <div class="text-muted d-flex align-items-center gap-1">
@@ -620,8 +620,8 @@
                                     <div class="col-6 col-md-2">
                                         <div class="text-muted">Total</div>
                                         <div class="fw-semibold">
-                                            {{ is_array($rfq['currency_id']) ? $rfq['currency_id'][1] : 'IDR' }}
-                                            {{ number_format($rfq['amount_total'], 0, ',', '.') }}
+                                            {{ is_array($rfq['currency_id'] ?? null) ? $rfq['currency_id'][1] : 'IDR' }}
+                                            {{ number_format($rfq['amount_total'] ?? 0, 0, ',', '.') }}
                                         </div>
                                     </div>
                                 </div>
@@ -641,7 +641,7 @@
                                                 @php
                                                     $isStaffChoice = $v['name'] === $comparison->selected_vendor;
                                                     $isSysBest = $v['name'] === $systemBestName;
-                                                    $isLocal = in_array(strtolower(trim($v['name'])), $localSupplierNames);
+                                                    $isLocal = in_array(strtolower(trim($v['name'])), $localSupplierNames ?? []);
                                                 @endphp
                                                 <span
                                                     class="badge d-inline-flex align-items-center gap-1
@@ -687,7 +687,7 @@
                         </div>
 
                         {{-- Per-product vendor comparison (condensed) --}}
-                        @php $currency = is_array($rfq['currency_id']) ? $rfq['currency_id'][1] : 'IDR'; @endphp
+                        @php $currency = is_array($rfq['currency_id'] ?? null) ? $rfq['currency_id'][1] : 'IDR'; @endphp
                         @foreach ($rfq['lines'] as $line)
                             @php
                                 if (!is_array($line['product_id'])) {
@@ -1506,7 +1506,7 @@
                         @endif
                     </div>
                     <div style="font-size:11px; text-align:right;">
-                        Tgl {{ $comparison->created_at->format('d/m/y') }}<br>
+                        Tgl {{ $comparison->created_at?->format('d/m/y') ?? '—' }}<br>
                         Dibuat oleh,<br><br><br><br><br>
                         ({{ $comparison->creator->name ?? '—' }})<br>
                         <span style="font-size:8px; color:#555;">SDP/FR/PCH/12, Rev.02</span>
@@ -1554,9 +1554,9 @@
                                 <div class="text-secondary small mt-1">
                                     Dokumen ini diajukan untuk merevisi komparasi sebelumnya (<strong>{{ $origCmp->comparison_code }}</strong>)
                                     @if ($origCmp->cancelled_at)
-                                        yang dibatalkan oleh <strong>{{ $origCmp->cancelledBy->name ?? 'Manager' }}</strong> pada {{ $origCmp->cancelled_at->format('d M Y H:i') }}.
+                                        yang dibatalkan oleh <strong>{{ $origCmp->cancelledBy->name ?? 'Manager' }}</strong> pada {{ $origCmp->cancelled_at?->format('d M Y H:i') }}.
                                     @elseif ($origCmp->rejected_at)
-                                        yang ditolak oleh <strong>{{ $origCmp->rejectedBy->name ?? 'Approver' }}</strong> pada {{ $origCmp->rejected_at->format('d M Y H:i') }}.
+                                        yang ditolak oleh <strong>{{ $origCmp->rejectedBy->name ?? 'Approver' }}</strong> pada {{ $origCmp->rejected_at?->format('d M Y H:i') }}.
                                     @endif
                                 </div>
                                 @if ($origCmp->cancel_reason)
