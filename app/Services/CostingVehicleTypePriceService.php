@@ -496,7 +496,7 @@ class CostingVehicleTypePriceService
     /**
      * Reject a pending price revision (Manager / Admin only).
      */
-    public function rejectHistory(CostingVehicleTypePriceHistory $history, User $user, string $reason): void
+    public function rejectHistory(CostingVehicleTypePriceHistory $history, User $user, ?string $reason = null): void
     {
         $history->update([
             'status'           => 'rejected',
