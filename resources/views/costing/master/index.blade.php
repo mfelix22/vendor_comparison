@@ -1151,7 +1151,7 @@
                         </p>
                         <div class="mb-3">
                             <label class="form-label small fw-semibold">Alasan Penolakan <span class="text-muted fw-normal">(Opsional)</span></label>
-                            <textarea name="notes" id="rejectNotes" class="form-control" rows="3" placeholder="e.g. Diskon terlalu kecil, konfirmasi ulang ke ATPM/dealer..."></textarea>
+                            <textarea name="rejection_reason" id="rejectNotes" class="form-control" rows="3" placeholder="e.g. Diskon terlalu kecil, konfirmasi ulang ke ATPM/dealer..."></textarea>
                         </div>
                     </div>
                     <div class="modal-footer border-top bg-light">
@@ -1494,6 +1494,9 @@
             }
             if (h.notes) {
                 appInfo += `<div class="text-muted fst-italic mt-1" style="font-size: 11px;">"${h.notes}"</div>`;
+            }
+            if (h.rejection_reason) {
+                appInfo += `<div class="text-danger fst-italic mt-1" style="font-size: 11px;"><i class="bi bi-x-circle me-1"></i>"${h.rejection_reason}"</div>`;
             }
 
             const otrChanged = Math.abs(newOtr - oldOtr) >= 0.01;

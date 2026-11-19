@@ -334,10 +334,13 @@ class MasterDataController extends Controller
         }
 
         $validated = $request->validate([
-            'rejection_reason' => ['required', 'string', 'max:1000'],
+            'rejection_reason' => ['nullable', 'string', 'max:1000'],
+            'notes'            => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $this->priceService->rejectHistory($history, $user, $validated['rejection_reason']);
+        $reason = $validated['rejection_reason'] ?? $validated['notes'] ?? null;
+
+        $this->priceService->rejectHistory($history, $user, $reason);
 
         return redirect()->route('costing.master.index', ['tab' => 'types'])
             ->with('success', "Price revision for {$history->vehicleType->name} has been rejected.");
