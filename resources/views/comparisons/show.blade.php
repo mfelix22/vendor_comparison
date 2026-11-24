@@ -1272,8 +1272,8 @@
                         @foreach ($vpRows as $ri => $row)
                             @php
                                 $rl = $rfqProductLines[$ri] ?? null;
-                                $pCode = $rl ? $rl['product_code'] ?? '' : $row['product_code'] ?? '';
-                                $pName = $rl ? $rl['name'] : $row['product_name'] ?? '';
+                                $pCode = !empty($row['product_code']) ? $row['product_code'] : ($rl ? $rl['product_code'] ?? '' : '');
+                                $pName = !empty($row['product_name']) ? $row['product_name'] : ($rl ? $rl['name'] : '');
                             @endphp
                             <tr>
                                 <td style="border:1px solid #000; padding:4px 6px; text-align:center;">{{ $ri + 1 }}
