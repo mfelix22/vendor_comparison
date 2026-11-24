@@ -298,6 +298,11 @@
                                     <i class="bi bi-people me-1"></i>Users
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('admin.backups.*') ? 'active fw-bold' : '' }}" href="{{ route('admin.backups.index') }}">
+                                    <i class="bi bi-database-down me-1"></i>Backups
+                                </a>
+                            </li>
                         @endif
                     @elseif ($isCarModule)
                         {{-- Dedicated Car Comparison Navigation --}}
@@ -334,6 +339,11 @@
                                 <li class="nav-item">
                                     <a class="nav-link {{ request()->routeIs('admin.users') ? 'active fw-bold' : '' }}" href="{{ route('admin.users') }}">
                                         <i class="bi bi-people me-1"></i>Users
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {{ request()->routeIs('admin.backups.*') ? 'active fw-bold' : '' }}" href="{{ route('admin.backups.index') }}">
+                                        <i class="bi bi-database-down me-1"></i>Backups
                                     </a>
                                 </li>
                             @endif
@@ -374,6 +384,11 @@
                                 <li class="nav-item">
                                     <a class="nav-link {{ request()->routeIs('admin.users') ? 'active fw-bold' : '' }}" href="{{ route('admin.users') }}">
                                         <i class="bi bi-people me-1"></i>Users
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {{ request()->routeIs('admin.backups.*') ? 'active fw-bold' : '' }}" href="{{ route('admin.backups.index') }}">
+                                        <i class="bi bi-database-down me-1"></i>Backups
                                     </a>
                                 </li>
                             @endif
