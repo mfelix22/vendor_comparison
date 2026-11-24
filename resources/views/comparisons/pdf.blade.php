@@ -250,8 +250,8 @@
             @foreach ($vpRows as $ri => $row)
                 @php
                     $rl = $rfqProductLines[$ri] ?? null;
-                    $pCode = $rl ? $rl['product_code'] ?? '' : $row['product_code'] ?? '';
-                    $pName = $rl ? $rl['name'] : $row['product_name'] ?? '';
+                    $pCode = !empty($row['product_code']) ? $row['product_code'] : ($rl ? $rl['product_code'] ?? '' : '');
+                    $pName = !empty($row['product_name']) ? $row['product_name'] : ($rl ? $rl['name'] : '');
                 @endphp
                 <tr>
                     <td class="text-center">{{ $ri + 1 }}</td>

@@ -585,10 +585,11 @@ class ComparisonController extends Controller
         }
 
         foreach ($vendorPrices as $i => &$row) {
-            if (isset($lineData[$i])) {
+            // Only fill in if stored product_name is empty (e.g. legacy comparisons before product_name was saved)
+            if (empty($row['product_name']) && isset($lineData[$i])) {
                 $row['product_name']        = $lineData[$i]['product_name'];
-                $row['product_code']        = $lineData[$i]['product_code'];
-                $row['product_description'] = $lineData[$i]['product_description'];
+                $row['product_code']        = $row['product_code'] ?? $lineData[$i]['product_code'];
+                $row['product_description'] = $row['product_description'] ?? $lineData[$i]['product_description'];
             }
         }
         unset($row);
