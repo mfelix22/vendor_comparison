@@ -24,6 +24,9 @@ Homestead.yaml
 Thumbs.db
 backup.sql
 *.sql
+*.sql.gz
+*.gz
+/storage/app/backups/*
 *.sqlite
 *.sqlite-journal
 *.xlsx

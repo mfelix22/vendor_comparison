@@ -69,6 +69,16 @@ Route::middleware('auth')->group(function () {
     Route::put('/admin/users/{user}', [AdminController::class, 'update'])->name('admin.users.update');
     Route::delete('/admin/users/{user}', [AdminController::class, 'destroy'])->name('admin.users.destroy');
 
+    // Admin: database backups
+    Route::prefix('admin/backups')->name('admin.backups.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Admin\BackupController::class, 'index'])->name('index');
+        Route::post('/create', [\App\Http\Controllers\Admin\BackupController::class, 'create'])->name('create');
+        Route::post('/schedule', [\App\Http\Controllers\Admin\BackupController::class, 'updateSchedule'])->name('schedule');
+        Route::get('/download/{filename}', [\App\Http\Controllers\Admin\BackupController::class, 'download'])->name('download');
+        Route::delete('/{filename}', [\App\Http\Controllers\Admin\BackupController::class, 'delete'])->name('destroy');
+        Route::post('/prune', [\App\Http\Controllers\Admin\BackupController::class, 'prune'])->name('prune');
+    });
+
     // ── Costing Module (Isolated) ──────────────────────────
     Route::middleware('costing.access')->prefix('costing')->name('costing.')->group(function () {
         Route::get('/', [App\Http\Controllers\Costing\CostingController::class, 'index'])->name('index');
